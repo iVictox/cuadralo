@@ -12,10 +12,17 @@ import SearchModal from "@/components/SearchModal";
 import Profile from "@/components/Profile";
 import MyLikes from "@/components/MyLikes";
 import SocialFeed from "@/components/SocialFeed";
+import NotificationModal from "@/components/NotificationModal";
+import UploadModal from "@/components/UploadModal"; // El nuevo modal de creación
 
 export default function Home() {
   const [showFilters, setShowFilters] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  
+  // CAMBIO: Renombramos a showUpload para que sea "Nuevo Post"
+  const [showUpload, setShowUpload] = useState(false);
+  
   const [activeTab, setActiveTab] = useState("home");
   const [selectedChat, setSelectedChat] = useState(null);
 
@@ -41,14 +48,19 @@ export default function Home() {
         </>
       )}
 
-      {/* 2. PANTALLA SOCIAL FEED (NUEVA) */}
+      {/* 2. SOCIAL FEED */}
       {activeTab === "social" && (
         <section className="flex-1 w-full relative z-10 bg-black/20 animate-fade-in">
-            <SocialFeed />
+            <SocialFeed 
+              onSearchClick={() => setShowSearch(true)} 
+              onNotificationClick={() => setShowNotifications(true)}
+              // CAMBIO: Ahora pasamos la función para abrir el "UploadModal"
+              onUploadClick={() => setShowUpload(true)}
+            />
         </section>
       )}
 
-      {/* 2. CHAT */}
+      {/* 3. CHAT */}
       {activeTab === "chat" && (
         <section className="flex-1 w-full relative z-10 bg-black/20 h-screen flex flex-col">
           {selectedChat ? (
@@ -64,21 +76,21 @@ export default function Home() {
         </section>
       )}
 
-      {/* 3. LIKES / PERFIL */}
+      {/* 4. PERFIL */}
       {activeTab === "profile" && (
         <section className="flex-1 w-full relative z-10 animate-fade-in">
           <Profile />
         </section>
       )}
 
-      {/* 4. PANTALLA LIKES */}
+      {/* 5. LIKES */}
       {activeTab === "likes" && (
         <section className="flex-1 w-full relative z-10 animate-fade-in bg-black/20">
           <MyLikes />
         </section>
       )}
 
-      {/* CAMBIO AQUÍ: Ocultamos el menú si estamos dentro de un chat */}
+      {/* Menú Inferior */}
       {!selectedChat && (
         <BottomNav
           activeTab={activeTab}
@@ -89,10 +101,14 @@ export default function Home() {
         />
       )}
 
-      {/* Modales */}
+      {/* --- MODALES --- */}
       <AnimatePresence>
         {showFilters && <FilterModal onClose={() => setShowFilters(false)} />}
         {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
+        {showNotifications && <NotificationModal onClose={() => setShowNotifications(false)} />}
+        
+        {/* Modal de Nuevo Post (Reemplaza a la cámara) */}
+        {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
       </AnimatePresence>
 
     </main>
