@@ -5,8 +5,7 @@ import (
 	"log"
 	"os"
 
-	"cuadralo-backend/models"
-
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -15,29 +14,25 @@ import (
 var DB *gorm.DB
 
 func Connect() {
-	// Obtener variables de entorno manualmente o asegurar que .env cargó
-	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=America/Caracas",
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_PORT"),
-	)
+	// Cargar variables de entorno del archivo .env
+	if err := godotenv.Load(); err != nil {
+		log.Println("Nota: No se encontró el archivo .env, usando variables del sistema.")
+	}
 
-	var err error
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+	dsn := os.Getenv("DB_DSN")
+	if dsn == "" {
+		// Configuración por defecto si no hay .env (Ajusta esto a tus datos locales si quieres)
+		dsn = "host=localhost user=postgres password=admin dbname=cuadralo_db port=5433 sslmode=disable"
+	}
+
+	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info), // Veremos las consultas SQL en la consola
 	})
 
 	if err != nil {
-		log.Fatal("❌ No se pudo conectar a la base de datos. \n", err)
+		panic("❌ No se pudo conectar a la base de datos")
 	}
 
-	log.Println("✅ Conectado a la Base de Datos PostgreSQL")
-
-	// Migraciones automáticas: Crea las tablas si no existen
-	log.Println("⚙️ Ejecutando migraciones...")
-	DB.AutoMigrate(&models.User{})
-	log.Println("✅ Migraciones completadas")
+	fmt.Println("✅ Conexión exitosa a la Base de Datos")
+	DB = database
 }
