@@ -1,33 +1,42 @@
-import { Home, MessageCircle, User, Heart } from "lucide-react";
+import { Home, MessageCircle, User, Heart, Globe } from "lucide-react"; // <--- Importa Globe
 
 export default function BottomNav({ activeTab, onTabChange }) {
   return (
     <div className="fixed bottom-0 left-0 w-full z-50 pb-6 pt-4 px-6 bg-black/90 backdrop-blur-xl border-t border-white/5">
-      {/* CAMBIO: Aumentamos max-w a 4xl para que los iconos se separen más en PC */}
       <div className="flex justify-between items-center w-full max-w-4xl mx-auto">
         
+        {/* 1. HOME (Swipes) */}
         <NavItem 
-            icon={<Home size={28} />} 
+            icon={<Home size={26} />} 
             isActive={activeTab === "home"} 
             onClick={() => onTabChange("home")} 
-            label="Inicio" // Opcional: Podríamos mostrar texto en PC
         />
         
+        {/* 2. SOCIAL FEED (NUEVO) */}
         <NavItem 
-            icon={<Heart size={28} />} 
+            icon={<Globe size={26} />} 
+            isActive={activeTab === "social"} 
+            onClick={() => onTabChange("social")}
+        />
+
+        {/* 3. LIKES */}
+        <NavItem 
+            icon={<Heart size={26} />} 
             isActive={activeTab === "likes"} 
             onClick={() => onTabChange("likes")}
         />
         
+        {/* 4. CHAT */}
         <NavItem 
-            icon={<MessageCircle size={28} />} 
+            icon={<MessageCircle size={26} />} 
             isActive={activeTab === "chat"} 
             badge={2} 
             onClick={() => onTabChange("chat")}
         />
         
+        {/* 5. PERFIL */}
         <NavItem 
-            icon={<User size={28} />} 
+            icon={<User size={26} />} 
             isActive={activeTab === "profile"} 
             onClick={() => onTabChange("profile")}
         />
@@ -39,9 +48,9 @@ export default function BottomNav({ activeTab, onTabChange }) {
 
 function NavItem({ icon, isActive, badge, onClick }) {
   return (
-    <button 
-        onClick={onClick}
-        className={`relative p-4 transition-all duration-300 rounded-xl hover:bg-white/5 ${isActive ? "text-cuadralo-pink -translate-y-2 scale-110" : "text-gray-500 hover:text-white"}`}
+    <button
+      onClick={onClick}
+      className={`relative p-4 transition-all duration-300 rounded-xl hover:bg-white/5 ${isActive ? "text-cuadralo-pink -translate-y-2 scale-110" : "text-gray-500 hover:text-white"}`}
     >
       {icon}
       {badge && (
