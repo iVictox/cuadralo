@@ -1,6 +1,7 @@
 "use client";
 
-import { Camera, Bell } from "lucide-react";
+import Image from "next/image"; // Importamos Image para el logo
+import { Camera, Bell, Search } from "lucide-react"; // Agregamos Search
 import StoriesBar from "./StoriesBar";
 import FeedPost from "./FeedPost";
 
@@ -29,19 +30,37 @@ export default function SocialFeed() {
   ];
 
   return (
-    <div className="w-full h-full flex flex-col pt-4 pb-24 overflow-y-auto">
-      {/* Header del Feed */}
-      <div className="flex justify-between items-center px-6 mb-2">
-        <h1 className="text-2xl font-bold font-serif italic tracking-wide">Cuadralo Social</h1>
-        <div className="flex gap-4">
-            <button className="relative">
-                <Bell size={24} />
-                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
+    // Agregamos la clase "no-scrollbar" aquí y aumentamos el padding-top (pt-24) para que el Navbar fijo no tape las historias
+    <div className="w-full h-full flex flex-col pt-24 pb-24 overflow-y-auto no-scrollbar relative">
+      
+      {/* --- NAVBAR PEGADO (Estilo idéntico a Navbar.js) --- */}
+      <div className="fixed top-0 left-0 w-full z-40 px-6 py-4 flex justify-between items-center bg-gradient-to-b from-cuadralo-dark/90 to-transparent">
+          
+          {/* Logo */}
+          <div className="relative h-12 w-40">
+            <Image 
+              src="/logo.svg" 
+              alt="Logo Cuadralo" 
+              fill
+              className="object-contain object-left"
+              priority
+            />
+          </div>
+
+          {/* Botones: Buscador y Campana (Sin filtros) */}
+          <div className="flex gap-3">
+            {/* Botón Buscador */}
+            <button className="p-3 rounded-full bg-white/5 text-white backdrop-blur-md border border-white/10 hover:bg-cuadralo-purple hover:scale-105 transition-all shadow-lg">
+              <Search size={20} />
             </button>
-            <button>
-                <Camera size={24} />
+            
+            {/* Botón Campana (Reemplaza al de Filtros) */}
+            <button className="relative p-3 rounded-full bg-white/5 text-white backdrop-blur-md border border-white/10 hover:bg-cuadralo-pink hover:scale-105 transition-all shadow-lg">
+              <Bell size={20} />
+              {/* Puntito de notificación rojo */}
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
             </button>
-        </div>
+          </div>
       </div>
 
       {/* Historias */}
@@ -54,7 +73,7 @@ export default function SocialFeed() {
         {posts.map(post => <FeedPost key={post.id} post={post} />)}
       </div>
 
-      {/* Botón Flotante para Subir (Opcional) */}
+      {/* Botón Flotante para Subir Foto */}
       <button className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-cuadralo-pink to-cuadralo-purple rounded-full flex items-center justify-center shadow-lg shadow-purple-500/30 hover:scale-110 transition-transform z-40">
         <Camera size={28} className="text-white" />
       </button>
