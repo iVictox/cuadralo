@@ -5,16 +5,22 @@ import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-mo
 import { X, Heart, MapPin } from "lucide-react";
 import Image from "next/image"; 
 import { api } from "@/utils/api"; 
+import MatchModal from "./MatchModal"; // <--- Importamos el Modal
 
 export default function CardStack() {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Estado para controlar si mostramos el modal de Match
+  const [matchData, setMatchData] = useState(null); 
 
-  // --- CARGAR FEED ---
+  // --- 1. CARGAR FEED DEL BACKEND ---
   useEffect(() => {
     const fetchFeed = async () => {
       try {
         const users = await api.get("/feed");
+        
+        // Mapeamos los datos para que encajen con el diseño bonito
         const formattedCards = users.map(u => ({
             id: u.id,
             name: u.name,
@@ -22,8 +28,9 @@ export default function CardStack() {
             bio: u.bio || "Sin descripción...",
             img: u.photo || "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=600",
             location: "Valencia, VE", 
-            matchPercentage: Math.floor(Math.random() * (99 - 70) + 70)
+            matchPercentage: Math.floor(Math.random() * (99 - 70) + 70) // Número random
         }));
+
         setCards(formattedCards);
       } catch (error) {
         console.error("Error cargando feed:", error);
@@ -31,22 +38,38 @@ export default function CardStack() {
         setLoading(false);
       }
     };
+
     fetchFeed();
   }, []);
 
-  // --- SWIPE ---
+  // --- 2. LÓGICA DE SWIPE CON BACKEND ---
   const removeCard = async (id, direction) => {
+    // Guardamos la info de la carta ANTES de borrarla por si hay match
+    const swipedUser = cards.find(c => c.id === id);
+
     const action = direction === "right" ? "right" : "left";
+    
     try {
-        const response = await api.post("/swipe", { target_id: id, action: action });
+        // Llamada a la API
+        const response = await api.post("/swipe", {
+            target_id: id,
+            action: action
+        });
+
+        // VERIFICAR MATCH
         if (response.match) {
-            alert(`✨ ¡ES UN MATCH con ${cards.find(c => c.id === id)?.name}! ✨`);
+            console.log("¡MATCH DETECTADO!");
+            setMatchData(swipedUser); // Esto activará el Modal
         }
-    } catch (error) { console.error("Error:", error); }
+    } catch (error) {
+        console.error("Error guardando swipe:", error);
+    }
+
+    // Actualizar la interfaz (Quitar la carta)
     setCards((prev) => prev.filter((card) => card.id !== id));
   };
 
-  // --- CARGA ---
+  // --- 3. PANTALLA DE CARGA ---
   if (loading) {
     return (
         <div className="flex h-[50vh] w-full items-center justify-center flex-col gap-4">
@@ -59,64 +82,104 @@ export default function CardStack() {
     );
   }
 
-  // --- SIN CARTAS ---
+  // --- 4. PANTALLA VACÍA (PLANETA ANIMADO 🌍) ---
   if (cards.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6 animate-fade-in">
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6 animate-fade-in relative">
+        
+        {/* Animación del Planeta */}
         <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
             <motion.div animate={{ scale: [1, 1.5, 2], opacity: [0.5, 0.2, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeOut" }} className="absolute inset-0 bg-cuadralo-pink/20 rounded-full blur-xl"/>
             <motion.div animate={{ scale: [1, 1.5, 2], opacity: [0.5, 0.2, 0] }} transition={{ duration: 3, repeat: Infinity, ease: "easeOut", delay: 1 }} className="absolute inset-0 bg-cuadralo-purple/20 rounded-full blur-xl"/>
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 30, repeat: Infinity, ease: "linear" }} className="relative w-32 h-32 z-10">
+            
+            <motion.div 
+              animate={{ rotate: 360 }} 
+              transition={{ duration: 30, repeat: Infinity, ease: "linear" }} 
+              className="relative w-32 h-32 z-10"
+            >
                <Image src="/globe.svg" fill alt="Buscando" className="object-contain opacity-90 drop-shadow-[0_0_30px_rgba(236,72,153,0.3)]" priority />
             </motion.div>
+            
             <div className="absolute z-20 bg-[#0f0518] p-2 rounded-full border border-white/10 shadow-xl">
                  <MapPin className="text-cuadralo-pink animate-bounce" size={20} />
             </div>
         </div>
+
         <h3 className="text-2xl font-bold text-white mb-2">No hay nadie más</h3>
         <p className="text-gray-400 text-sm">Vuelve mañana para más conexiones. 🚀</p>
+
+        {/* MODAL DE MATCH (Se renderiza aquí también por si el match ocurre en la última carta) */}
+        <AnimatePresence>
+            {matchData && (
+                <MatchModal 
+                    matchedUser={matchData} 
+                    onClose={() => setMatchData(null)}
+                    onChat={() => {
+                        // Aquí redirigiremos al chat real en el futuro
+                        alert("¡Próximamente Chat!");
+                        setMatchData(null);
+                    }}
+                />
+            )}
+        </AnimatePresence>
       </div>
     );
   }
 
-  // --- RENDER STACK ---
+  // --- 5. RENDERIZADO DEL STACK DE CARTAS ---
   return (
-    // AJUSTE AQUÍ: Altura reducida (h-[60vh]) y margen superior ajustado
-    <div className="relative w-full h-[55vh] md:h-[60vh] max-h-[500px] flex justify-center items-center mt-2 md:mt-6 perspective-1000">
-      <AnimatePresence>
-        {cards.map((card, index) => {
-          const isFront = index === cards.length - 1;
-          return <Card key={card.id} data={card} isFront={isFront} onSwipe={removeCard} />;
-        })}
-      </AnimatePresence>
+    <>
+        <div className="relative w-full h-[55vh] md:h-[60vh] max-h-[500px] flex justify-center items-center mt-2 md:mt-6 perspective-1000">
+            <AnimatePresence>
+                {cards.map((card, index) => {
+                const isFront = index === cards.length - 1;
+                return <Card key={card.id} data={card} isFront={isFront} onSwipe={removeCard} />;
+                })}
+            </AnimatePresence>
 
-      {/* BOTONES: Ahora más cerca de las cartas (-bottom-16) para que no choquen con el menú */}
-      {cards.length > 0 && (
-          <div className="absolute -bottom-20 md:-bottom-24 flex gap-6 z-50">
-            <button 
-                onClick={() => removeCard(cards[cards.length - 1].id, "left")}
-                className="group w-14 h-14 bg-[#1a1a1a]/80 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/10 transition-transform hover:scale-110 active:scale-95"
-            >
-                <X size={28} className="text-red-500 group-hover:text-red-400" />
-            </button>
+            {/* BOTONES FLOTANTES */}
+            {cards.length > 0 && (
+                <div className="absolute -bottom-20 md:-bottom-24 flex gap-6 z-50">
+                    <button 
+                        onClick={() => removeCard(cards[cards.length - 1].id, "left")}
+                        className="group w-14 h-14 bg-[#1a1a1a]/80 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/10 transition-transform hover:scale-110 active:scale-95"
+                    >
+                        <X size={28} className="text-red-500 group-hover:text-red-400" />
+                    </button>
 
-            <button 
-                onClick={() => removeCard(cards[cards.length - 1].id, "right")}
-                className="group w-14 h-14 bg-[#1a1a1a]/80 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/10 transition-transform hover:scale-110 active:scale-95"
-            >
-                <Heart size={28} className="text-cuadralo-pink group-hover:text-white fill-current group-hover:fill-white" />
-            </button>
-          </div>
-      )}
-    </div>
+                    <button 
+                        onClick={() => removeCard(cards[cards.length - 1].id, "right")}
+                        className="group w-14 h-14 bg-[#1a1a1a]/80 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/10 transition-transform hover:scale-110 active:scale-95"
+                    >
+                        <Heart size={28} className="text-cuadralo-pink group-hover:text-white fill-current group-hover:fill-white" />
+                    </button>
+                </div>
+            )}
+        </div>
+
+        {/* 6. MODAL DE MATCH (Fuera del stack para que cubra toda la pantalla si hay cartas) */}
+        <AnimatePresence>
+            {matchData && (
+                <MatchModal 
+                    matchedUser={matchData} 
+                    onClose={() => setMatchData(null)}
+                    onChat={() => {
+                        alert("¡Próximamente Chat!");
+                        setMatchData(null);
+                    }}
+                />
+            )}
+        </AnimatePresence>
+    </>
   );
 }
 
-// --- CARD (Igual que antes) ---
+// --- SUB-COMPONENTE: CARD ---
 function Card({ data, isFront, onSwipe }) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
   const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 1, 1, 1, 0.5]);
+  
   const bgLike = useTransform(x, [0, 150], ["rgba(0,0,0,0)", "rgba(34, 197, 94, 0.2)"]);
   const bgNope = useTransform(x, [-150, 0], ["rgba(239, 68, 68, 0.2)", "rgba(0,0,0,0)"]);
 
@@ -131,12 +194,18 @@ function Card({ data, isFront, onSwipe }) {
       className={`absolute w-[90%] md:w-[350px] h-full bg-gray-900 rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 origin-bottom cursor-grab ${!isFront ? 'pointer-events-none' : ''}`}
     >
       <img src={data.img} alt={data.name} className="w-full h-full object-cover pointer-events-none" />
+      
+      {/* Feedback Visual (Verde/Rojo) */}
       {isFront && <><motion.div style={{ backgroundColor: bgLike }} className="absolute inset-0 z-10"/><motion.div style={{ backgroundColor: bgNope }} className="absolute inset-0 z-10"/></>}
+      
+      {/* Top Gradient */}
       <div className="absolute top-0 w-full h-32 bg-gradient-to-b from-black/60 to-transparent p-6 pointer-events-none">
           <div className="bg-black/30 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 inline-flex items-center gap-1">
               <span className="text-cuadralo-pink font-bold text-xs">{data.matchPercentage}%</span>
           </div>
       </div>
+      
+      {/* Bottom Info */}
       <div className="absolute bottom-0 w-full bg-gradient-to-t from-black via-black/80 to-transparent pt-24 pb-8 px-6 pointer-events-none">
         <h2 className="text-3xl font-extrabold text-white flex items-end gap-2 mb-1 drop-shadow-lg">{data.name} <span className="text-xl text-gray-300 font-medium">{data.age}</span></h2>
         <div className="flex items-center gap-2 text-gray-300 text-xs mb-2"><MapPin size={14} className="text-cuadralo-pink" /> {data.location}</div>
