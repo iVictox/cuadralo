@@ -17,7 +17,6 @@ module.exports = {
         },
       },
       backgroundImage: {
-        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'cuadralo-gradient': 'linear-gradient(to right, #551CA6, #F2138E)',
       },
     },
