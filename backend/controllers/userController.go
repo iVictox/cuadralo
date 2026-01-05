@@ -39,47 +39,54 @@ func GetMe(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// GetFeed: Devuelve usuarios filtrados por preferencias
 func GetFeed(c *fiber.Ctx) error {
+	// 1. Obtener mi ID
 	myId := uint(c.Locals("userId").(float64))
 
-	// 1. Obtener mis datos para leer mis preferencias
+	// 2. Obtener mis datos para leer preferencias
 	var me models.User
 	if err := database.DB.First(&me, myId).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	// 2. Parsear mis preferencias (vienen como JSON string desde la DB)
+	// Estructura para leer el JSON de preferencias
 	type Prefs struct {
 		Distance int    `json:"distance"`
-		Show     string `json:"show"`
+		Show     string `json:"show"` // "Hombres", "Mujeres", "Todos"
 	}
 	var myPrefs Prefs
-	// Valor por defecto si no hay preferencias guardadas
+	// Valor por defecto
 	myPrefs.Show = "Todos"
-	json.Unmarshal([]byte(me.Preferences), &myPrefs)
 
-	// 3. Obtener IDs de personas a las que YA les di swipe (Like o Left)
+	// Si hay preferencias guardadas, las leemos
+	if me.Preferences != "" {
+		json.Unmarshal([]byte(me.Preferences), &myPrefs)
+	}
+
+	// 3. Obtener lista de IDs que YA he visto (Likes o Dislikes)
 	var swipedIds []uint
-	database.DB.Model(&models.Like{}).Where("user_id = ?", myId).Pluck("target_id", &swipedIds)
+	database.DB.Model(&models.Like{}).Where("from_user_id = ?", myId).Pluck("to_user_id", &swipedIds)
 
-	// Agregamos mi propio ID para no salir en mi propio feed
+	// Agregarme a mí mismo a la lista de excluidos
 	swipedIds = append(swipedIds, myId)
 
-	// 4. Construir la consulta base
+	// 4. Construir la consulta
+	// "Busca usuarios cuyo ID NO esté en la lista de swipedIds"
 	query := database.DB.Omit("password").Where("id NOT IN ?", swipedIds)
 
-	// 5. Aplicar Filtro de Género según la preferencia "Mostrarme"
+	// 5. Aplicar filtro de GÉNERO
 	if myPrefs.Show == "Hombres" {
 		query = query.Where("gender = ?", "Hombre")
 	} else if myPrefs.Show == "Mujeres" {
 		query = query.Where("gender = ?", "Mujer")
 	}
-	// Si es "Todos", no aplicamos filtro de género adicional
+	// Si es "Todos", no filtramos por género
 
+	// 6. Ejecutar consulta (Límite 20 para rapidez)
 	var users []models.User
-	// Traemos un máximo de 20 cartas para mantener la app fluida
 	if err := query.Limit(20).Find(&users).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener el feed"})
+		return c.Status(500).JSON(fiber.Map{"error": "Error cargando feed"})
 	}
 
 	return c.JSON(users)
