@@ -7,15 +7,12 @@ import { api } from "@/utils/api";
 
 export default function FilterModal({ onClose }) {
   const [loading, setLoading] = useState(false);
-  
-  // Estado inicial
   const [prefs, setPrefs] = useState({
     distance: 50,
     show: "Todos",
     ageRange: [18, 30] 
   });
 
-  // 1. Cargar preferencias
   useEffect(() => {
     const fetchPrefs = async () => {
       try {
@@ -24,37 +21,27 @@ export default function FilterModal({ onClose }) {
           const savedPrefs = JSON.parse(user.preferences);
           setPrefs(prev => ({ ...prev, ...savedPrefs }));
         }
-      } catch (error) {
-        console.error("Error cargando filtros:", error);
-      }
+      } catch (error) { console.error(error); }
     };
     fetchPrefs();
   }, []);
 
-  // 2. Guardar (CON EL TRUCO DEL 60+)
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Creamos una copia para manipular los datos antes de enviar
       const prefsToSend = { ...prefs };
-
-      // SI LA EDAD ES 60 O MÁS -> Enviamos 100 a la base de datos
-      if (prefsToSend.ageRange[1] >= 60) {
-          prefsToSend.ageRange[1] = 100;
-      }
+      if (prefsToSend.ageRange[1] >= 60) prefsToSend.ageRange[1] = 100;
 
       await api.put("/me", { preferences: prefsToSend });
       window.location.reload(); 
       onClose();
-    } catch (error) {
-      alert("Error al guardar filtros");
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { alert("Error al guardar"); } 
+    finally { setLoading(false); }
   };
 
+  // CORRECCIÓN: z-[200]
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <motion.div 
         initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
         className="w-full max-w-md bg-[#1a0b2e] rounded-3xl p-6 border border-white/10 shadow-2xl"
@@ -69,7 +56,6 @@ export default function FilterModal({ onClose }) {
 
         {/* Contenido */}
         <div className="space-y-8">
-            
             {/* GÉNERO */}
             <div>
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 block">Mostrarme</label>
@@ -86,12 +72,10 @@ export default function FilterModal({ onClose }) {
                 </div>
             </div>
 
-            {/* EDAD MÁXIMA (CON INDICADOR 60+) */}
+            {/* EDAD MÁXIMA */}
             <div>
                 <div className="flex justify-between mb-3 items-end">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Edad Máxima</label>
-                    
-                    {/* Visualización inteligente: Si es >= 60 muestra "60+" */}
                     <span className="text-2xl font-extrabold text-white">
                         {prefs.ageRange[1] >= 60 ? "60+" : prefs.ageRange[1]} 
                         <span className="text-sm font-medium text-gray-500"> años</span>
@@ -100,17 +84,10 @@ export default function FilterModal({ onClose }) {
                 
                 <input 
                     type="range" min="18" max="60" 
-                    // Si viene 100 de la BD, visualmente lo limitamos a 60 para que la barra no se rompa
                     value={Math.min(prefs.ageRange[1], 60)} 
                     onChange={(e) => setPrefs({...prefs, ageRange: [18, parseInt(e.target.value)]})}
                     className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cuadralo-pink hover:accent-purple-500 transition-all"
                 />
-                
-                <p className="text-[10px] text-gray-500 mt-2 text-right">
-                    {prefs.ageRange[1] >= 60 
-                        ? "Mostrando a todos los mayores de 18 sin límite" 
-                        : `Se mostrarán personas de 18 a ${prefs.ageRange[1]} años`}
-                </p>
             </div>
 
             {/* DISTANCIA */}
@@ -126,10 +103,8 @@ export default function FilterModal({ onClose }) {
                     className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cuadralo-pink"
                 />
             </div>
-
         </div>
 
-        {/* Botón Guardar */}
         <button 
             onClick={handleSave} 
             disabled={loading}

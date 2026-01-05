@@ -1,88 +1,87 @@
 const API_URL = "http://localhost:8000/api";
 
-// Función interna para manejar peticiones estándar (JSON)
-const request = async (endpoint, method, body = null) => {
-    const token = localStorage.getItem("token");
-    
-    const headers = {
-        "Content-Type": "application/json",
-    };
+const getHeaders = () => {
+  const token = localStorage.getItem("token");
+  const headers = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
-    // Inyectar Token si existe
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const config = {
-        method,
-        headers,
-    };
-
-    if (body) {
-        config.body = JSON.stringify(body);
-    }
-
-    try {
-        console.log(`📡 ${method} ${endpoint}`);
-        const response = await fetch(`${API_URL}${endpoint}`, config);
-
-        // Manejo de sesión expirada
-        if (response.status === 401) {
-            console.warn("Sesión expirada o inválida");
-            // Opcional: localStorage.clear(); window.location.href = '/login';
+// Función genérica para manejar respuestas y errores 401
+const handleResponse = async (res) => {
+    if (res.status === 401) {
+        // --- SEGURIDAD: Si el token es inválido o el usuario fue borrado ---
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        
+        // Evitar bucles de redirección si ya estamos en login
+        if (!window.location.pathname.includes("/login")) {
+            window.location.href = "/login";
         }
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.error || "Error en la petición");
-        }
-
-        return result;
-    } catch (error) {
-        console.error("❌ Error API:", error);
-        throw error;
+        throw new Error("Sesión expirada o inválida");
     }
+
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Error en la petición");
+    }
+
+    return res.json();
 };
 
 export const api = {
-  // Métodos estándar
-  get: (endpoint) => request(endpoint, "GET"),
-  post: (endpoint, body) => request(endpoint, "POST", body),
-  put: (endpoint, body) => request(endpoint, "PUT", body),
-  delete: (endpoint) => request(endpoint, "DELETE"),
+  get: async (endpoint) => {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
 
-  // MÉTODO ESPECIAL PARA SUBIR ARCHIVOS (Multipart)
+  post: async (endpoint, body) => {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return handleResponse(res);
+  },
+
+  put: async (endpoint, body) => {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      method: "PUT",
+      headers: getHeaders(),
+      body: JSON.stringify(body),
+    });
+    return handleResponse(res);
+  },
+
+  delete: async (endpoint) => {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
   upload: async (file) => {
-    const token = localStorage.getItem("token");
     const formData = new FormData();
-    formData.append("image", file); // "image" debe coincidir con c.FormFile("image") en Go
+    formData.append("image", file);
 
-    const headers = {};
-    if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-    }
-    // NOTA: NO poner Content-Type: multipart/form-data manualmente,
-    // fetch lo hace automáticamente con el boundary correcto.
+    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}/upload`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${token}` // No enviamos Content-Type, fetch lo pone automático para FormData
+        },
+        body: formData
+    });
 
-    try {
-        console.log(`📡 UPLOAD ${file.name}`);
-        const response = await fetch(`${API_URL}/upload`, {
-            method: "POST",
-            headers: headers, 
-            body: formData,
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.error || "Error subiendo archivo");
-        }
-
-        return result.url; // Devuelve la URL pública del archivo
-    } catch (error) {
-        console.error("❌ Error Upload:", error);
-        throw error;
-    }
+    if (!res.ok) throw new Error("Error subiendo imagen");
+    const data = await res.json();
+    return data.url;
   }
 };

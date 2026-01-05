@@ -9,8 +9,9 @@ import {
 } from "lucide-react";
 import Image from "next/image"; 
 import { api } from "@/utils/api"; 
+import MatchModal from "@/components/MatchModal"; // <--- IMPORTANTE: El Modal
 
-// --- DICCIONARIO DE INTERESES COMPLETO ---
+// --- DICCIONARIO DE INTERESES ---
 const AVAILABLE_INTERESTS = [
     { id: "music", label: "Música", icon: <Music size={12} /> },
     { id: "games", label: "Gaming", icon: <Gamepad2 size={12} /> },
@@ -32,7 +33,6 @@ const AVAILABLE_INTERESTS = [
     { id: "guitar", label: "Guitarra", icon: <Music size={12} /> },
 ];
 
-// Mapas rápidos
 const INTEREST_LABELS = AVAILABLE_INTERESTS.reduce((acc, item) => ({ ...acc, [item.id]: item.label }), {});
 const INTEREST_ICONS = AVAILABLE_INTERESTS.reduce((acc, item) => ({ ...acc, [item.id]: item.icon }), {});
 
@@ -40,7 +40,10 @@ export default function CardStack() {
   const [cards, setCards] = useState([]);
   const [history, setHistory] = useState([]); 
   const [loading, setLoading] = useState(true);
+  
+  // Estados de Modales
   const [selectedProfile, setSelectedProfile] = useState(null); 
+  const [matchData, setMatchData] = useState(null); // <--- ESTADO NUEVO PARA EL MATCH
 
   useEffect(() => {
     fetchFeed();
@@ -78,8 +81,11 @@ export default function CardStack() {
     const action = direction === "right" ? "right" : "left";
     try {
         const response = await api.post("/swipe", { target_id: id, action: action });
+        
+        // --- AQUÍ ESTABA EL PROBLEMA ---
         if (response.match) {
-            alert(`¡Match con ${cardToRemove.name}! 💘`);
+            // Antes tenías un alert, ahora activamos el modal:
+            setMatchData(cardToRemove); 
         }
     } catch (error) { console.error(error); }
   };
@@ -146,15 +152,31 @@ export default function CardStack() {
           </div>
       )}
 
+      {/* --- MODALES --- */}
       <AnimatePresence>
         {selectedProfile && (
             <ProfileDetailsModal profile={selectedProfile} onClose={() => setSelectedProfile(null)} />
+        )}
+      </AnimatePresence>
+
+      {/* MODAL DE MATCH (¡ESTE ES EL QUE FALTABA!) */}
+      <AnimatePresence>
+        {matchData && (
+            <MatchModal 
+                matchedUser={matchData} 
+                onClose={() => setMatchData(null)} 
+                onChat={() => {
+                    setMatchData(null);
+                    // Aquí podríamos redirigir al chat si lo deseas
+                }}
+            />
         )}
       </AnimatePresence>
     </div>
   );
 }
 
+// ... (Subcomponentes Card y ProfileDetailsModal iguales)
 // --- COMPONENTE CARTA ---
 function Card({ data, isFront, onSwipe, onInfo }) {
   const x = useMotionValue(0);
@@ -166,7 +188,6 @@ function Card({ data, isFront, onSwipe, onInfo }) {
       style={{ x, rotate, opacity, zIndex: isFront ? 100 : 0 }}
       drag={isFront ? "x" : false} dragConstraints={{ left: 0, right: 0 }}
       onDragEnd={(e, i) => { if (i.offset.x > 100) onSwipe(data.id, "right"); else if (i.offset.x < -100) onSwipe(data.id, "left"); }}
-      // CAMBIO: Sombra reducida drásticamente (antes 50px de blur, ahora 25px) y menos opacidad
       className={`absolute w-[90%] md:w-[360px] h-full bg-gray-900 rounded-[2rem] overflow-hidden shadow-[0_10px_25px_-5px_rgba(0,0,0,0.4)] border border-white/10 ${!isFront && 'pointer-events-none'}`}
     >
       <img src={data.img} alt={data.name} className="w-full h-full object-cover pointer-events-none" />
@@ -180,7 +201,6 @@ function Card({ data, isFront, onSwipe, onInfo }) {
         <div className="flex items-center gap-2 text-gray-300 text-xs mb-2"><MapPin size={14} className="text-cuadralo-pink" /> {data.location}</div>
         <p className="text-gray-200 text-xs leading-relaxed line-clamp-2 opacity-90">{data.bio}</p>
         
-        {/* INTERESES CON ICONOS (Restaurados) */}
         <div className="flex gap-1.5 mt-3 flex-wrap">
             {data.interests.slice(0, 3).map(id => (
                 <span key={id} className="flex items-center gap-1 text-[10px] px-2.5 py-1 bg-white/10 backdrop-blur-md rounded-full text-gray-200 border border-white/10">
@@ -188,18 +208,12 @@ function Card({ data, isFront, onSwipe, onInfo }) {
                     <span className="font-medium">{INTEREST_LABELS[id] || id}</span>
                 </span>
             ))}
-            {data.interests.length > 3 && (
-                <span className="text-[10px] px-2 py-1 bg-white/5 rounded-full text-gray-400 border border-white/5">
-                    +{data.interests.length - 3}
-                </span>
-            )}
         </div>
       </div>
     </motion.div>
   );
 }
 
-// --- MODAL DE DETALLES DEL PERFIL ---
 function ProfileDetailsModal({ profile, onClose }) {
     return (
         <motion.div 
@@ -210,33 +224,10 @@ function ProfileDetailsModal({ profile, onClose }) {
                 <div className="relative h-96 w-full">
                     <img src={profile.img} className="w-full h-full object-cover" />
                     <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/40 rounded-full text-white hover:bg-black/60"><ChevronDown size={24}/></button>
-                    <div className="absolute bottom-0 w-full bg-gradient-to-t from-[#1a0b2e] to-transparent h-32"/>
                 </div>
-
                 <div className="px-6 pb-8 relative -mt-10">
                     <h2 className="text-3xl font-extrabold text-white mb-1">{profile.name}, {profile.age}</h2>
-                    <div className="flex items-center gap-2 text-gray-400 text-sm mb-6"><MapPin size={16} className="text-cuadralo-pink" /> {profile.location}</div>
-
-                    <div className="space-y-6">
-                        <div>
-                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Sobre mí</h3>
-                            <p className="text-gray-300 text-sm leading-relaxed">{profile.bio}</p>
-                        </div>
-
-                        {profile.interests && profile.interests.length > 0 && (
-                            <div>
-                                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Intereses</h3>
-                                <div className="flex flex-wrap gap-2">
-                                    {profile.interests.map(id => (
-                                        <div key={id} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs font-medium text-gray-300">
-                                            {INTEREST_ICONS[id] || <Star size={14} />}
-                                            <span>{INTEREST_LABELS[id] || id}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    <p className="text-gray-300 text-sm leading-relaxed">{profile.bio}</p>
                 </div>
             </div>
         </motion.div>

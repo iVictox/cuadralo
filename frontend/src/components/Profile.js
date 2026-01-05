@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-    Settings, Edit2, LogOut, Camera, Zap, ChevronRight, 
+    Settings, Edit2, LogOut, Camera, Zap, ChevronRight, ChevronLeft, Lock,
     Users, UserCheck, ShieldCheck, Loader2, Save, X,
     Music, Gamepad2, Plane, Coffee, Dumbbell, Film, Star,
     Palette, Book, Dog, Wine, Laptop, Mountain, Heart
@@ -11,6 +11,7 @@ import {
 import { api } from "@/utils/api";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
+import StoreModal from "@/components/StoreModal";
 
 // --- DICCIONARIO COMPLETO (Sincronizado con CardStack) ---
 const AVAILABLE_INTERESTS = [
@@ -43,6 +44,7 @@ export default function Profile() {
   
   const [showEdit, setShowEdit] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showStore, setShowStore] = useState(false); // <--- NUEVO ESTADO
   
   const [user, setUser] = useState(null);
   const [matchCount, setMatchCount] = useState(0);
@@ -123,7 +125,7 @@ export default function Profile() {
                 <div className="relative z-10">
                     <h3 className="text-lg font-extrabold mb-1 flex items-center gap-2">Cuadralo Gold <span className="text-xl">👑</span></h3>
                     <p className="text-white/90 text-xs font-medium mb-4 max-w-[85%] leading-relaxed">Descubre a quién le gustas y obtén Swipes ilimitados.</p>
-                    <button className="bg-white text-cuadralo-pink font-bold py-2 px-5 rounded-full text-xs shadow-md hover:shadow-lg transition-all">Ver Planes</button>
+                    <button onClick={() => setShowStore(true)} className="bg-white text-cuadralo-pink font-bold py-2 px-5 rounded-full text-xs shadow-md hover:shadow-lg transition-all">Ver Planes</button>
                 </div>
             </div>
 
@@ -155,6 +157,10 @@ export default function Profile() {
                     onClose={() => { setShowSettings(false); fetchProfile(); }} 
                 />
             )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+            {showStore && <StoreModal onClose={() => setShowStore(false)} />}
         </AnimatePresence>
     </>
   );

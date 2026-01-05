@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { 
     User, Mail, Lock, Calendar, ArrowRight, ArrowLeft, 
     Camera, Check, Heart, Music, Gamepad2, Plane, Coffee, 
-    Dumbbell, Film, ChevronRight, AlertCircle, Loader2 
+    Dumbbell, Film, ChevronRight, AlertCircle, Loader2,
+    // --- NUEVOS ICONOS AGREGADOS ---
+    Palette, Book, Dog, Wine, Laptop, Mountain
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
@@ -26,7 +28,7 @@ export default function RegisterPage() {
       bio: "", interests: [], preferences: { ageRange: [18, 30], distance: 50, show: "everyone" }
   });
 
-  // Lista de intereses disponibles
+  // --- LISTA DE INTERESES (ACTUALIZADA Y COMPLETA) ---
   const interestsList = [
       { id: "music", label: "Música", icon: <Music size={18} /> },
       { id: "games", label: "Gaming", icon: <Gamepad2 size={18} /> },
@@ -34,6 +36,18 @@ export default function RegisterPage() {
       { id: "coffee", label: "Café", icon: <Coffee size={18} /> },
       { id: "gym", label: "Fitness", icon: <Dumbbell size={18} /> },
       { id: "movies", label: "Cine", icon: <Film size={18} /> },
+      { id: "art", label: "Arte", icon: <Palette size={18} /> },
+      { id: "books", label: "Libros", icon: <Book size={18} /> },
+      { id: "dogs", label: "Perros", icon: <Dog size={18} /> },
+      { id: "cooking", label: "Cocina", icon: <Wine size={18} /> }, 
+      { id: "wine", label: "Vino", icon: <Wine size={18} /> },
+      { id: "photo", label: "Fotografía", icon: <Camera size={18} /> },
+      { id: "tech", label: "Tecnología", icon: <Laptop size={18} /> },
+      { id: "crypto", label: "Crypto", icon: <Laptop size={18} /> },
+      { id: "hiking", label: "Senderismo", icon: <Mountain size={18} /> },
+      { id: "health", label: "Salud", icon: <Heart size={18} /> },
+      { id: "party", label: "Fiesta", icon: <Music size={18} /> },
+      { id: "guitar", label: "Guitarra", icon: <Music size={18} /> },
   ];
 
   // --- NAVEGACIÓN ---
@@ -119,10 +133,13 @@ export default function RegisterPage() {
   const toggleInterest = (id) => {
       setFormData(prev => {
           const exists = prev.interests.includes(id);
-          return {
-              ...prev,
-              interests: exists ? prev.interests.filter(i => i !== id) : [...prev.interests, id]
-          };
+          if (exists) {
+              return { ...prev, interests: prev.interests.filter(i => i !== id) };
+          } else {
+              // Limitar a 5 si quieres, o dejar libre
+              if (prev.interests.length >= 5) return prev; 
+              return { ...prev, interests: [...prev.interests, id] };
+          }
       });
   };
 
@@ -308,7 +325,7 @@ export default function RegisterPage() {
                     </motion.div>
                 )}
 
-                {/* --- PASO 4: INTERESES --- */}
+                {/* --- PASO 4: INTERESES (LISTA COMPLETA) --- */}
                 {step === 4 && (
                     <motion.div 
                         key="step4"
@@ -318,7 +335,7 @@ export default function RegisterPage() {
                         <h2 className="text-2xl font-bold text-white mb-2">Tus Intereses 🔥</h2>
                         <p className="text-gray-400 text-sm mb-8">Selecciona al menos 3 temas que te gusten.</p>
 
-                        <div className="grid grid-cols-2 gap-3 w-full mb-8">
+                        <div className="grid grid-cols-2 gap-3 w-full mb-8 max-h-[300px] overflow-y-auto scrollbar-hide pr-2">
                             {interestsList.map((interest) => {
                                 const active = formData.interests.includes(interest.id);
                                 return (

@@ -12,6 +12,7 @@ func Setup(app *fiber.App) {
 
 	api.Post("/register", controllers.Register)
 	api.Post("/login", controllers.Login)
+	api.Post("/upload", controllers.UploadFile)
 
 	api.Use(middleware.IsAuthenticated)
 
@@ -27,7 +28,8 @@ func Setup(app *fiber.App) {
 	api.Post("/purchase", controllers.PurchasePlan)
 
 	api.Get("/matches", controllers.GetMatches)
+	api.Delete("/matches/:id", controllers.DeleteMatch)
+
 	api.Get("/messages/:id", controllers.GetMessages)
 	api.Post("/messages", controllers.SendMessage)
-	api.Post("/upload", controllers.UploadFile)
 }

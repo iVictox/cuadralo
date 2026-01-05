@@ -1,42 +1,65 @@
 package middleware
 
 import (
+	"cuadralo-backend/database"
+	"cuadralo-backend/models"
+	"fmt"
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// IsAuthenticated revisa si el usuario envió un token válido
 func IsAuthenticated(c *fiber.Ctx) error {
-	// 1. Buscar el token en las Cookies o en los Headers
+	// 1. Obtener Token de la Cookie o Header
 	tokenString := c.Cookies("jwt")
 
-	// Si no está en cookies, buscar en Header "Authorization: Bearer ..."
 	if tokenString == "" {
-		headers := c.Get("Authorization")
-		if len(headers) > 7 && headers[:7] == "Bearer " {
-			tokenString = headers[7:]
+		// Intentar leer del Header Authorization: Bearer <token>
+		authHeader := c.Get("Authorization")
+		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
 		}
 	}
 
 	if tokenString == "" {
-		return c.Status(401).JSON(fiber.Map{"error": "No estás autorizado. Inicia sesión."})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "No autenticado"})
 	}
 
-	// 2. Validar el token
+	// 2. Validar Firma del Token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte("secreto-super-seguro"), nil // Debe coincidir con la clave del authController
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("método de firma inesperado")
+		}
+		return []byte("secreto-super-seguro"), nil
 	})
 
 	if err != nil || !token.Valid {
-		return c.Status(401).JSON(fiber.Map{"error": "Token inválido o expirado"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Token inválido"})
 	}
 
-	// 3. Obtener el ID del usuario del token
-	claims := token.Claims.(jwt.MapClaims)
-	userId := claims["sub"] // "sub" es donde guardamos el ID en el login
+	// 3. Extraer ID del Usuario
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Claims inválidos"})
+	}
 
-	// 4. Guardar el ID en el contexto para usarlo en los controladores
-	c.Locals("userId", userId)
+	userIdFloat, ok := claims["sub"].(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "ID de usuario inválido en token"})
+	}
+	userId := uint(userIdFloat)
 
-	return c.Next() // Dejar pasar
+	// --- CORRECCIÓN CRÍTICA: Verificar si el usuario existe en la BD ---
+	var user models.User
+	if err := database.DB.First(&user, userId).Error; err != nil {
+		// Si no se encuentra el usuario (fue borrado), invalidamos el acceso
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Usuario no encontrado o eliminado"})
+	}
+	// ------------------------------------------------------------------
+
+	// 4. Guardar ID en el contexto para usarlo en los controladores
+	c.Locals("userId", userIdFloat) // Mantenemos float64 para compatibilidad con tus controladores actuales
+
+	return c.Next()
 }

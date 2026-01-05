@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion"; // <--- AQUÍ FALTABA AnimatePresence
 import { Lock, Heart, Loader2, Zap, Crown, Sparkles, ArrowUpCircle } from "lucide-react";
 import { api } from "@/utils/api";
+import StoreModal from "@/components/StoreModal";
 
 export default function MyLikes() {
   const [likes, setLikes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showStore, setShowStore] = useState(false);
 
   useEffect(() => {
     fetchLikes();
@@ -60,7 +62,10 @@ export default function MyLikes() {
                             <p className="text-[10px] text-yellow-200/70">Actualiza a Gold para ver las fotos.</p>
                         </div>
                     </div>
-                    <button className="px-5 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs rounded-full shadow-lg transition-all hover:scale-105 active:scale-95">
+                    <button 
+                        onClick={() => setShowStore(true)}
+                        className="px-5 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs rounded-full shadow-lg transition-all hover:scale-105 active:scale-95"
+                    >
                         Ver Gold
                     </button>
                 </div>
@@ -71,7 +76,13 @@ export default function MyLikes() {
                 <div 
                     key={user.id} 
                     className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-gray-900 group cursor-pointer border border-white/5 hover:border-cuadralo-pink/50 transition-all hover:shadow-[0_10px_30px_-10px_rgba(236,72,153,0.3)]"
-                    onClick={() => !user.locked && alert(`Abrir perfil de ${user.name}`)}
+                    onClick={() => {
+                        if (user.locked) {
+                            setShowStore(true);
+                        } else {
+                            alert(`Abrir perfil de ${user.name}`);
+                        }
+                    }}
                 >
                     <img 
                         src={user.img || "https://via.placeholder.com/300"} 
@@ -109,10 +120,9 @@ export default function MyLikes() {
             </div>
         </>
       ) : (
-        /* --- ESTADO SIN LIKES (DISEÑO MEJORADO) --- */
+        /* --- ESTADO SIN LIKES --- */
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
             
-            {/* 1. Radar Animado */}
             <div className="relative w-40 h-40 mb-8 flex items-center justify-center">
                 <motion.div 
                     animate={{ scale: [1, 1.5, 2], opacity: [0.3, 0.1, 0] }}
@@ -129,15 +139,12 @@ export default function MyLikes() {
                 </div>
             </div>
 
-            {/* 2. Mensaje Motivador */}
             <h2 className="text-2xl font-bold mb-2">Buscando tu media naranja...</h2>
             <p className="text-gray-400 text-sm max-w-xs mb-8">
                 Aún no hay likes nuevos, pero tu perfil está activo. ¡No te desanimes!
             </p>
 
-            {/* 3. Tarjeta de Venta "Boost" */}
             <div className="w-full max-w-sm bg-gradient-to-b from-[#2a1b3d] to-[#1a0b2e] border border-white/10 rounded-3xl p-6 relative overflow-hidden group">
-                {/* Brillo de fondo */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none" />
                 
                 <div className="relative z-10 text-left">
@@ -158,7 +165,10 @@ export default function MyLikes() {
                         Los usuarios <span className="text-yellow-400 font-bold">Cuadralo Gold</span> aparecen primero en el feed. ¡Haz que todos te vean!
                     </p>
 
-                    <button className="w-full py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-xl text-black font-extrabold text-sm shadow-lg shadow-yellow-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <button 
+                        onClick={() => setShowStore(true)}
+                        className="w-full py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-xl text-black font-extrabold text-sm shadow-lg shadow-yellow-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
                         <Zap size={18} fill="currentColor" />
                         ACTIVAR BOOST AHORA
                     </button>
@@ -166,6 +176,11 @@ export default function MyLikes() {
             </div>
         </div>
       )}
+
+      {/* MODAL DE TIENDA */}
+      <AnimatePresence>
+        {showStore && <StoreModal onClose={() => setShowStore(false)} />}
+      </AnimatePresence>
     </motion.div>
   );
 }
