@@ -1,31 +1,24 @@
 package models
 
-import (
-	"time"
-)
+import "time"
 
 type User struct {
-	ID uint `gorm:"primaryKey" json:"id"`
+	ID          uint   `json:"id" gorm:"primaryKey"`
+	Name        string `json:"name"`
+	Email       string `json:"email" gorm:"unique"`
+	Password    string `json:"-"`
+	BirthDate   string `json:"birth_date"`
+	Age         int    `json:"age"`
+	Gender      string `json:"gender"`
+	Photo       string `json:"photo"`
+	Bio         string `json:"bio"`
+	Interests   string `json:"interests"`
+	Preferences string `json:"preferences"`
+	IsVerified  bool   `json:"is_verified"`
 
-	// Datos de Login
-	Name     string `json:"name"`
-	Email    string `gorm:"unique" json:"email"`
-	Password string `json:"-"` // El guion hace que nunca devolvamos la contraseña al frontend
-
-	// Datos del Wizard (Perfil)
-	BirthDate time.Time `json:"birth_date"`
-	Age       int       `json:"age"` // Lo calcularemos automáticamente
-	Gender    string    `json:"gender"`
-	Photo     string    `json:"photo"` // Guardaremos la URL o Base64
-	Bio       string    `json:"bio"`
-
-	// Arrays y Objetos (Guardados como JSON string en la BD por simplicidad)
-	Interests   string `gorm:"type:text" json:"interests"`
-	Preferences string `gorm:"type:text" json:"preferences"`
-
-	// Datos Extra para la App
-	IsVerified bool   `gorm:"default:false" json:"is_verified"`
-	Role       string `gorm:"default:'user'" json:"role"` // 'user', 'gold', 'admin'
+	// Relaciones (GORM las maneja automáticamente)
+	Subscriptions []Subscription `json:"subscriptions,omitempty"`
+	Boosts        []Boost        `json:"boosts,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 }

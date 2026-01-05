@@ -4,86 +4,142 @@ import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
 	"encoding/json"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type ProfileResponse struct {
-	models.User
-	MatchCount int64 `json:"match_count"`
-}
-
-// GetMe: Devuelve MI perfil + Conteo de Matches
+// 1. OBTENER MI PERFIL (Incluye plan activo)
 func GetMe(c *fiber.Ctx) error {
 	userId := c.Locals("userId")
 	var user models.User
 
-	// 1. Buscar Usuario
-	if err := database.DB.Omit("password").First(&user, userId).Error; err != nil {
+	// Preload carga las relaciones. Filtramos solo la suscripción activa.
+	if err := database.DB.Preload("Subscriptions", "status = ? AND end_date > ?", "active", time.Now()).
+		First(&user, userId).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	// 2. Contar Matches (Donde soy User1 o User2)
-	var count int64
-	database.DB.Model(&models.Match{}).
-		Where("user1_id = ? OR user2_id = ?", user.ID, user.ID).
-		Count(&count)
+	// Preload Boost activo
+	database.DB.Preload("Boosts", "expires_at > ?", time.Now()).First(&user, userId)
 
-	// 3. Devolver respuesta combinada
-	response := ProfileResponse{
-		User:       user,
-		MatchCount: count,
+	// Construimos una respuesta personalizada para el frontend
+	role := "free"
+	if len(user.Subscriptions) > 0 {
+		role = user.Subscriptions[0].Plan
 	}
 
-	return c.JSON(response)
+	// Contar matches
+	var matchCount int64
+	database.DB.Model(&models.Match{}).Where("user1_id = ? OR user2_id = ?", user.ID, user.ID).Count(&matchCount)
+
+	return c.JSON(fiber.Map{
+		"id":          user.ID,
+		"name":        user.Name,
+		"email":       user.Email,
+		"age":         user.Age,
+		"photo":       user.Photo,
+		"bio":         user.Bio,
+		"interests":   user.Interests,
+		"preferences": user.Preferences,
+		"role":        role, // Enviamos el rol calculado
+		"match_count": matchCount,
+		"has_boost":   len(user.Boosts) > 0, // Boolean si tiene boost activo
+	})
 }
 
-// GetFeed: Devuelve usuarios filtrados por preferencias
-func GetFeed(c *fiber.Ctx) error {
-	// 1. Obtener mi ID
-	myId := uint(c.Locals("userId").(float64))
-
-	// 2. Obtener mis datos para leer preferencias
-	var me models.User
-	if err := database.DB.First(&me, myId).Error; err != nil {
+// 2. ACTUALIZAR PERFIL
+func UpdateMe(c *fiber.Ctx) error {
+	userId := c.Locals("userId")
+	var user models.User
+	if err := database.DB.First(&user, userId).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	// Estructura para leer el JSON de preferencias
+	type UpdateInput struct {
+		Name        string      `json:"name"`
+		Bio         string      `json:"bio"`
+		Photo       string      `json:"photo"`
+		Interests   []string    `json:"interests"`
+		Preferences interface{} `json:"preferences"`
+	}
+	var input UpdateInput
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	if input.Name != "" {
+		user.Name = input.Name
+	}
+	if input.Bio != "" {
+		user.Bio = input.Bio
+	}
+	if input.Photo != "" {
+		user.Photo = input.Photo
+	}
+
+	if input.Interests != nil {
+		interestsJSON, _ := json.Marshal(input.Interests)
+		user.Interests = string(interestsJSON)
+	}
+	if input.Preferences != nil {
+		prefsJSON, _ := json.Marshal(input.Preferences)
+		user.Preferences = string(prefsJSON)
+	}
+
+	database.DB.Save(&user)
+	return c.JSON(user)
+}
+
+// 3. OBTENER FEED (ALGORITMO MEJORADO CON RELACIONES)
+func GetFeed(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
+
+	// Obtener mis preferencias
+	var me models.User
+	database.DB.First(&me, myId)
+
 	type Prefs struct {
 		Distance int    `json:"distance"`
-		Show     string `json:"show"` // "Hombres", "Mujeres", "Todos"
+		Show     string `json:"show"`
+		AgeRange []int  `json:"ageRange"`
 	}
 	var myPrefs Prefs
-	// Valor por defecto
 	myPrefs.Show = "Todos"
-
-	// Si hay preferencias guardadas, las leemos
+	myPrefs.AgeRange = []int{18, 99}
 	if me.Preferences != "" {
 		json.Unmarshal([]byte(me.Preferences), &myPrefs)
 	}
 
-	// 3. Obtener lista de IDs que YA he visto (Likes o Dislikes)
+	// Excluir Swipes
 	var swipedIds []uint
 	database.DB.Model(&models.Like{}).Where("from_user_id = ?", myId).Pluck("to_user_id", &swipedIds)
-
-	// Agregarme a mí mismo a la lista de excluidos
 	swipedIds = append(swipedIds, myId)
 
-	// 4. Construir la consulta
-	// "Busca usuarios cuyo ID NO esté en la lista de swipedIds"
-	query := database.DB.Omit("password").Where("id NOT IN ?", swipedIds)
+	// --- QUERY COMPLEJA ---
+	query := database.DB.Table("users").
+		Select("users.*").
+		Joins("LEFT JOIN boosts ON boosts.user_id = users.id AND boosts.expires_at > ?", time.Now()).
+		Joins("LEFT JOIN subscriptions ON subscriptions.user_id = users.id AND subscriptions.status = 'active'").
+		Where("users.id NOT IN ?", swipedIds)
 
-	// 5. Aplicar filtro de GÉNERO
+	// Filtros básicos
 	if myPrefs.Show == "Hombres" {
-		query = query.Where("gender = ?", "Hombre")
-	} else if myPrefs.Show == "Mujeres" {
-		query = query.Where("gender = ?", "Mujer")
+		query = query.Where("users.gender = ?", "Hombre")
 	}
-	// Si es "Todos", no filtramos por género
+	if myPrefs.Show == "Mujeres" {
+		query = query.Where("users.gender = ?", "Mujer")
+	}
+	if len(myPrefs.AgeRange) == 2 {
+		query = query.Where("users.age >= ? AND users.age <= ?", myPrefs.AgeRange[0], myPrefs.AgeRange[1])
+	}
 
-	// 6. Ejecutar consulta (Límite 20 para rapidez)
+	// --- ORDENAMIENTO DE VISIBILIDAD ---
+	query = query.Order("boosts.id IS NOT NULL DESC").
+		Order("subscriptions.plan = 'platinum' DESC").
+		Order("RANDOM()")
+
 	var users []models.User
 	if err := query.Limit(20).Find(&users).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error cargando feed"})
@@ -92,95 +148,40 @@ func GetFeed(c *fiber.Ctx) error {
 	return c.JSON(users)
 }
 
-// DTO para actualizar perfil (Ahora incluye Preferences)
-type UpdateUserDTO struct {
-	Name        string      `json:"name"`
-	Bio         string      `json:"bio"`
-	Photo       string      `json:"photo"`
-	Interests   []string    `json:"interests"`
-	Preferences interface{} `json:"preferences"` // <--- NUEVO
+// 4. ELIMINAR CUENTA
+func DeleteAccount(c *fiber.Ctx) error {
+	myId := c.Locals("userId")
+	database.DB.Delete(&models.User{}, myId)
+	return c.JSON(fiber.Map{"message": "Cuenta eliminada"})
 }
 
-// UpdateMe: Actualizar mi propio perfil
-func UpdateMe(c *fiber.Ctx) error {
-	userId := c.Locals("userId")
-	var data UpdateUserDTO
-	if err := c.BodyParser(&data); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
-	}
-
-	var user models.User
-	database.DB.First(&user, userId)
-
-	if data.Name != "" {
-		user.Name = data.Name
-	}
-	if data.Bio != "" {
-		user.Bio = data.Bio
-	}
-	if data.Photo != "" {
-		user.Photo = data.Photo
-	}
-
-	if len(data.Interests) > 0 {
-		importJson, _ := json.Marshal(data.Interests)
-		user.Interests = string(importJson)
-	}
-
-	// NUEVO: Guardar Preferencias
-	if data.Preferences != nil {
-		prefJson, _ := json.Marshal(data.Preferences)
-		user.Preferences = string(prefJson)
-	}
-
-	database.DB.Save(&user)
-	return c.JSON(user)
-}
-
-// Estructura exacta para el frontend
-type PasswordDTO struct {
-	OldPassword string `json:"old_password"`
-	NewPassword string `json:"new_password"`
-}
-
+// 5. CAMBIAR CONTRASEÑA (¡AGREGADA!)
 func ChangePassword(c *fiber.Ctx) error {
-	userId := c.Locals("userId")
-	var data PasswordDTO
-
-	if err := c.BodyParser(&data); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
-	}
-
+	myId := c.Locals("userId")
 	var user models.User
-	if err := database.DB.First(&user, userId).Error; err != nil {
+	if err := database.DB.First(&user, myId).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	// COMPARACIÓN: Asegúrate de que user.Password sea el hash de la BD
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data.OldPassword))
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "La contraseña actual no coincide"})
+	type ChangePasswordDTO struct {
+		OldPassword string `json:"old_password"`
+		NewPassword string `json:"new_password"`
+	}
+	var data ChangePasswordDTO
+	if err := c.BodyParser(&data); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
-	// ENCRIPTACIÓN: Usamos 10 o 12 para que sea seguro pero rápido
-	hashed, _ := bcrypt.GenerateFromPassword([]byte(data.NewPassword), 12)
-	user.Password = string(hashed)
+	// Verificar contraseña anterior
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data.OldPassword)); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Contraseña actual incorrecta"})
+	}
+
+	// Encriptar nueva contraseña
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(data.NewPassword), 14)
+	user.Password = string(hashedPassword)
 
 	database.DB.Save(&user)
 
-	return c.JSON(fiber.Map{"message": "Contraseña actualizada exitosamente"})
-}
-
-// --- NUEVO: ELIMINAR CUENTA ---
-func DeleteAccount(c *fiber.Ctx) error {
-	userId := c.Locals("userId")
-
-	// Borrar usuario (GORM lo borra físicamente o soft delete según modelo)
-	// También deberíamos borrar sus likes, matches y mensajes para limpiar,
-	// pero por simplicidad borramos el usuario principal.
-	if err := database.DB.Delete(&models.User{}, userId).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Error eliminando cuenta"})
-	}
-
-	return c.JSON(fiber.Map{"message": "Cuenta eliminada. Hasta pronto :("})
+	return c.JSON(fiber.Map{"message": "Contraseña actualizada"})
 }

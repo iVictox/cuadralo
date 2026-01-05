@@ -10,27 +10,24 @@ import (
 func Setup(app *fiber.App) {
 	api := app.Group("/api")
 
-	// Públicas
 	api.Post("/register", controllers.Register)
 	api.Post("/login", controllers.Login)
 
-	// Privadas
 	api.Use(middleware.IsAuthenticated)
 
 	api.Get("/me", controllers.GetMe)
+	api.Put("/me", controllers.UpdateMe)
+	api.Delete("/me", controllers.DeleteAccount)
+	api.Put("/change-password", controllers.ChangePassword)
+
 	api.Get("/feed", controllers.GetFeed)
 	api.Post("/swipe", controllers.Swipe)
+	api.Get("/likes-received", controllers.GetReceivedLikes)
 
-	// --- RUTAS DE CHAT (NUEVAS) ---
-	api.Get("/matches", controllers.GetMatches)       // Lista de chats
-	api.Get("/messages/:id", controllers.GetMessages) // Historial con usuario X
-	api.Post("/messages", controllers.SendMessage)    // Enviar mensaje
-	api.Post("/upload", controllers.UploadFile)       // <--- NUEVA
+	api.Post("/purchase", controllers.PurchasePlan)
 
-	api.Get("/me", controllers.GetMe)
-	api.Put("/me", controllers.UpdateMe) // <--- NUEVA RUTA DE EDICIÓN
-
-	api.Put("/me", controllers.UpdateMe)                    // Actualizar Perfil/Prefs
-	api.Put("/change-password", controllers.ChangePassword) // Cambiar Pass
-	api.Delete("/me", controllers.DeleteAccount)            // Borrar Cuenta
+	api.Get("/matches", controllers.GetMatches)
+	api.Get("/messages/:id", controllers.GetMessages)
+	api.Post("/messages", controllers.SendMessage)
+	api.Post("/upload", controllers.UploadFile)
 }

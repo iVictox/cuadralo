@@ -1,83 +1,171 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Lock, Heart } from "lucide-react";
+import { Lock, Heart, Loader2, Zap, Crown, Sparkles, ArrowUpCircle } from "lucide-react";
+import { api } from "@/utils/api";
 
 export default function MyLikes() {
-  // Datos simulados: Algunos perfiles son 'locked' (bloqueados/borrosos)
-  const likes = [
-    { id: 1, name: "Sofia", age: 21, img: "https://images.pexels.com/photos/1382731/pexels-photo-1382731.jpeg?auto=compress&cs=tinysrgb&w=300", locked: false },
-    { id: 2, name: "Carla", age: 24, img: "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=300", locked: false },
-    { id: 3, name: "???", age: 22, img: "https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=300", locked: true },
-    { id: 4, name: "???", age: 25, img: "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=300", locked: true },
-    { id: 5, name: "???", age: 20, img: "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=300", locked: true },
-    { id: 6, name: "???", age: 23, img: "https://images.pexels.com/photos/1542085/pexels-photo-1542085.jpeg?auto=compress&cs=tinysrgb&w=300", locked: true },
-  ];
+  const [likes, setLikes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchLikes();
+  }, []);
+
+  const fetchLikes = async () => {
+    try {
+      const data = await api.get("/likes-received");
+      setLikes(data);
+    } catch (error) {
+      console.error("Error cargando likes:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+        <div className="flex h-full items-center justify-center text-cuadralo-pink">
+            <Loader2 className="animate-spin" size={32}/>
+        </div>
+    );
+  }
 
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full h-full text-white pt-20 pb-28 px-4 overflow-y-auto max-w-5xl mx-auto"
+      className="w-full h-full text-white pt-20 pb-28 px-4 overflow-y-auto max-w-5xl mx-auto scrollbar-hide [&::-webkit-scrollbar]:hidden"
     >
-      {/* 1. Header con Contador */}
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-1">Te quieren conocer 💖</h2>
-        <p className="text-gray-400 text-sm">A <span className="text-cuadralo-pink font-bold">6 personas</span> les gustas</p>
-      </div>
+      {/* --- SI HAY LIKES --- */}
+      {likes.length > 0 ? (
+        <>
+            <div className="text-center mb-8 animate-fade-in">
+                <h2 className="text-2xl font-bold mb-1">Te quieren conocer 💖</h2>
+                <p className="text-gray-400 text-sm">
+                    A <span className="text-cuadralo-pink font-bold">{likes.length} personas</span> les gustas
+                </p>
+            </div>
 
-      {/* 2. Banner de Venta (Upsell) */}
-      <div className="bg-gradient-to-r from-yellow-600/20 to-yellow-800/20 border border-yellow-500/30 p-4 rounded-xl mb-6 flex items-center justify-between shadow-[0_0_15px_rgba(234,179,8,0.1)]">
-        <div>
-            <h3 className="font-bold text-yellow-500 text-sm">Descubre quiénes son</h3>
-            <p className="text-xs text-yellow-200/70">Actualiza a Gold para ver todos los perfiles.</p>
-        </div>
-        <button className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs rounded-full shadow-lg transition-colors">
-            Ver Gold
-        </button>
-      </div>
-
-      {/* 3. Cuadrícula de Likes */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        {likes.map((user) => (
-          <div 
-            key={user.id} 
-            className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-900 group cursor-pointer"
-          >
-            {/* Imagen de fondo */}
-            <img 
-              src={user.img} 
-              alt="User" 
-              className={`w-full h-full object-cover transition-all duration-500 ${user.locked ? "blur-md scale-110 opacity-50" : "group-hover:scale-105"}`} 
-            />
-            
-            {/* Overlay Oscuro */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-
-            {/* CONTENIDO BLOQUEADO */}
-            {user.locked ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-                    <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-black shadow-lg mb-2 animate-bounce">
-                        <Lock size={20} />
+            {/* Banner Gold si hay bloqueados */}
+            {likes.some(l => l.locked) && (
+                <div className="bg-gradient-to-r from-yellow-600/20 to-yellow-800/20 border border-yellow-500/30 p-4 rounded-2xl mb-8 flex items-center justify-between shadow-[0_0_20px_rgba(234,179,8,0.1)] backdrop-blur-md">
+                    <div className="flex gap-3 items-center">
+                        <div className="p-2 bg-yellow-500/20 rounded-lg text-yellow-400">
+                            <Crown size={20} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-yellow-400 text-sm">Descubre quiénes son</h3>
+                            <p className="text-[10px] text-yellow-200/70">Actualiza a Gold para ver las fotos.</p>
+                        </div>
                     </div>
-                    <span className="text-xs font-bold text-yellow-500 uppercase tracking-widest">Gold</span>
-                </div>
-            ) : (
-                /* CONTENIDO VISIBLE */
-                <div className="absolute bottom-3 left-3 z-10">
-                    <h3 className="text-lg font-bold flex items-center gap-1">
-                        {user.name}, {user.age}
-                        <div className="w-2 h-2 bg-green-500 rounded-full inline-block ml-1" />
-                    </h3>
-                    <div className="flex items-center gap-1 text-xs text-cuadralo-pink">
-                        <Heart size={12} fill="currentColor" /> Reciente
-                    </div>
+                    <button className="px-5 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs rounded-full shadow-lg transition-all hover:scale-105 active:scale-95">
+                        Ver Gold
+                    </button>
                 </div>
             )}
-          </div>
-        ))}
-      </div>
 
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 animate-fade-in-up">
+                {likes.map((user) => (
+                <div 
+                    key={user.id} 
+                    className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-gray-900 group cursor-pointer border border-white/5 hover:border-cuadralo-pink/50 transition-all hover:shadow-[0_10px_30px_-10px_rgba(236,72,153,0.3)]"
+                    onClick={() => !user.locked && alert(`Abrir perfil de ${user.name}`)}
+                >
+                    <img 
+                        src={user.img || "https://via.placeholder.com/300"} 
+                        alt="User" 
+                        className={`w-full h-full object-cover transition-all duration-700 ${user.locked ? "blur-xl scale-110 opacity-60" : "group-hover:scale-105"}`} 
+                    />
+                    
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
+
+                    {user.locked ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-4 text-center">
+                            <motion.div 
+                                animate={{ scale: [1, 1.1, 1] }}
+                                transition={{ repeat: Infinity, duration: 2 }}
+                                className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-black shadow-lg mb-3"
+                            >
+                                <Lock size={20} />
+                            </motion.div>
+                            <span className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-1">Gold</span>
+                            <p className="text-[10px] text-gray-300 leading-tight">Desbloquea para ver a esta persona</p>
+                        </div>
+                    ) : (
+                        <div className="absolute bottom-4 left-4 z-10">
+                            <h3 className="text-lg font-bold flex items-center gap-1 leading-none mb-1">
+                                {user.name}, {user.age}
+                                <div className="w-2 h-2 bg-green-500 rounded-full inline-block ml-1" />
+                            </h3>
+                            <div className="flex items-center gap-1 text-xs text-cuadralo-pink font-medium">
+                                <Heart size={12} fill="currentColor" /> Le gustas
+                            </div>
+                        </div>
+                    )}
+                </div>
+                ))}
+            </div>
+        </>
+      ) : (
+        /* --- ESTADO SIN LIKES (DISEÑO MEJORADO) --- */
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
+            
+            {/* 1. Radar Animado */}
+            <div className="relative w-40 h-40 mb-8 flex items-center justify-center">
+                <motion.div 
+                    animate={{ scale: [1, 1.5, 2], opacity: [0.3, 0.1, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                    className="absolute inset-0 rounded-full bg-cuadralo-pink"
+                />
+                <motion.div 
+                    animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+                    className="absolute inset-4 rounded-full bg-cuadralo-pink"
+                />
+                <div className="relative z-10 w-20 h-20 bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(236,72,153,0.5)]">
+                    <Heart size={32} className="text-white fill-white animate-pulse" />
+                </div>
+            </div>
+
+            {/* 2. Mensaje Motivador */}
+            <h2 className="text-2xl font-bold mb-2">Buscando tu media naranja...</h2>
+            <p className="text-gray-400 text-sm max-w-xs mb-8">
+                Aún no hay likes nuevos, pero tu perfil está activo. ¡No te desanimes!
+            </p>
+
+            {/* 3. Tarjeta de Venta "Boost" */}
+            <div className="w-full max-w-sm bg-gradient-to-b from-[#2a1b3d] to-[#1a0b2e] border border-white/10 rounded-3xl p-6 relative overflow-hidden group">
+                {/* Brillo de fondo */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none" />
+                
+                <div className="relative z-10 text-left">
+                    <div className="flex items-start justify-between mb-4">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <Sparkles size={16} className="text-yellow-400" />
+                                <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">Consejo Pro</span>
+                            </div>
+                            <h3 className="text-lg font-bold text-white">Consigue 3x más Likes</h3>
+                        </div>
+                        <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center text-yellow-400">
+                            <ArrowUpCircle size={24} />
+                        </div>
+                    </div>
+                    
+                    <p className="text-sm text-gray-300 mb-6 leading-relaxed">
+                        Los usuarios <span className="text-yellow-400 font-bold">Cuadralo Gold</span> aparecen primero en el feed. ¡Haz que todos te vean!
+                    </p>
+
+                    <button className="w-full py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-xl text-black font-extrabold text-sm shadow-lg shadow-yellow-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <Zap size={18} fill="currentColor" />
+                        ACTIVAR BOOST AHORA
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </motion.div>
   );
 }

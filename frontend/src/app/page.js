@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // Importamos el router
+import { useRouter } from "next/navigation"; 
 import { AnimatePresence } from "framer-motion";
-import { Loader2 } from "lucide-react"; // Icono de carga
+import { Loader2 } from "lucide-react"; 
 
 // Componentes
 import Navbar from "@/components/Navbar";
@@ -21,9 +21,8 @@ import UploadModal from "@/components/UploadModal";
 
 export default function Home() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true); // Estado de carga inicial
+  const [isLoading, setIsLoading] = useState(true); 
   
-  // Estados de la App
   const [showFilters, setShowFilters] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -32,21 +31,15 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("home");
   const [selectedChat, setSelectedChat] = useState(null);
 
-  // --- PROTECCIÓN DE RUTA ---
   useEffect(() => {
-    // Revisamos si hay token en el navegador
     const token = localStorage.getItem("token");
-    
     if (!token) {
-      // Si no hay token, fuera de aquí -> Login
       router.push("/login");
     } else {
-      // Si hay token, permitimos ver la app
       setIsLoading(false);
     }
   }, [router]);
 
-  // Si está verificando, mostramos una pantalla de carga negra
   if (isLoading) {
     return (
       <div className="min-h-screen w-full bg-[#0f0518] flex flex-col items-center justify-center text-white">
@@ -56,15 +49,11 @@ export default function Home() {
     );
   }
 
-  // --- RENDERIZADO DE LA APP (Solo si está autenticado) ---
   return (
     <main className="flex min-h-screen flex-col bg-cuadralo-dark text-white relative overflow-hidden">
 
-      {/* Fondo de Luces */}
       <div className="absolute top-0 left-0 w-full h-[50vh] bg-cuadralo-purple opacity-20 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-full h-[50vh] bg-cuadralo-pink opacity-10 blur-[150px] pointer-events-none" />
-
-      {/* RENDERIZADO DE PANTALLAS SEGÚN TAB */}
 
       {/* 1. HOME */}
       {activeTab === "home" && (
@@ -73,7 +62,12 @@ export default function Home() {
             onFilterClick={() => setShowFilters(true)}
             onSearchClick={() => setShowSearch(true)}
           />
-          <section className="flex-1 flex flex-col justify-center items-center w-full relative z-10 pt-16 animate-fade-in">
+          {/* CORRECCIÓN AQUÍ:
+              1. Quitamos 'justify-center' para evitar el hueco grande arriba.
+              2. Usamos 'pt-20' para separar del Navbar.
+              3. Usamos 'pb-24' para separar del BottomNav.
+          */}
+          <section className="flex-1 flex flex-col items-center w-full relative z-10 pt-20 pb-24 animate-fade-in">
             <CardStack />
           </section>
         </>
@@ -120,7 +114,6 @@ export default function Home() {
         </section>
       )}
 
-      {/* Menú Inferior (Oculto en chat individual) */}
       {!selectedChat && (
         <BottomNav
           activeTab={activeTab}
@@ -131,7 +124,6 @@ export default function Home() {
         />
       )}
 
-      {/* --- MODALES GLOBALES --- */}
       <AnimatePresence>
         {showFilters && <FilterModal onClose={() => setShowFilters(false)} />}
         {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}

@@ -6,13 +6,13 @@ import {
     Settings, Edit2, LogOut, Camera, Zap, ChevronRight, 
     Users, UserCheck, ShieldCheck, Loader2, Save, X,
     Music, Gamepad2, Plane, Coffee, Dumbbell, Film, Star,
-    Bell, Lock, HelpCircle, Trash2, ChevronLeft
+    Palette, Book, Dog, Wine, Laptop, Mountain, Heart
 } from "lucide-react";
 import { api } from "@/utils/api";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
 
-// --- CONSTANTES ---
+// --- DICCIONARIO COMPLETO (Sincronizado con CardStack) ---
 const AVAILABLE_INTERESTS = [
     { id: "music", label: "Música", icon: <Music size={16} /> },
     { id: "games", label: "Gaming", icon: <Gamepad2 size={16} /> },
@@ -20,6 +20,18 @@ const AVAILABLE_INTERESTS = [
     { id: "coffee", label: "Café", icon: <Coffee size={16} /> },
     { id: "gym", label: "Fitness", icon: <Dumbbell size={16} /> },
     { id: "movies", label: "Cine", icon: <Film size={16} /> },
+    { id: "art", label: "Arte", icon: <Palette size={16} /> },
+    { id: "books", label: "Libros", icon: <Book size={16} /> },
+    { id: "dogs", label: "Perros", icon: <Dog size={16} /> },
+    { id: "cooking", label: "Cocina", icon: <Wine size={16} /> }, 
+    { id: "wine", label: "Vino", icon: <Wine size={16} /> },
+    { id: "photo", label: "Fotografía", icon: <Camera size={16} /> },
+    { id: "tech", label: "Tecnología", icon: <Laptop size={16} /> },
+    { id: "crypto", label: "Crypto", icon: <Laptop size={16} /> },
+    { id: "hiking", label: "Senderismo", icon: <Mountain size={16} /> },
+    { id: "health", label: "Salud", icon: <Heart size={16} /> },
+    { id: "party", label: "Fiesta", icon: <Music size={16} /> },
+    { id: "guitar", label: "Guitarra", icon: <Music size={16} /> },
 ];
 
 const INTEREST_ICONS = AVAILABLE_INTERESTS.reduce((acc, item) => ({ ...acc, [item.id]: item.icon }), {});

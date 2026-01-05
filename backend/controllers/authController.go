@@ -39,35 +39,31 @@ func Register(c *fiber.Ctx) error {
 	interestsJSON, _ := json.Marshal(data.Interests)
 	preferencesJSON, _ := json.Marshal(data.Preferences)
 
+	// 4. Calcular Edad
 	birthDate, err := time.Parse("2006-01-02", data.BirthDate)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Fecha de nacimiento inválida"})
 	}
 
 	now := time.Now()
-	// Calculamos la diferencia de años simple
 	age := now.Year() - birthDate.Year()
-
-	// Comprobamos si el cumpleaños de este año YA pasó o no.
-	// Sumamos 'age' años a la fecha de nacimiento. Si el resultado es una fecha futura
-	// con respecto a hoy, significa que aún no ha cumplido años.
 	if now.Before(birthDate.AddDate(age, 0, 0)) {
 		age--
 	}
-	// ---------------------------
 
 	// 5. Crear Usuario
 	user := models.User{
 		Name:        data.Name,
 		Email:       data.Email,
 		Password:    string(hashedPassword),
-		BirthDate:   birthDate,
-		Age:         age, // ¡Edad exacta!
+		BirthDate:   data.BirthDate, // <--- CORRECCIÓN: Usamos el string original
+		Age:         age,
 		Gender:      data.Gender,
 		Photo:       data.Photo,
 		Bio:         data.Bio,
 		Interests:   string(interestsJSON),
 		Preferences: string(preferencesJSON),
+		CreatedAt:   time.Now(),
 	}
 
 	// 6. Guardar en Base de Datos
@@ -106,13 +102,13 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Contraseña incorrecta"})
 	}
 
-	// Crear Token JWT (La llave para entrar a la app)
+	// Crear Token JWT
 	claims := jwt.MapClaims{
 		"sub": user.ID,
 		"exp": time.Now().Add(time.Hour * 72).Unix(), // Dura 3 días
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	t, err := token.SignedString([]byte("secreto-super-seguro")) // Cambia esto en producción
+	t, err := token.SignedString([]byte("secreto-super-seguro"))
 
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error generando token"})
@@ -129,7 +125,7 @@ func Login(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": "Login exitoso",
-		"token":   t, // También lo devolvemos por si acaso
+		"token":   t,
 		"user":    user,
 	})
 }
