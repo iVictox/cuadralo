@@ -1,257 +1,124 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, ArrowRight, MapPin, Image as ImageIcon, Wand2, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useRef } from "react";
+import { motion } from "framer-motion";
+import { X, Image as ImageIcon, MapPin, Loader2, CheckCircle } from "lucide-react";
+import { api } from "@/utils/api";
+import { useToast } from "@/context/ToastContext";
 
 export default function UploadModal({ onClose }) {
-  // --- ESTADOS ---
-  const [caption, setCaption] = useState("");
-  const [activeFilter, setActiveFilter] = useState("normal");
-  
-  // 1. Estado para la imagen (Iniciamos con null para obligar a subir o dejamos una por defecto)
-  const [image, setImage] = useState("https://images.pexels.com/photos/1854897/pexels-photo-1854897.jpeg?auto=compress&cs=tinysrgb&w=1200");
-  
-  // 2. Estados para Ubicación
-  const [location, setLocation] = useState("");
-  const [isLocating, setIsLocating] = useState(false);
-
-  // 3. Estado para Opciones Avanzadas
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [advancedSettings, setAdvancedSettings] = useState({
-      hideLikes: false,
-      disableComments: false
-  });
-
-  // Referencia para el input de archivo oculto
+  const { showToast } = useToast();
   const fileInputRef = useRef(null);
+  
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [caption, setCaption] = useState("");
+  const [location, setLocation] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // Bloqueo de Scroll (Igual que antes)
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "auto";
-    };
-  }, []);
-
-  // --- FUNCIONES ---
-
-  // A) Manejar subida de imagen
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-        // Creamos una URL temporal para previsualizar el archivo local
-        const imageUrl = URL.createObjectURL(file);
-        setImage(imageUrl);
-    }
+  const handleFileSelect = (e) => {
+      const selected = e.target.files[0];
+      if (selected) {
+          setFile(selected);
+          setPreview(URL.createObjectURL(selected));
+      }
   };
 
-  // B) Simular obtener ubicación
-  const handleGetLocation = () => {
-    if (location) {
-        setLocation(""); // Si ya tiene, la borra
-        return;
-    }
-    
-    setIsLocating(true);
-    // Simulamos una espera de 1.5 segundos (como si consultara al GPS)
-    setTimeout(() => {
-        setLocation("Valencia, Carabobo");
-        setIsLocating(false);
-    }, 1500);
-  };
+  const handlePublish = async () => {
+      if (!file) return;
+      setLoading(true);
 
-  // C) Toggle de opciones avanzadas
-  const toggleSetting = (key) => {
-      setAdvancedSettings(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+      try {
+          // 1. Subir imagen
+          const imageUrl = await api.upload(file);
 
-  // Filtros CSS
-  const filters = [
-    { id: "normal", name: "Normal", class: "" },
-    { id: "bw", name: "B&W", class: "grayscale" },
-    { id: "vintage", name: "Vintage", class: "sepia contrast-125" },
-    { id: "vivid", name: "Vivid", class: "saturate-150 contrast-110" },
-    { id: "cyber", name: "Cyber", class: "hue-rotate-15 saturate-150" },
-    { id: "warm", name: "Cálido", class: "sepia-[.5] hue-rotate-[-30deg]" },
-  ];
+          // 2. Crear Post en Base de Datos
+          await api.post("/social/posts", {
+              image_url: imageUrl,
+              caption: caption,
+              location: location
+          });
+
+          showToast("¡Publicado con éxito! 🎉");
+          
+          // Recargar página para ver el post (o podrías usar un contexto para actualizar feed)
+          window.location.reload(); 
+          
+      } catch (error) {
+          console.error("Error publicando:", error);
+          showToast("Error al publicar", "error");
+      } finally {
+          setLoading(false);
+          onClose();
+      }
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: "100%" }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: "100%" }}
-      transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="fixed inset-0 z-[60] bg-[#0f0518] flex flex-col overflow-hidden"
-    >
-        {/* INPUT OCULTO PARA SUBIR ARCHIVOS */}
-        <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleImageUpload} 
-            accept="image/*" 
-            className="hidden" 
-        />
-
-        {/* 1. HEADER */}
-        <div className="flex justify-between items-center px-6 py-4 bg-black/20 backdrop-blur-md z-20 border-b border-white/5 shrink-0">
-            <button onClick={onClose} className="p-2 -ml-2 text-gray-300 hover:text-white transition-colors">
-                <X size={28} />
-            </button>
-            <h2 className="text-lg font-bold tracking-wide">Nueva Publicación</h2>
-            <button 
-                className="text-cuadralo-pink font-bold text-sm hover:text-white transition-colors disabled:opacity-50"
-                disabled={caption.length === 0}
-                onClick={() => {
-                    alert("¡Publicado con éxito!"); // Aquí conectarías con tu backend
-                    onClose();
-                }} 
-            >
-                Publicar
-            </button>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+        className="relative w-full max-w-md bg-[#1a0b2e] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+            <h3 className="text-white font-bold">Nueva Publicación</h3>
+            <button onClick={onClose}><X size={24} className="text-gray-400 hover:text-white" /></button>
         </div>
 
-        {/* 2. CONTENEDOR PRINCIPAL */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-            
-            {/* A) SECCIÓN IMAGEN */}
-            <div className="w-full md:w-[60%] aspect-square md:aspect-auto md:h-full bg-[#1a1a1a] relative group flex items-center justify-center shrink-0">
-                <img 
-                    src={image}
-                    alt="Preview"
-                    className={`w-full h-full object-cover md:object-contain transition-all duration-500 ${filters.find(f => f.id === activeFilter)?.class}`}
+        {/* Contenido */}
+        <div className="p-4 flex-1 overflow-y-auto">
+            {/* Preview Imagen */}
+            <div 
+                onClick={() => fileInputRef.current.click()}
+                className={`w-full aspect-square rounded-2xl border-2 border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer transition-colors hover:bg-white/5 overflow-hidden relative ${!preview && "bg-black/20"}`}
+            >
+                {preview ? (
+                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                    <>
+                        <ImageIcon size={40} className="text-gray-500 mb-2" />
+                        <p className="text-gray-400 text-sm">Toca para subir foto</p>
+                    </>
+                )}
+                <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleFileSelect} />
+            </div>
+
+            {/* Inputs */}
+            <div className="mt-6 space-y-4">
+                <textarea 
+                    placeholder="Escribe un pie de foto..." 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-cuadralo-pink resize-none h-24"
+                    value={caption}
+                    onChange={(e) => setCaption(e.target.value)}
                 />
                 
-                {/* Botón flotante para CAMBIAR FOTO */}
-                <button 
-                    onClick={() => fileInputRef.current.click()} // Dispara el input oculto
-                    className="absolute bottom-4 right-4 p-3 bg-black/60 backdrop-blur-md rounded-full text-white border border-white/10 hover:bg-cuadralo-pink transition-colors z-10 group-hover:scale-110"
-                >
-                    <ImageIcon size={20} />
-                </button>
-            </div>
-
-            {/* B) SECCIÓN CONTROLES */}
-            <div className="w-full md:w-[40%] md:h-full md:overflow-y-auto bg-[#0f0518] md:border-l border-white/5 relative">
-                
-                {/* Barra de Filtros */}
-                <div className="py-6 px-4 border-b border-white/5">
-                    <div className="flex items-center gap-2 mb-3 text-gray-400 text-xs font-bold uppercase tracking-wider">
-                        <Wand2 size={14} />
-                        <span>Filtros</span>
-                    </div>
-                    
-                    <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar snap-x">
-                        {filters.map((filter) => (
-                            <button 
-                                key={filter.id}
-                                onClick={() => setActiveFilter(filter.id)}
-                                className={`flex flex-col items-center gap-2 min-w-[80px] snap-start group`}
-                            >
-                                <div className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${activeFilter === filter.id ? 'border-cuadralo-pink scale-110 shadow-[0_0_15px_rgba(242,19,142,0.5)]' : 'border-transparent opacity-70 group-hover:opacity-100'}`}>
-                                    <img 
-                                        src={image} // Usamos la imagen subida también aquí
-                                        className={`w-full h-full object-cover ${filter.class}`} 
-                                        alt={filter.name}
-                                    />
-                                </div>
-                                <span className={`text-xs font-medium ${activeFilter === filter.id ? 'text-white' : 'text-gray-500'}`}>
-                                    {filter.name}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
+                <div className="relative">
+                    <MapPin className="absolute left-3 top-3 text-gray-500" size={18} />
+                    <input 
+                        type="text" 
+                        placeholder="Agregar ubicación"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white text-sm focus:outline-none focus:border-cuadralo-pink"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                    />
                 </div>
-
-                {/* Formulario */}
-                <div className="px-6 py-6 space-y-6 pb-24">
-                    {/* Descripción */}
-                    <div className="space-y-2">
-                        <label className="text-gray-400 text-xs font-bold uppercase tracking-wider">Descripción</label>
-                        <textarea 
-                            placeholder="Escribe un pie de foto..."
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white placeholder-gray-500 focus:outline-none focus:border-cuadralo-purple transition-colors resize-none h-32"
-                            value={caption}
-                            onChange={(e) => setCaption(e.target.value)}
-                        />
-                    </div>
-
-                    {/* Ubicación (Interactivo) */}
-                    <div 
-                        onClick={handleGetLocation}
-                        className={`flex items-center gap-3 p-4 bg-white/5 border rounded-2xl cursor-pointer transition-all active:scale-[0.98] 
-                        ${location ? 'border-cuadralo-pink bg-cuadralo-pink/10' : 'border-white/10 hover:bg-white/10'}`}
-                    >
-                        {isLocating ? (
-                            <Loader2 className="text-cuadralo-pink animate-spin" size={24} />
-                        ) : (
-                            <MapPin className={`${location ? 'text-cuadralo-pink' : 'text-gray-400'}`} size={24} />
-                        )}
-                        
-                        <div className="flex-1">
-                            <p className={`font-medium ${location ? 'text-white' : 'text-gray-400'}`}>
-                                {isLocating ? "Localizando..." : location || "Agregar Ubicación"}
-                            </p>
-                            {location && <p className="text-cuadralo-pink text-xs">Ubicación actual</p>}
-                        </div>
-                        
-                        {location ? (
-                            <X size={20} className="text-gray-400 hover:text-white" onClick={(e) => { e.stopPropagation(); setLocation(""); }} />
-                        ) : (
-                            <ArrowRight size={20} className="text-gray-600" />
-                        )}
-                    </div>
-
-                    {/* Opciones Avanzadas (Desplegable) */}
-                    <div className="border-t border-white/5 pt-4">
-                        <div 
-                            onClick={() => setShowAdvanced(!showAdvanced)}
-                            className="flex justify-between items-center p-2 cursor-pointer hover:bg-white/5 rounded-lg transition-colors"
-                        >
-                            <span className="text-sm text-gray-400 font-medium">Configuración Avanzada</span>
-                            {showAdvanced ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
-                        </div>
-
-                        <AnimatePresence>
-                            {showAdvanced && (
-                                <motion.div 
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: "auto", opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    className="overflow-hidden"
-                                >
-                                    <div className="pt-2 space-y-3 px-2">
-                                        {/* Switch 1: Ocultar Me Gusta */}
-                                        <div className="flex justify-between items-center py-2">
-                                            <span className="text-sm text-white">Ocultar recuento de Me gusta</span>
-                                            <button 
-                                                onClick={() => toggleSetting('hideLikes')}
-                                                className={`w-11 h-6 rounded-full relative transition-colors ${advancedSettings.hideLikes ? 'bg-cuadralo-pink' : 'bg-gray-700'}`}
-                                            >
-                                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${advancedSettings.hideLikes ? 'left-6' : 'left-1'}`} />
-                                            </button>
-                                        </div>
-
-                                        {/* Switch 2: Desactivar Comentarios */}
-                                        <div className="flex justify-between items-center py-2">
-                                            <span className="text-sm text-white">Desactivar comentarios</span>
-                                            <button 
-                                                onClick={() => toggleSetting('disableComments')}
-                                                className={`w-11 h-6 rounded-full relative transition-colors ${advancedSettings.disableComments ? 'bg-cuadralo-pink' : 'bg-gray-700'}`}
-                                            >
-                                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${advancedSettings.disableComments ? 'left-6' : 'left-1'}`} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                </div>
-
             </div>
         </div>
-    </motion.div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/10 bg-[#0f0518]">
+            <button 
+                onClick={handlePublish}
+                disabled={!file || loading}
+                className="w-full bg-gradient-to-r from-cuadralo-pink to-purple-600 text-white font-bold py-3 rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+                {loading ? <Loader2 className="animate-spin" /> : <>Compartir <CheckCircle size={18} /></>}
+            </button>
+        </div>
+
+      </motion.div>
+    </div>
   );
 }

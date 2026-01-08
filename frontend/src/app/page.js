@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/utils/api";
+import { AnimatePresence } from "framer-motion";
 
 // Componentes
 import BottomNav from "@/components/BottomNav";
 import Navbar from "@/components/Navbar";
-import CardStack from "@/components/CardStack";
+import CardStack from "@/components/CardStack"; // El Swipe
 import ChatList from "@/components/ChatList";
 import ChatWindow from "@/components/ChatWindow";
 import MyLikes from "@/components/MyLikes";
@@ -18,11 +19,12 @@ import SocialFeed from "@/components/SocialFeed";
 import FilterModal from "@/components/FilterModal";
 import SearchModal from "@/components/SearchModal";
 import UploadModal from "@/components/UploadModal";
-import { AnimatePresence } from "framer-motion";
 
 export default function Home() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("home");
+  
+  // CAMBIO 1: Iniciar en "social" por defecto
+  const [activeTab, setActiveTab] = useState("social");
   
   // Estados de Modales
   const [showFilters, setShowFilters] = useState(false);
@@ -32,10 +34,11 @@ export default function Home() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [chatBadge, setChatBadge] = useState(0); 
 
-  // Determinar si debemos mostrar el Navbar
-  const showNavbar = !selectedChat && activeTab !== 'profile' && activeTab !== 'chat';
+  // CAMBIO 2: Lógica de Navbar Global
+  // Solo mostramos el Navbar genérico (Filtros/Match) en la pestaña 'home' (Swipe)
+  // Social tiene su propio header, al igual que Chat y Perfil.
+  const showNavbar = !selectedChat && activeTab === 'home';
 
-  // Función GLOBAL para ver notificaciones
   const checkNotifications = async () => {
       try {
           const data = await api.get("/matches");
@@ -66,19 +69,19 @@ export default function Home() {
     }
 
     switch(activeTab) {
-        case "home": return <CardStack />;
-        case "social": return <SocialFeed onUploadClick={() => setShowUpload(true)} />;
+        case "social": return <SocialFeed onUploadClick={() => setShowUpload(true)} />; // Principal
+        case "home": return <CardStack />; // Swipe (Secundario)
         case "likes": return <MyLikes />;
         case "chat": return <ChatList onChatSelect={setSelectedChat} />;
         case "profile": return <Profile />;
-        default: return <CardStack />;
+        default: return <SocialFeed />;
     }
   };
 
   return (
     <main className="h-screen w-full bg-[#0f0518] relative overflow-hidden flex flex-col">
       
-      {/* NAVBAR */}
+      {/* NAVBAR GLOBAL (Solo para Swipe) */}
       {showNavbar && (
           <Navbar 
             onFilterClick={() => setShowFilters(true)} 
@@ -86,11 +89,9 @@ export default function Home() {
           />
       )}
 
-      {/* CORRECCIÓN 1: PADDING TOP DINÁMICO 
-          Si hay Navbar, agregamos 'pt-20' para que el contenido no quede tapado.
-          Si no (ej: Chat), usamos 'pt-0' para aprovechar toda la pantalla.
-      */}
-      <div className={`flex-1 w-full h-full relative ${showNavbar ? "pt-20" : ""}`}>
+      {/* ÁREA DE CONTENIDO */}
+      {/* Si hay Navbar global, bajamos el contenido (pt-20). Si no (como en Social), pt-0 porque Social tiene su propio header fixed */}
+      <div className={`flex-1 w-full h-full relative ${showNavbar ? "pt-20" : "pt-0"}`}>
         {renderView()}
       </div>
 

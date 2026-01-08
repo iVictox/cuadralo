@@ -28,4 +28,16 @@ type User struct {
 	Boosts        []Boost        `gorm:"foreignKey:UserID"`
 
 	CreatedAt time.Time `json:"created_at"`
+
+	HasStory    bool  `gorm:"-" json:"has_story"`
+	Followers   int64 `gorm:"-" json:"followers_count"`
+	Following   int64 `gorm:"-" json:"following_count"`
+	IsFollowing bool  `gorm:"-" json:"is_following"` // ¿Yo lo sigo?
+}
+
+// NUEVO MODELO: RELACIÓN SEGUIR
+type Follow struct {
+	FollowerID  uint      `gorm:"primaryKey" json:"follower_id"`
+	FollowingID uint      `gorm:"primaryKey" json:"following_id"`
+	CreatedAt   time.Time `json:"created_at"`
 }
