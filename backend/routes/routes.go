@@ -36,4 +36,10 @@ func Setup(app *fiber.App) {
 	api.Post("/messages", controllers.SendMessage)
 
 	app.Post("/api/upload", controllers.UploadFile)
+
+	api.Post("/messages/:id/save", controllers.SaveMessage)
+
+	api.Post("/messages/:id/toggle-save", controllers.ToggleMessageSave) // Usamos toggle
+	api.Delete("/messages/:id", controllers.DeleteMessage)
+	api.Post("/messages/:id/view", controllers.MarkMessageViewed)
 }

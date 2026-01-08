@@ -1,18 +1,20 @@
 package models
 
-import (
-	"gorm.io/gorm"
-)
+import "time"
 
 type Message struct {
-	gorm.Model
+	ID         uint   `gorm:"primaryKey" json:"id"`
 	SenderID   uint   `json:"sender_id"`
 	ReceiverID uint   `json:"receiver_id"`
 	Content    string `json:"content"`
-	Type       string `json:"type"` // "text", "image"
-	IsRead     bool   `json:"is_read" gorm:"default:false"`
+	// Type puede ser: "text", "image", "screenshot_alert"
+	Type   string `json:"type" gorm:"default:'text'"`
+	IsRead bool   `json:"is_read" gorm:"default:false"`
 
-	IsSaved    bool `json:"is_saved" gorm:"default:false"`     // Si es true, no se borra a las 24h
-	IsViewOnce bool `json:"is_view_once" gorm:"default:false"` // Si es true, solo se ve una vez
-	IsViewed   bool `json:"is_viewed" gorm:"default:false"`    // Si ya fue vista (para fotos efímeras)
+	// Nuevo campo para saber si la foto efímera ya se abrió
+	IsViewed bool `json:"is_viewed" gorm:"default:false"`
+
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Saved     bool      `json:"saved" gorm:"default:false"`
 }

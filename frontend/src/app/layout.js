@@ -12,12 +12,14 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es">
-      <body>
-         <SocketProvider>
-            {/* ... resto de providers */}
-            {children}
-         </SocketProvider>
+    <html lang="es" className="scrollbar-hide">
+      <body className={`${inter.className} bg-[#0f0518] antialiased`}>
+        {/* ENVOLVEMOS TODO CON LOS PROVIDERS */}
+        <ToastProvider>
+           <SocketProvider>
+              {children}
+           </SocketProvider>
+        </ToastProvider>
       </body>
     </html>
   );

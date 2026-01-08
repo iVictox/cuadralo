@@ -22,7 +22,6 @@ type ChatPreviewDTO struct {
 func GetMatches(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
-	// A. Buscar coincidencias en la tabla matches
 	var matches []models.Match
 	database.DB.Where("user1_id = ? OR user2_id = ?", myId, myId).Find(&matches)
 
@@ -39,25 +38,24 @@ func GetMatches(c *fiber.Ctx) error {
 		return c.JSON([]ChatPreviewDTO{})
 	}
 
-	// B. Buscar información de los usuarios amigos
 	var friends []models.User
 	database.DB.Omit("password").Where("id IN ?", friendIds).Find(&friends)
 
-	// C. Construir la respuesta con último mensaje y contadores
 	var results []ChatPreviewDTO
 
 	for _, f := range friends {
-		// Buscar el último mensaje entre YO y EL AMIGO
 		var lastMsg models.Message
+		// Buscar ultimo mensaje, ignorando los expirados no guardados
+		// (expires_at > NOW OR saved = true)
 		database.DB.Where(
-			"(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)",
-			myId, f.ID, f.ID, myId,
+			"((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) AND (expires_at > ? OR saved = ?)",
+			myId, f.ID, f.ID, myId, time.Now(), true,
 		).Order("created_at desc").First(&lastMsg)
 
-		// Contar mensajes NO LEÍDOS (donde yo soy el receptor)
 		var unread int64
 		database.DB.Model(&models.Message{}).
-			Where("sender_id = ? AND receiver_id = ? AND is_read = ?", f.ID, myId, false).
+			Where("sender_id = ? AND receiver_id = ? AND is_read = ? AND (expires_at > ? OR saved = ?)",
+				f.ID, myId, false, time.Now(), true).
 			Count(&unread)
 
 		dto := ChatPreviewDTO{
@@ -68,7 +66,6 @@ func GetMatches(c *fiber.Ctx) error {
 		}
 
 		if lastMsg.ID != 0 {
-			// Si es imagen, mostramos un texto especial
 			if lastMsg.Type == "image" {
 				dto.LastMessage = "📷 Foto"
 			} else {
@@ -76,7 +73,6 @@ func GetMatches(c *fiber.Ctx) error {
 			}
 			dto.LastTime = lastMsg.CreatedAt
 		} else {
-			// Si no hay mensajes, es un match nuevo
 			dto.LastMessage = ""
 		}
 
@@ -86,23 +82,25 @@ func GetMatches(c *fiber.Ctx) error {
 	return c.JSON(results)
 }
 
-// Estructura para recibir el mensaje desde el frontend
 type MessageDTO struct {
 	ReceiverID uint   `json:"receiver_id"`
 	Content    string `json:"content"`
-	Type       string `json:"type"` // "text" o "image"
+	Type       string `json:"type"`
 }
 
-// 2. ENVIAR MENSAJE
+// 2. ENVIAR MENSAJE (Default 24h)
 func SendMessage(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
-	var data MessageDTO
+	var data struct {
+		ReceiverID uint   `json:"receiver_id"`
+		Content    string `json:"content"`
+		Type       string `json:"type"`
+	}
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
-	// Validar tipo de mensaje (por defecto "text")
 	msgType := "text"
 	if data.Type == "image" {
 		msgType = "image"
@@ -113,43 +111,97 @@ func SendMessage(c *fiber.Ctx) error {
 		ReceiverID: data.ReceiverID,
 		Content:    data.Content,
 		Type:       msgType,
-		IsRead:     false, // Nace sin leer
+		IsRead:     false,
+		ExpiresAt:  time.Now().Add(24 * time.Hour), // 24H por defecto
+		Saved:      false,
 	}
 
 	if err := database.DB.Create(&msg).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Error enviando mensaje"})
+		return c.Status(500).JSON(fiber.Map{"error": "Error enviando"})
 	}
-
 	return c.JSON(msg)
 }
 
-// 3. OBTENER HISTORIAL DE MENSAJES (Y marcar como leídos)
+func ToggleMessageSave(c *fiber.Ctx) error {
+	msgId := c.Params("id")
+
+	var msg models.Message
+	if err := database.DB.First(&msg, msgId).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Mensaje no encontrado"})
+	}
+
+	// Invertir estado
+	msg.Saved = !msg.Saved
+
+	// Si se guarda, extendemos expiración (opcional, para que no se borre de la DB por cronjob si lo hubiera)
+	if msg.Saved {
+		// msg.ExpiresAt = time.Now().Add(100 * 365 * 24 * time.Hour) // Opcional
+	}
+
+	database.DB.Save(&msg)
+	return c.JSON(fiber.Map{"saved": msg.Saved, "message": "Estado actualizado"})
+}
+
+func DeleteMessage(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
+	msgId := c.Params("id")
+
+	// Borramos solo si soy el dueño o el receptor (según tu lógica, usualmente el sender borra)
+	// Aquí permitimos borrar si soy el Sender
+	result := database.DB.Where("id = ? AND sender_id = ?", msgId, myId).Delete(&models.Message{})
+
+	if result.RowsAffected == 0 {
+		return c.Status(403).JSON(fiber.Map{"error": "No puedes borrar este mensaje"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Eliminado"})
+}
+
+// 3. OBTENER HISTORIAL (Filtrando expirados)
 func GetMessages(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	targetId := c.Params("id")
 
-	// A. Marcar como leídos los mensajes que ME enviaron en este chat
-	// UPDATE messages SET is_read = true WHERE sender_id = target AND receiver_id = me AND is_read = false
+	// Marcar como leídos
 	database.DB.Model(&models.Message{}).
 		Where("sender_id = ? AND receiver_id = ? AND is_read = ?", targetId, myId, false).
 		Update("is_read", true)
 
-	// B. Obtener historial completo ordenado por fecha
+	// Obtener mensajes QUE NO HAN EXPIRADO o ESTÁN GUARDADOS
 	var messages []models.Message
 	database.DB.Where(
-		"(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)",
-		myId, targetId, targetId, myId,
+		"((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) AND (expires_at > ? OR saved = ?)",
+		myId, targetId, targetId, myId, time.Now(), true,
 	).Order("created_at asc").Find(&messages)
 
 	return c.JSON(messages)
 }
 
-// 4. ELIMINAR MATCH (Bloquear usuario)
+// 4. GUARDAR MENSAJE
+func SaveMessage(c *fiber.Ctx) error {
+	// myId := uint(c.Locals("userId").(float64)) // Podríamos validar si el usuario pertenece al chat
+	msgId := c.Params("id")
+
+	var msg models.Message
+	if err := database.DB.First(&msg, msgId).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Mensaje no encontrado"})
+	}
+
+	// Marcar como guardado (ya no expira)
+	msg.Saved = true
+	// Opcional: Podrías extender la fecha de expiración a 100 años
+	// msg.ExpiresAt = time.Now().Add(876000 * time.Hour)
+
+	database.DB.Save(&msg)
+
+	return c.JSON(fiber.Map{"message": "Mensaje guardado", "saved": true})
+}
+
+// 5. ELIMINAR MATCH
 func DeleteMatch(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	targetId := c.Params("id")
 
-	// Borramos la relación de la tabla matches en ambas direcciones
 	result := database.DB.Where(
 		"(user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)",
 		myId, targetId, targetId, myId,
@@ -160,4 +212,14 @@ func DeleteMatch(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"message": "Match eliminado correctamente"})
+}
+
+func MarkMessageViewed(c *fiber.Ctx) error {
+	msgId := c.Params("id")
+
+	// UPDATE messages SET is_viewed = true WHERE id = ?
+	if err := database.DB.Model(&models.Message{}).Where("id = ?", msgId).Update("is_viewed", true).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error al marcar visto"})
+	}
+	return c.JSON(fiber.Map{"message": "Marcado como visto"})
 }

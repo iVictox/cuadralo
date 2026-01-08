@@ -4,7 +4,8 @@ import { createContext, useContext, useState, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
 import Toast from "@/components/Toast";
 
-const ToastContext = createContext();
+// Inicializamos con null para detectar si falta el Provider
+const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
   const [toast, setToast] = useState(null);
@@ -30,4 +31,15 @@ export function ToastProvider({ children }) {
   );
 }
 
-export const useToast = () => useContext(ToastContext);
+export const useToast = () => {
+  const context = useContext(ToastContext);
+  
+  // --- SEGURIDAD ANTI-CRASH ---
+  if (!context) {
+    console.warn("⚠️ useToast fue llamado fuera del ToastProvider. Verifica tu layout.js");
+    // Devolvemos una función vacía para que la app NO se rompa
+    return { showToast: (msg) => console.log("Toast (Sin UI):", msg) };
+  }
+  
+  return context;
+};
