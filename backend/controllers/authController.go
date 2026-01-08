@@ -4,6 +4,7 @@ import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
 	"encoding/json"
+	"strings" // <--- NUEVO IMPORT
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -67,20 +68,25 @@ func Register(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Usuario registrado exitosamente"})
 }
 
-// LOGIN
+// LOGIN CORREGIDO (SOLUCIÓN MÓVIL)
 func Login(c *fiber.Ctx) error {
 	var data map[string]string
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
+	// --- LIMPIEZA DE DATOS (FIX PARA MÓVILES) ---
+	email := strings.TrimSpace(data["email"])
+	password := strings.TrimSpace(data["password"])
+	// --------------------------------------------
+
 	var user models.User
-	database.DB.Where("email = ?", data["email"]).First(&user)
+	database.DB.Where("email = ?", email).First(&user)
 	if user.ID == 0 {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data["password"])); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Contraseña incorrecta"})
 	}
 

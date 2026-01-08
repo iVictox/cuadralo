@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.235:8000/api";
 
 const getHeaders = () => {
   const token = localStorage.getItem("token");

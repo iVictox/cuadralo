@@ -2,6 +2,7 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import { ToastProvider } from "@/context/ToastContext"; 
 import { SocketProvider } from "@/context/SocketContext";
+import { ConfirmProvider } from "@/context/ConfirmContext"; // <--- IMPORTAR
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -14,11 +15,12 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es" className="scrollbar-hide">
       <body className={`${inter.className} bg-[#0f0518] antialiased`}>
-        {/* ENVOLVEMOS TODO CON LOS PROVIDERS */}
         <ToastProvider>
-           <SocketProvider>
-              {children}
-           </SocketProvider>
+           <ConfirmProvider> {/* <--- AGREGAR AQUÍ (Orden: Toast > Confirm > Socket > Hijos) */}
+             <SocketProvider>
+                {children}
+             </SocketProvider>
+           </ConfirmProvider>
         </ToastProvider>
       </body>
     </html>

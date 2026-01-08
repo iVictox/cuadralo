@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { api } from "@/utils/api"; // Importamos nuestra utilidad de API
+import { api } from "@/utils/api"; 
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,7 +29,6 @@ export default function LoginPage() {
         console.log("Login exitoso:", response);
 
         // 2. Guardar Token y Usuario en LocalStorage
-        // Esto es vital para que la app sepa quién eres al recargar
         localStorage.setItem("token", response.token);
         localStorage.setItem("user", JSON.stringify(response.user));
 
@@ -80,6 +79,10 @@ export default function LoginPage() {
                             className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white placeholder-gray-600 focus:outline-none focus:border-cuadralo-pink transition-all"
                             value={formData.email}
                             onChange={(e) => setFormData({...formData, email: e.target.value})}
+                            // --- PROPIEDADES PARA CORREGIR TECLADO MÓVIL ---
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck="false"
                         />
                     </div>
                 </div>
@@ -95,6 +98,9 @@ export default function LoginPage() {
                             className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-12 pr-12 text-white placeholder-gray-600 focus:outline-none focus:border-cuadralo-pink transition-all"
                             value={formData.password}
                             onChange={(e) => setFormData({...formData, password: e.target.value})}
+                            // --- PROPIEDADES PARA CORREGIR TECLADO MÓVIL ---
+                            autoCapitalize="none"
+                            autoCorrect="off"
                         />
                         <button 
                             type="button"
