@@ -12,8 +12,9 @@ import { api } from "@/utils/api";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
 import StoreModal from "@/components/StoreModal";
+import EditProfileModal from "@/components/EditProfileModal"; // Importamos el modal de abajo
 
-// --- DICCIONARIO COMPLETO (Sincronizado con CardStack) ---
+// --- DICCIONARIO COMPLETO ---
 const AVAILABLE_INTERESTS = [
     { id: "music", label: "Música", icon: <Music size={16} /> },
     { id: "games", label: "Gaming", icon: <Gamepad2 size={16} /> },
@@ -44,7 +45,7 @@ export default function Profile() {
   
   const [showEdit, setShowEdit] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showStore, setShowStore] = useState(false); // <--- NUEVO ESTADO
+  const [showStore, setShowStore] = useState(false);
   
   const [user, setUser] = useState(null);
   const [matchCount, setMatchCount] = useState(0);
@@ -74,8 +75,8 @@ export default function Profile() {
   const displayBio = user.bio || "Sin descripción";
   const displayPhoto = user.photo || "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=600";
   
-  let userInterests = [];
-  try { userInterests = JSON.parse(user.interests || "[]"); } catch (e) { }
+  // --- CORRECCIÓN LÓGICA: Ahora es un array directo, no un JSON string ---
+  const userInterests = Array.isArray(user.interests) ? user.interests : [];
 
   return (
     <>
@@ -189,68 +190,7 @@ function MenuItem({ icon, label, onClick, color = "text-white", border = "border
   );
 }
 
-function EditProfileModal({ user, onClose, onSave }) {
-    const { showToast } = useToast();
-    const [formData, setFormData] = useState({ name: user.name, bio: user.bio || "", photo: user.photo, interests: [] });
-    useEffect(() => { try { const parsed = JSON.parse(user.interests || "[]"); setFormData(prev => ({ ...prev, interests: parsed })); } catch (e) {} }, [user.interests]);
-    const [isSaving, setIsSaving] = useState(false);
-    const handlePhotoChange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        try { 
-            const newUrl = await api.upload(file); 
-            setFormData(prev => ({ ...prev, photo: newUrl })); 
-            showToast("Foto cargada correctamente");
-        } catch (error) { showToast("Error al subir imagen", "error"); }
-    };
-    const toggleInterest = (id) => { setFormData(prev => { const current = prev.interests; return current.includes(id) ? { ...prev, interests: current.filter(i => i !== id) } : { ...prev, interests: [...current, id] }; }); };
-    const handleSave = async () => {
-        setIsSaving(true);
-        try { await api.put("/me", formData); onSave(); } catch (error) { showToast("Error guardando cambios", "error"); } 
-        finally { setIsSaving(false); }
-    };
-
-    return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center">
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="w-full max-w-md bg-[#1a0b2e] rounded-t-3xl sm:rounded-3xl p-6 border-t border-white/10 shadow-2xl h-[85vh] overflow-y-auto scrollbar-hide [&::-webkit-scrollbar]:hidden">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-white">Editar Perfil</h3>
-                    <button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors"><X size={20} className="text-gray-400" /></button>
-                </div>
-                <div className="flex flex-col items-center mb-8">
-                    <label className="relative w-32 h-32 group cursor-pointer">
-                        <img src={formData.photo} className="w-full h-full rounded-full object-cover border-4 border-cuadralo-pink opacity-80 group-hover:opacity-100 transition-opacity" />
-                        <div className="absolute inset-0 flex items-center justify-center"><Camera size={32} className="text-white drop-shadow-lg" /></div>
-                        <input type="file" className="hidden" onChange={handlePhotoChange} accept="image/*" />
-                    </label>
-                    <p className="text-xs text-gray-400 mt-2 font-medium">Toca para cambiar foto</p>
-                </div>
-                <div className="space-y-6">
-                    <div className="space-y-4">
-                        <div><label className="text-[10px] font-bold text-gray-500 uppercase ml-2">Nombre</label><input value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:border-cuadralo-pink outline-none mt-1"/></div>
-                        <div><label className="text-[10px] font-bold text-gray-500 uppercase ml-2">Bio</label><textarea value={formData.bio} onChange={(e) => setFormData({...formData, bio: e.target.value})} className="w-full h-24 bg-white/5 border border-white/10 rounded-xl p-4 text-white focus:border-cuadralo-pink outline-none mt-1 resize-none" placeholder="Cuéntanos algo sobre ti..."/></div>
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-bold text-gray-500 uppercase ml-2 mb-2 block">Tus Intereses</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {AVAILABLE_INTERESTS.map((item) => { 
-                                const isActive = formData.interests.includes(item.id); 
-                                return (
-                                    <button key={item.id} onClick={() => toggleInterest(item.id)} className={`flex items-center gap-2 p-3 rounded-xl border transition-all ${isActive ? 'bg-cuadralo-pink/20 border-cuadralo-pink text-white' : 'bg-white/5 border-transparent text-gray-400 hover:bg-white/10'}`}>
-                                        <div className={isActive ? "text-cuadralo-pink" : "text-gray-500"}>{item.icon}</div>
-                                        <span className="text-sm font-medium">{item.label}</span>
-                                    </button>
-                                ); 
-                            })}
-                        </div>
-                    </div>
-                </div>
-                <button onClick={handleSave} disabled={isSaving} className="w-full mt-8 bg-cuadralo-pink py-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50 mb-6">{isSaving ? <Loader2 className="animate-spin" /> : <><Save size={20} /> Guardar Cambios</>}</button>
-            </motion.div>
-        </motion.div>
-    );
-}
-
+// Modal de Configuración (Manteniendo el tuyo)
 function SettingsModal({ user, onClose }) {
     const { showToast } = useToast();
     const [view, setView] = useState("main");

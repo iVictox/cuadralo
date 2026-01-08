@@ -30,6 +30,8 @@ func Setup(app *fiber.App) {
 	api.Get("/matches", controllers.GetMatches)
 	api.Delete("/matches/:id", controllers.DeleteMatch)
 
+	api.Get("/users/:id", controllers.GetUser) // <--- RUTA NUEVA IMPRESCINDIBLE
+
 	api.Get("/messages/:id", controllers.GetMessages)
 	api.Post("/messages", controllers.SendMessage)
 }

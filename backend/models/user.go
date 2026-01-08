@@ -3,22 +3,29 @@ package models
 import "time"
 
 type User struct {
-	ID          uint   `json:"id" gorm:"primaryKey"`
-	Name        string `json:"name"`
-	Email       string `json:"email" gorm:"unique"`
-	Password    string `json:"-"`
-	BirthDate   string `json:"birth_date"`
-	Age         int    `json:"age"`
-	Gender      string `json:"gender"`
-	Photo       string `json:"photo"`
-	Bio         string `json:"bio"`
-	Interests   string `json:"interests"`
-	Preferences string `json:"preferences"`
-	IsVerified  bool   `json:"is_verified"`
+	ID        uint   `gorm:"primaryKey" json:"id"`
+	Name      string `json:"name"`
+	Email     string `gorm:"unique" json:"email"`
+	Password  string `json:"-"`
+	Age       int    `json:"age"`
+	Gender    string `json:"gender"`
+	BirthDate string `json:"birth_date"`
+	Photo     string `json:"photo"`
+	Bio       string `json:"bio"`
 
-	// Relaciones (GORM las maneja automáticamente)
-	Subscriptions []Subscription `json:"subscriptions,omitempty"`
-	Boosts        []Boost        `json:"boosts,omitempty"`
+	// RELACIÓN MANY-TO-MANY
+	Interests []Interest `gorm:"many2many:user_interests;" json:"interests_obj"`
+
+	// Campo virtual para compatibilidad JSON (lo usaremos en los controllers)
+	InterestsList []string `gorm:"-" json:"interests"`
+
+	Preferences string `json:"preferences"` // JSON string
+
+	// Relaciones existentes
+	Likes         []Like         `gorm:"foreignKey:FromUserID"`
+	Matches       []Match        `gorm:"foreignKey:User1ID"`
+	Subscriptions []Subscription `gorm:"foreignKey:UserID"`
+	Boosts        []Boost        `gorm:"foreignKey:UserID"`
 
 	CreatedAt time.Time `json:"created_at"`
 }

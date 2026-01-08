@@ -3,10 +3,12 @@
 import { motion } from "framer-motion";
 import { MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation"; // Importar router
 
 const DEFAULT_IMG = "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=600";
 
 export default function MatchModal({ matchedUser, onClose, onChat }) {
+  const router = useRouter();
   const [myPhoto, setMyPhoto] = useState(DEFAULT_IMG);
 
   useEffect(() => {
@@ -25,9 +27,18 @@ export default function MatchModal({ matchedUser, onClose, onChat }) {
 
   const matchedUserPhoto = matchedUser.img || DEFAULT_IMG;
 
+  const handleGoToChat = () => {
+      // 1. Cerrar el modal
+      if (onClose) onClose();
+      // 2. Navegar al chat (opcional, si quieres que vaya directo)
+      // router.push("/chat");
+      // O si prefieres que onChat maneje la lógica:
+      if (onChat) onChat();
+  };
+
   return (
-    // CAMBIO: z-[500] para estar por encima de todos los otros modales
-    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4">
+    // Z-INDEX SUPREMO: 9999
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4">
       
       {/* Fondo de Confeti */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -77,7 +88,7 @@ export default function MatchModal({ matchedUser, onClose, onChat }) {
                 transition={{ delay: 0.8 }}
                 className="absolute z-30 bg-white text-cuadralo-pink p-3 rounded-full shadow-xl"
             >
-                 <Heart fill="currentColor" size={24} />
+                 <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
             </motion.div>
         </div>
 
@@ -88,7 +99,7 @@ export default function MatchModal({ matchedUser, onClose, onChat }) {
         {/* Botones */}
         <div className="flex flex-col gap-3 w-full">
             <button 
-                onClick={onChat}
+                onClick={handleGoToChat}
                 className="w-full bg-gradient-to-r from-cuadralo-pink to-purple-600 py-4 rounded-xl font-bold text-white shadow-lg hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
             >
                 <MessageCircle size={20} />
