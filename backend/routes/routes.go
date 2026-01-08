@@ -34,4 +34,6 @@ func Setup(app *fiber.App) {
 
 	api.Get("/messages/:id", controllers.GetMessages)
 	api.Post("/messages", controllers.SendMessage)
+
+	app.Post("/api/upload", controllers.UploadFile)
 }

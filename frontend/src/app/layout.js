@@ -1,7 +1,7 @@
 import "./globals.css"; 
 import { Inter } from "next/font/google";
 import { ToastProvider } from "@/context/ToastContext"; 
-// Asegúrate de NO importar MatchNotification aquí si no lo vamos a usar todavía
+import { SocketProvider } from "@/context/SocketContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -12,12 +12,12 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es" className="scrollbar-hide">
-      <body className={`${inter.className} bg-[#0f0518] antialiased`}>
-        <ToastProvider>
-           {/* Eliminamos MatchNotification de aquí por ahora */}
-          {children}
-        </ToastProvider>
+    <html lang="es">
+      <body>
+         <SocketProvider>
+            {/* ... resto de providers */}
+            {children}
+         </SocketProvider>
       </body>
     </html>
   );

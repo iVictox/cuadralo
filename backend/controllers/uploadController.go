@@ -9,34 +9,46 @@ import (
 	"github.com/google/uuid"
 )
 
+// UploadFile maneja la recepción de archivos (imágenes para el chat)
 func UploadFile(c *fiber.Ctx) error {
-	// 1. Leer el archivo del formulario
-	file, err := c.FormFile("image")
+	// 1. Leer el archivo del form-data
+	file, err := c.FormFile("file")
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "No se subió ninguna imagen"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "No se ha enviado ningún archivo válido",
+		})
 	}
 
-	// 2. Validar tamaño (ej: Max 5MB)
-	if file.Size > 5*1024*1024 {
-		return c.Status(400).JSON(fiber.Map{"error": "La imagen es muy pesada (Max 5MB)"})
+	// 2. Validar extensión (básico de seguridad)
+	ext := filepath.Ext(file.Filename)
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Formato de archivo no permitido. Usa JPG, PNG o WEBP.",
+		})
 	}
 
-	// 3. Generar nombre único (Timestamp + UUID)
-	// No usamos el ID del usuario porque en el registro aún no lo tenemos
-	uniqueId := uuid.New()
-	filename := fmt.Sprintf("%d_%s%s", time.Now().UnixNano(), uniqueId.String(), filepath.Ext(file.Filename))
+	// 3. Generar un nombre único para evitar colisiones
+	// Usamos UUID + timestamp para garantizar unicidad
+	uniqueName := fmt.Sprintf("%d-%s%s", time.Now().Unix(), uuid.New().String()[0:8], ext)
 
-	// 4. Guardar en carpeta ./uploads
-	savePath := fmt.Sprintf("./uploads/%s", filename)
-	if err := c.SaveFile(file, savePath); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Error guardando el archivo"})
+	// 4. Definir ruta de destino (asegúrate de que la carpeta ./uploads exista)
+	destination := filepath.Join("./uploads", uniqueName)
+
+	// 5. Guardar el archivo en el servidor
+	if err := c.SaveFile(file, destination); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error al guardar el archivo en el servidor",
+		})
 	}
 
-	// 5. Devolver la URL completa
-	// Ajusta "http://localhost:8000" si tu dominio cambia
-	fullUrl := fmt.Sprintf("http://localhost:8000/uploads/%s", filename)
+	// 6. Construir la URL pública para acceder a la imagen
+	// Importante: En producción, esto debería ser la URL de S3/Cloudinary.
+	// Para desarrollo local, usamos la ruta estática configurada en main.go
+	publicURL := fmt.Sprintf("http://localhost:8000/uploads/%s", uniqueName)
 
-	return c.JSON(fiber.Map{
-		"url": fullUrl,
+	// 7. Devolver la URL al frontend
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"url":     publicURL,
+		"message": "Imagen subida correctamente",
 	})
 }
