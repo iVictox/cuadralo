@@ -8,11 +8,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// Input para el Swipe
 type SwipeInput struct {
 	TargetID uint   `json:"target_id"`
-	Action   string `json:"action"`
+	Action   string `json:"action"` // "left" o "right"
 }
 
+// 1. Registrar Swipe (Like/Dislike)
 func Swipe(c *fiber.Ctx) error {
 	myIdFloat := c.Locals("userId").(float64)
 	myId := uint(myIdFloat)
@@ -22,12 +24,19 @@ func Swipe(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
+	// Verificar si ya existe el swipe para no duplicar
+	var existing models.Like
+	if database.DB.Where("from_user_id = ? AND to_user_id = ?", myId, input.TargetID).First(&existing).RowsAffected > 0 {
+		return c.JSON(fiber.Map{"message": "Ya interactuaste con este perfil", "match": false})
+	}
+
 	like := models.Like{FromUserID: myId, ToUserID: input.TargetID, Action: input.Action}
 	database.DB.Create(&like)
 
 	isMatch := false
 	if input.Action == "right" {
 		var reverseLike models.Like
+		// Verificamos si la otra persona también dio like ("right")
 		err := database.DB.Where("from_user_id = ? AND to_user_id = ? AND action = 'right'", input.TargetID, myId).First(&reverseLike).Error
 		if err == nil {
 			isMatch = true
@@ -38,38 +47,73 @@ func Swipe(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Swipe registrado", "match": isMatch})
 }
 
-// OBTENER LIKES RECIBIDOS (Con lógica de Suscripción Relacional)
+// 2. Obtener Feed de Swipe (Candidatos) - ✅ NUEVA FUNCIÓN
+func GetSwipeFeed(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
+
+	// A. Obtener lista de usuarios a los que YA les hice swipe (likes o dislikes)
+	var swipedList []models.Like
+	database.DB.Select("to_user_id").Where("from_user_id = ?", myId).Find(&swipedList)
+
+	// Crear mapa de IDs excluidos (incluyéndome a mí mismo)
+	excludedIDs := []uint{myId}
+	for _, swipe := range swipedList {
+		excludedIDs = append(excludedIDs, swipe.ToUserID)
+	}
+
+	// B. Buscar usuarios que NO estén en la lista de excluidos
+	var users []models.User
+	// Preload de intereses para mostrar en la tarjeta
+	result := database.DB.Preload("Interests").
+		Where("id NOT IN ?", excludedIDs).
+		Limit(20). // Traemos de 20 en 20 para no saturar
+		Find(&users)
+
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error cargando feed"})
+	}
+
+	// C. Formatear respuesta (incluyendo intereses simplificados)
+	for i := range users {
+		var interestsList []string
+		for _, interest := range users[i].Interests {
+			interestsList = append(interestsList, interest.Slug)
+		}
+		users[i].InterestsList = interestsList
+	}
+
+	return c.JSON(users)
+}
+
+// 3. Obtener Likes Recibidos (Pantalla "Le gustas")
 func GetReceivedLikes(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
-	// 1. Verificar si tengo suscripción GOLD o PLATINUM activa
+	// Verificar suscripción
 	var activeSub models.Subscription
 	err := database.DB.Where("user_id = ? AND status = 'active' AND end_date > ?", myId, time.Now()).
-		Where("plan IN ?", []string{"gold", "platinum"}). // Solo Gold y Platinum ven likes
+		Where("plan IN ?", []string{"gold", "platinum"}).
 		First(&activeSub).Error
 
-	isGoldOrBetter := (err == nil) // true si encontró suscripción
+	isGoldOrBetter := (err == nil)
 
-	// 2. Obtener IDs de likes recibidos
+	// Obtener quienes me dieron like
 	var likedBy []models.Like
 	database.DB.Where("to_user_id = ? AND action = 'right'", myId).Find(&likedBy)
-	var likerIDs []uint
-	for _, l := range likedBy {
-		likerIDs = append(likerIDs, l.FromUserID)
-	}
 
-	// 3. Excluir ya respondidos
+	// Filtrar los que yo ya respondí (match o rechazo)
 	var mySwipes []models.Like
 	database.DB.Where("from_user_id = ?", myId).Find(&mySwipes)
+
 	swipedMap := make(map[uint]bool)
 	for _, s := range mySwipes {
 		swipedMap[s.ToUserID] = true
 	}
 
 	var pendingIDs []uint
-	for _, id := range likerIDs {
-		if !swipedMap[id] {
-			pendingIDs = append(pendingIDs, id)
+	for _, l := range likedBy {
+		if !swipedMap[l.FromUserID] {
+			pendingIDs = append(pendingIDs, l.FromUserID)
 		}
 	}
 
@@ -77,26 +121,21 @@ func GetReceivedLikes(c *fiber.Ctx) error {
 		return c.JSON([]fiber.Map{})
 	}
 
-	// 4. Buscar usuarios
 	var users []models.User
 	database.DB.Where("id IN ?", pendingIDs).Find(&users)
 
-	// 5. Respuesta (Censurada si no es Gold)
 	response := []fiber.Map{}
 	for _, u := range users {
 		locked := !isGoldOrBetter
-
 		item := fiber.Map{
 			"id":     u.ID,
 			"age":    u.Age,
 			"img":    u.Photo,
 			"locked": locked,
+			"name":   u.Name, // Enviamos nombre, el frontend decide si mostrar borroso
 		}
-
 		if locked {
 			item["name"] = "???"
-		} else {
-			item["name"] = u.Name
 		}
 		response = append(response, item)
 	}

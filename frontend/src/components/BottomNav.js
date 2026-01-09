@@ -1,13 +1,13 @@
 "use client";
 
-import { Home, Flame, Heart, MessageCircle, User } from "lucide-react"; // ✅ USAMOS FLAME (FUEGO)
+import { Home, Search, Heart, MessageCircle, User } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function BottomNav({ activeTab, onTabChange, chatBadge }) {
   
   const navItems = [
     { id: "social", icon: Home, label: "Inicio" },
-    { id: "home", icon: Flame, label: "Swipe" }, // ✅ CORREGIDO: Icono de Fuego para Swipe
+    { id: "home", icon: Search, label: "Swipe" }, // Icono Search para Swipe (lupa)
     { id: "likes", icon: Heart, label: "Likes" },
     { id: "chat", icon: MessageCircle, label: "Chat", badge: chatBadge },
     { id: "profile", icon: User, label: "Perfil" },
@@ -38,7 +38,7 @@ export default function BottomNav({ activeTab, onTabChange, chatBadge }) {
                 ${isActive ? "text-cuadralo-pink" : "text-gray-400 hover:text-white hover:bg-white/5"}
             `}
           >
-            {/* Fondo activo sutil (Solo Desktop) */}
+            {/* Fondo activo sutil (Solo Desktop para que se vea elegante) */}
             {isActive && (
                 <div className="hidden md:block absolute inset-0 bg-cuadralo-pink/10 rounded-xl blur-md" />
             )}
@@ -59,7 +59,7 @@ export default function BottomNav({ activeTab, onTabChange, chatBadge }) {
                 )}
             </div>
 
-            {/* Indicador de activo */}
+            {/* Indicador de activo (Punto debajo en móvil, Barra lateral en Desktop) */}
             {isActive && (
               <>
                   {/* Móvil: Punto abajo */}
