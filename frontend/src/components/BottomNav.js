@@ -1,73 +1,83 @@
-import { Home, MessageCircle, User, Heart, Flame } from "lucide-react";
+"use client";
+
+import { Home, Flame, Heart, MessageCircle, User } from "lucide-react"; // ✅ USAMOS FLAME (FUEGO)
+import { motion } from "framer-motion";
 
 export default function BottomNav({ activeTab, onTabChange, chatBadge }) {
+  
+  const navItems = [
+    { id: "social", icon: Home, label: "Inicio" },
+    { id: "home", icon: Flame, label: "Swipe" }, // ✅ CORREGIDO: Icono de Fuego para Swipe
+    { id: "likes", icon: Heart, label: "Likes" },
+    { id: "chat", icon: MessageCircle, label: "Chat", badge: chatBadge },
+    { id: "profile", icon: User, label: "Perfil" },
+  ];
+
   return (
-    <div className="fixed bottom-0 left-0 w-full z-50 pb-4 pt-3 px-6 bg-[#0f0518]/95 backdrop-blur-xl border-t border-white/5">
-      <div className="flex justify-between items-center w-full max-w-2xl mx-auto">
+    <div className="
+        fixed z-50 bg-[#0f0518]/90 backdrop-blur-xl border-white/10 text-white
         
-        {/* 1. SOCIAL FEED (Ahora es la Principal - Icono Home) */}
-        <NavItem 
-            icon={<Home size={24} />} 
-            isActive={activeTab === "social"} 
-            onClick={() => onTabChange("social")} 
-        />
+        /* --- MOBILE (Barra Inferior) --- */
+        bottom-0 left-0 w-full h-16 border-t
+        flex flex-row justify-around items-center px-2
 
-        {/* 2. SWIPE / CITAS (Ahora es Secundaria - Icono Flame) */}
-        <NavItem 
-            icon={<Flame size={24} />} 
-            isActive={activeTab === "home"} 
-            onClick={() => onTabChange("home")} 
-        />
+        /* --- DESKTOP (Sidebar Izquierda) --- */
+        md:top-0 md:left-0 md:w-20 md:h-screen md:border-t-0 md:border-r
+        md:flex-col md:justify-center md:gap-10 md:px-0
+    ">
+      {navItems.map((item) => {
+        const isActive = activeTab === item.id;
+        const Icon = item.icon;
 
-        {/* 3. LIKES */}
-        <NavItem 
-            icon={<Heart size={24} />} 
-            isActive={activeTab === "likes"} 
-            onClick={() => onTabChange("likes")} 
-        />
-        
-        {/* 4. CHAT (Con Badge) */}
-        <NavItem 
-            icon={<MessageCircle size={24} />} 
-            isActive={activeTab === "chat"} 
-            badge={chatBadge} 
-            onClick={() => onTabChange("chat")} 
-        />
-        
-        {/* 5. PERFIL */}
-        <NavItem 
-            icon={<User size={24} />} 
-            isActive={activeTab === "profile"} 
-            onClick={() => onTabChange("profile")} 
-        />
-      </div>
+        return (
+          <button
+            key={item.id}
+            onClick={() => onTabChange && onTabChange(item.id)}
+            className={`
+                relative flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-300 group
+                ${isActive ? "text-cuadralo-pink" : "text-gray-400 hover:text-white hover:bg-white/5"}
+            `}
+          >
+            {/* Fondo activo sutil (Solo Desktop) */}
+            {isActive && (
+                <div className="hidden md:block absolute inset-0 bg-cuadralo-pink/10 rounded-xl blur-md" />
+            )}
+
+            {/* Icono */}
+            <div className="relative">
+                <Icon 
+                    size={26} 
+                    strokeWidth={isActive ? 2.5 : 2} 
+                    className={`transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-105"}`}
+                />
+                
+                {/* Badge de Notificación */}
+                {item.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-cuadralo-pink text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full ring-2 ring-[#0f0518]">
+                    {item.badge}
+                  </span>
+                )}
+            </div>
+
+            {/* Indicador de activo */}
+            {isActive && (
+              <>
+                  {/* Móvil: Punto abajo */}
+                  <motion.div 
+                    layoutId="nav-indicator-mobile"
+                    className="md:hidden absolute -bottom-2 w-1 h-1 bg-cuadralo-pink rounded-full shadow-[0_0_10px_#f2138e]" 
+                  />
+                  
+                  {/* Desktop: Barra izquierda */}
+                  <motion.div 
+                    layoutId="nav-indicator-desktop"
+                    className="hidden md:block absolute left-0 w-1 h-8 bg-cuadralo-pink rounded-r-full shadow-[0_0_15px_#f2138e]" 
+                  />
+              </>
+            )}
+          </button>
+        );
+      })}
     </div>
-  );
-}
-
-function NavItem({ icon, isActive, badge, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative p-3 transition-all duration-300 rounded-2xl group ${
-        isActive 
-          ? "text-white bg-white/10 shadow-[0_0_15px_rgba(242,19,142,0.3)] scale-110" 
-          : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
-      }`}
-    >
-      {icon}
-      
-      {/* Badge de notificaciones */}
-      {badge ? (
-        <span className="absolute -top-1 -right-1 w-4 h-4 bg-cuadralo-pink rounded-full text-[9px] flex items-center justify-center text-white border-2 border-[#0f0518] font-bold animate-bounce">
-          {badge > 9 ? "+9" : badge}
-        </span>
-      ) : null}
-
-      {/* Indicador inferior (Puntito) */}
-      {isActive && (
-        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-cuadralo-pink rounded-full shadow-[0_0_5px_#F2138E]" />
-      )}
-    </button>
   );
 }

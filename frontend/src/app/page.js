@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; 
 import { api } from "@/utils/api";
 import { AnimatePresence } from "framer-motion";
 
 // Componentes
 import BottomNav from "@/components/BottomNav";
 import Navbar from "@/components/Navbar";
-import CardStack from "@/components/CardStack"; // El Swipe
+import CardStack from "@/components/CardStack"; 
 import ChatList from "@/components/ChatList";
 import ChatWindow from "@/components/ChatWindow";
 import MyLikes from "@/components/MyLikes";
@@ -22,11 +22,10 @@ import UploadModal from "@/components/UploadModal";
 
 export default function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams(); 
   
-  // CAMBIO 1: Iniciar en "social" por defecto
   const [activeTab, setActiveTab] = useState("social");
   
-  // Estados de Modales
   const [showFilters, setShowFilters] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
@@ -34,9 +33,13 @@ export default function Home() {
   const [selectedChat, setSelectedChat] = useState(null);
   const [chatBadge, setChatBadge] = useState(0); 
 
-  // CAMBIO 2: Lógica de Navbar Global
-  // Solo mostramos el Navbar genérico (Filtros/Match) en la pestaña 'home' (Swipe)
-  // Social tiene su propio header, al igual que Chat y Perfil.
+  useEffect(() => {
+      const tabParam = searchParams.get("tab");
+      if (tabParam && ["social", "home", "likes", "chat", "profile"].includes(tabParam)) {
+          setActiveTab(tabParam);
+      }
+  }, [searchParams]);
+
   const showNavbar = !selectedChat && activeTab === 'home';
 
   const checkNotifications = async () => {
@@ -69,8 +72,8 @@ export default function Home() {
     }
 
     switch(activeTab) {
-        case "social": return <SocialFeed onUploadClick={() => setShowUpload(true)} />; // Principal
-        case "home": return <CardStack />; // Swipe (Secundario)
+        case "social": return <SocialFeed onUploadClick={() => setShowUpload(true)} />;
+        case "home": return <CardStack />; 
         case "likes": return <MyLikes />;
         case "chat": return <ChatList onChatSelect={setSelectedChat} />;
         case "profile": return <Profile />;
@@ -79,9 +82,9 @@ export default function Home() {
   };
 
   return (
-    <main className="h-screen w-full bg-[#0f0518] relative overflow-hidden flex flex-col">
+    // ✅ AGREGADO: md:pl-20 para empujar el contenido cuando aparece la sidebar
+    <main className="h-screen w-full bg-[#0f0518] relative overflow-hidden flex flex-col md:pl-20">
       
-      {/* NAVBAR GLOBAL (Solo para Swipe) */}
       {showNavbar && (
           <Navbar 
             onFilterClick={() => setShowFilters(true)} 
@@ -89,22 +92,23 @@ export default function Home() {
           />
       )}
 
-      {/* ÁREA DE CONTENIDO */}
-      {/* Si hay Navbar global, bajamos el contenido (pt-20). Si no (como en Social), pt-0 porque Social tiene su propio header fixed */}
+      {/* Contenido principal */}
       <div className={`flex-1 w-full h-full relative ${showNavbar ? "pt-20" : "pt-0"}`}>
         {renderView()}
       </div>
 
-      {/* BOTTOM NAV */}
+      {/* Navegación (Ahora responsive: Bottom en móvil, Left en PC) */}
       {!selectedChat && (
           <BottomNav 
             activeTab={activeTab} 
-            onTabChange={setActiveTab} 
+            onTabChange={(tab) => {
+                setActiveTab(tab);
+                router.replace("/", undefined, { shallow: true });
+            }} 
             chatBadge={chatBadge > 0 ? chatBadge : null} 
           />
       )}
 
-      {/* MODALES */}
       <AnimatePresence>
         {showFilters && <FilterModal onClose={() => setShowFilters(false)} />}
         {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}

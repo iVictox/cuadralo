@@ -4,7 +4,8 @@ import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
 	"encoding/json"
-	"strings" // <--- NUEVO IMPORT
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,7 +22,7 @@ type RegisterDTO struct {
 	Gender      string   `json:"gender"`
 	Photo       string   `json:"photo"`
 	Bio         string   `json:"bio"`
-	Interests   []string `json:"interests"` // Recibe array de strings: ["music", "gym"]
+	Interests   []string `json:"interests"`
 	Preferences struct {
 		Distance int    `json:"distance"`
 		Show     string `json:"show"`
@@ -41,15 +42,21 @@ func Register(c *fiber.Ctx) error {
 	// 2. Serializar Preferencias
 	prefsJSON, _ := json.Marshal(data.Preferences)
 
-	// 3. Buscar los intereses en la BD por su Slug
+	// 3. Buscar intereses
 	var selectedInterests []models.Interest
 	if len(data.Interests) > 0 {
 		database.DB.Where("slug IN ?", data.Interests).Find(&selectedInterests)
 	}
 
-	// 4. Crear Usuario con Relaciones
+	// 4. GENERAR USERNAME ÚNICO (✅ NUEVO)
+	// Ejemplo: Juan Perez -> juanperez1704567890
+	cleanName := strings.ToLower(strings.ReplaceAll(data.Name, " ", ""))
+	username := fmt.Sprintf("%s%d", cleanName, time.Now().Unix()%10000)
+
+	// 5. Crear Usuario
 	user := models.User{
 		Name:        data.Name,
+		Username:    username, // ✅ Asignamos el username generado
 		Email:       data.Email,
 		Password:    string(password),
 		BirthDate:   data.BirthDate,
@@ -58,27 +65,28 @@ func Register(c *fiber.Ctx) error {
 		Photo:       data.Photo,
 		Bio:         data.Bio,
 		Preferences: string(prefsJSON),
-		Interests:   selectedInterests, // GORM crea la relación automáticamente
+		Interests:   selectedInterests,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "No se pudo crear el usuario, ¿email duplicado?"})
+		return c.Status(500).JSON(fiber.Map{"error": "No se pudo crear el usuario, verifique datos."})
 	}
 
-	return c.JSON(fiber.Map{"message": "Usuario registrado exitosamente"})
+	return c.JSON(fiber.Map{
+		"message":  "Usuario registrado exitosamente",
+		"username": username, // Devolvemos el username generado
+	})
 }
 
-// LOGIN CORREGIDO (SOLUCIÓN MÓVIL)
+// LOGIN (Igual que antes, solo asegúrate de mantenerlo)
 func Login(c *fiber.Ctx) error {
 	var data map[string]string
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
-	// --- LIMPIEZA DE DATOS (FIX PARA MÓVILES) ---
 	email := strings.TrimSpace(data["email"])
 	password := strings.TrimSpace(data["password"])
-	// --------------------------------------------
 
 	var user models.User
 	database.DB.Where("email = ?", email).First(&user)
@@ -111,10 +119,11 @@ func Login(c *fiber.Ctx) error {
 		"message": "Login exitoso",
 		"token":   t,
 		"user": fiber.Map{
-			"id":    user.ID,
-			"name":  user.Name,
-			"email": user.Email,
-			"photo": user.Photo,
+			"id":       user.ID,
+			"name":     user.Name,
+			"username": user.Username, // ✅ Enviamos username al frontend
+			"email":    user.Email,
+			"photo":    user.Photo,
 		},
 	})
 }

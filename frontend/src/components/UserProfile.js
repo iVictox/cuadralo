@@ -1,0 +1,324 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { 
+    ArrowLeft, MoreVertical, MapPin, Grid, UserPlus, UserCheck, 
+    MessageCircle, Settings, Loader2, Heart, Edit3, ChevronLeft, ChevronRight, Share2, X 
+} from "lucide-react";
+import { api } from "@/utils/api";
+import { useToast } from "@/context/ToastContext";
+import { motion, AnimatePresence } from "framer-motion";
+import EditProfileModal from "./EditProfileModal"; 
+import FeedPost from "./FeedPost"; 
+
+export default function UserProfile({ username, isTab = false }) {
+  const router = useRouter();
+  const { showToast } = useToast();
+
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
+  const fetchProfile = async () => {
+    try {
+      const myUser = JSON.parse(localStorage.getItem("user"));
+      setCurrentUser(myUser);
+
+      const data = await api.get(`/u/${username}`);
+      setProfile(data);
+      setIsFollowing(data.user.is_following);
+    } catch (error) {
+      console.error("Error loading profile", error);
+      if (!isTab) {
+          showToast("Usuario no encontrado", "error");
+          router.push("/");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (username) fetchProfile();
+  }, [username, isTab]);
+
+  const handleFollow = async () => {
+    if (!profile) return;
+    const previousState = isFollowing;
+    setIsFollowing(!isFollowing);
+    
+    setProfile(prev => ({
+        ...prev,
+        user: {
+            ...prev.user,
+            followers_count: !previousState ? prev.user.followers_count + 1 : prev.user.followers_count - 1
+        }
+    }));
+
+    try {
+        await api.post(`/users/${profile.user.id}/follow`, {});
+    } catch (error) {
+        setIsFollowing(previousState); 
+        showToast("Error al seguir", "error");
+    }
+  };
+
+  const handleEditSuccess = () => {
+      setShowEditModal(false);
+      fetchProfile(); 
+  };
+
+  const handleShareProfile = async () => {
+      const shareData = {
+          title: `Perfil de ${user.name} en Cuadralo`,
+          text: `Echa un vistazo al perfil de ${user.name} (@${user.username})`,
+          url: window.location.href 
+      };
+
+      if (navigator.share) {
+          try { await navigator.share(shareData); } catch (err) {}
+      } else {
+          navigator.clipboard.writeText(window.location.href);
+          showToast("Enlace del perfil copiado 📋");
+      }
+  };
+
+  const getGallery = () => {
+      if (!profile?.user) return [];
+      const main = profile.user.photo;
+      const gallery = profile.user.photos || [];
+      if (gallery.length === 0) return [main];
+      return gallery;
+  };
+
+  const galleryImages = getGallery();
+
+  const nextPhoto = (e) => {
+      if(e) e.stopPropagation();
+      setCurrentPhotoIndex((prev) => (prev + 1) % galleryImages.length);
+  };
+
+  const prevPhoto = (e) => {
+      if(e) e.stopPropagation();
+      setCurrentPhotoIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length);
+  };
+
+  if (loading) return <div className="w-full h-full flex items-center justify-center min-h-[50vh]"><Loader2 className="animate-spin text-cuadralo-pink" size={40} /></div>;
+  if (!profile) return <div className="text-white text-center mt-20">Perfil no disponible</div>;
+
+  const { user, posts } = profile;
+  const isMe = currentUser?.id === user.id;
+
+  return (
+    <div className={`w-full min-h-screen bg-[#05020a] ${isTab ? 'pb-24' : ''}`}>
+      <div className="hidden md:block absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-[#1a0b2e] to-[#05020a] z-0" />
+
+      <div className="relative z-10 w-full max-w-7xl mx-auto md:px-6 md:py-8 grid grid-cols-1 md:grid-cols-12 gap-8">
+        
+        {/* COLUMNA IZQUIERDA (FOTOS) */}
+        <div className="md:col-span-5 lg:col-span-4 flex flex-col gap-4">
+            <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] md:aspect-[3/4] bg-[#1a0b2e] md:rounded-3xl overflow-hidden shadow-2xl border-b border-white/5 md:border md:border-white/10 group">
+                <AnimatePresence mode="wait">
+                    <motion.img 
+                        key={currentPhotoIndex}
+                        src={galleryImages[currentPhotoIndex]} 
+                        initial={{ opacity: 0, scale: 1.05 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="w-full h-full object-cover"
+                        alt={`Profile ${currentPhotoIndex}`}
+                    />
+                </AnimatePresence>
+
+                <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent z-20">
+                    <div>
+                        {!isTab && (
+                            <button onClick={() => router.back()} className="p-2 rounded-full bg-black/20 backdrop-blur-md text-white border border-white/10 hover:bg-black/40 transition-colors">
+                                <ArrowLeft size={24} />
+                            </button>
+                        )}
+                    </div>
+                    <div>
+                         {isMe ? (
+                            <button onClick={() => setShowEditModal(true)} className="md:hidden px-4 py-2 rounded-full bg-cuadralo-pink text-white text-xs font-bold shadow-lg flex items-center gap-2">
+                                <Edit3 size={14} /> Editar
+                            </button>
+                         ) : (
+                            <button className="md:hidden p-2 rounded-full bg-black/20 backdrop-blur-md text-white border border-white/10">
+                                <MoreVertical size={24} />
+                            </button>
+                         )}
+                    </div>
+                </div>
+
+                {galleryImages.length > 1 && (
+                    <>
+                        <div className="absolute inset-y-0 left-0 w-1/3 z-10 cursor-pointer" onClick={prevPhoto} />
+                        <div className="absolute inset-y-0 right-0 w-1/3 z-10 cursor-pointer" onClick={nextPhoto} />
+                        <div className="hidden md:flex absolute inset-0 items-center justify-between px-4 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                             <button onClick={prevPhoto} className="pointer-events-auto p-2 rounded-full bg-black/40 text-white hover:bg-cuadralo-pink hover:scale-110 transition-all"><ChevronLeft size={24}/></button>
+                             <button onClick={nextPhoto} className="pointer-events-auto p-2 rounded-full bg-black/40 text-white hover:bg-cuadralo-pink hover:scale-110 transition-all"><ChevronRight size={24}/></button>
+                        </div>
+                        <div className="absolute top-3 left-0 w-full flex justify-center gap-1.5 z-30 px-10">
+                            {galleryImages.map((_, idx) => (
+                                <div key={idx} className={`h-1 flex-1 rounded-full transition-all shadow-sm ${idx === currentPhotoIndex ? "bg-white" : "bg-white/30"}`} />
+                            ))}
+                        </div>
+                    </>
+                )}
+
+                <div className="md:hidden absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-[#05020a] via-[#05020a]/80 to-transparent z-20 pt-24">
+                    <h1 className="text-3xl font-bold text-white flex items-end gap-2">
+                        {user.name} <span className="text-xl font-normal text-gray-300">{user.age}</span>
+                    </h1>
+                    <p className="text-sm text-gray-300 mt-1 flex items-center gap-1">
+                        <MapPin size={14} className="text-cuadralo-pink" /> {user.location || "Venezuela"}
+                    </p>
+                </div>
+            </div>
+
+            <div className="hidden md:flex flex-col gap-3">
+                 {isMe ? (
+                    <button onClick={() => setShowEditModal(true)} className="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 hover:border-cuadralo-pink/50 transition-all flex items-center justify-center gap-2">
+                        <Settings size={18} /> Configurar Perfil
+                    </button>
+                 ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                        <button 
+                            onClick={handleFollow}
+                            className={`py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition-all shadow-lg ${
+                                isFollowing 
+                                ? "bg-white/5 border border-white/20 text-white hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30" 
+                                : "bg-gradient-to-r from-cuadralo-pink to-purple-600 text-white hover:scale-[1.02]"
+                            }`}
+                        >
+                            {isFollowing ? "Siguiendo" : "Seguir"}
+                        </button>
+                        <button className="py-3 rounded-xl bg-white/5 border border-white/10 text-white font-bold hover:bg-white/10 transition-all flex justify-center items-center gap-2">
+                            <MessageCircle size={18} /> Mensaje
+                        </button>
+                    </div>
+                 )}
+            </div>
+        </div>
+
+        {/* COLUMNA DERECHA (INFO + POSTS) */}
+        <div className="md:col-span-7 lg:col-span-8 flex flex-col gap-6 px-4 md:px-0">
+            <div className="hidden md:flex flex-col gap-4 p-6 bg-[#0f0518] border border-white/5 rounded-3xl shadow-lg relative overflow-hidden">
+                <div className="relative z-10">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h1 className="text-4xl font-bold text-white mb-1">{user.name}</h1>
+                            <p className="text-gray-400 text-lg">@{user.username || "usuario"} • {user.age} años</p>
+                        </div>
+                        <button onClick={handleShareProfile} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors"><Share2 size={24}/></button>
+                    </div>
+
+                    <div className="flex items-center gap-6 mt-6">
+                        <div className="flex flex-col"><span className="text-2xl font-bold text-white">{posts?.length || 0}</span><span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Posts</span></div>
+                        <div className="w-px h-8 bg-white/10" />
+                        <div className="flex flex-col"><span className="text-2xl font-bold text-white">{user.followers_count}</span><span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Seguidores</span></div>
+                        <div className="w-px h-8 bg-white/10" />
+                        <div className="flex flex-col"><span className="text-2xl font-bold text-white">{user.following_count}</span><span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Seguidos</span></div>
+                    </div>
+
+                    {user.bio && (
+                        <div className="mt-6 pt-6 border-t border-white/5">
+                            <p className="text-gray-300 leading-relaxed whitespace-pre-line max-w-2xl">{user.bio}</p>
+                        </div>
+                    )}
+
+                    {/* ✅ SECCIÓN DE INTERESES (PC) */}
+                    {user.interests && user.interests.length > 0 && (
+                        <div className="mt-6 flex flex-wrap gap-2">
+                            {user.interests.map((interest, idx) => (
+                                <span key={idx} className="px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-gray-300 border border-white/10">
+                                    {interest}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="md:hidden space-y-4">
+                 {/* ✅ INTERESES MÓVIL */}
+                 {user.interests && user.interests.length > 0 && (
+                    <div className="flex flex-wrap gap-2 px-2">
+                        {user.interests.map((interest, idx) => (
+                            <span key={idx} className="px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-gray-300 border border-white/10">
+                                {interest}
+                            </span>
+                        ))}
+                    </div>
+                 )}
+
+                 {user.bio && <p className="text-gray-300 text-sm leading-relaxed px-2">{user.bio}</p>}
+                 
+                 <div className="flex items-center justify-around py-3 bg-white/5 rounded-2xl border border-white/5 mx-2">
+                    <div className="text-center"><span className="block text-lg font-bold text-white">{posts?.length || 0}</span><span className="text-[10px] text-gray-500 uppercase font-bold">Posts</span></div>
+                    <div className="text-center"><span className="block text-lg font-bold text-white">{user.followers_count}</span><span className="text-[10px] text-gray-500 uppercase font-bold">Seguidores</span></div>
+                    <div className="text-center"><span className="block text-lg font-bold text-white">{user.following_count}</span><span className="text-[10px] text-gray-500 uppercase font-bold">Seguidos</span></div>
+                 </div>
+                 
+                 {!isMe && (
+                    <div className="flex gap-3 px-2">
+                         <button onClick={handleFollow} className={`flex-1 py-2.5 rounded-full text-sm font-bold flex justify-center items-center gap-2 transition-all ${isFollowing ? "bg-white/10 border border-white/20 text-white" : "bg-gradient-to-r from-cuadralo-pink to-purple-600 text-white shadow-lg"}`}>
+                            {isFollowing ? "Siguiendo" : "Seguir"}
+                        </button>
+                        <button className="p-2.5 bg-white/10 border border-white/20 rounded-full text-white"><MessageCircle size={20} /></button>
+                    </div>
+                 )}
+            </div>
+
+            <div className="md:mt-4">
+                <div className="hidden md:flex items-center gap-2 mb-4 pb-2 border-b border-white/5">
+                    <Grid size={20} className="text-cuadralo-pink" />
+                    <h3 className="text-lg font-bold text-white">Publicaciones</h3>
+                </div>
+
+                {!posts || posts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 bg-white/5 rounded-3xl border-2 border-dashed border-white/10">
+                        <Grid size={48} className="mb-4 text-white/20" />
+                        <p className="text-gray-400 font-medium">Aún no hay publicaciones</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-3 md:grid-cols-4 gap-1 md:gap-4">
+                        {posts.map(post => (
+                            <div key={post.id} onClick={() => setSelectedPost({ ...post, user: profile.user })} className="relative aspect-square bg-[#1a0b2e] cursor-pointer group overflow-hidden md:rounded-xl">
+                                <img src={post.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="Post" />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white font-bold text-sm">
+                                    <Heart className="fill-white" size={18} /> <span>{post.likes_count}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {selectedPost && (
+            <div className="fixed inset-0 z-[50] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setSelectedPost(null)}>
+                <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto no-scrollbar rounded-3xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => setSelectedPost(null)} className="absolute top-4 right-4 z-50 p-2 bg-black/50 text-white rounded-full hover:bg-white/20 backdrop-blur-sm transition-colors"><X size={24} /></button>
+                    <FeedPost post={selectedPost} onDelete={() => { setSelectedPost(null); fetchProfile(); }} />
+                </motion.div>
+            </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+          {showEditModal && <EditProfileModal user={user} onClose={() => setShowEditModal(false)} onUpdate={handleEditSuccess} />}
+      </AnimatePresence>
+    </div>
+  );
+}

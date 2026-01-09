@@ -8,55 +8,58 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// 1. Crear Post
 func CreatePost(c *fiber.Ctx) error {
-	myId := uint(c.Locals("userId").(float64))
+	userId := uint(c.Locals("userId").(float64))
+
 	var data struct {
 		ImageURL string `json:"image_url"`
 		Caption  string `json:"caption"`
 		Location string `json:"location"`
 	}
+
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
-	post := models.Post{UserID: myId, ImageURL: data.ImageURL, Caption: data.Caption, Location: data.Location}
+
+	post := models.Post{
+		UserID:    userId,
+		ImageURL:  data.ImageURL,
+		Caption:   data.Caption,
+		Location:  data.Location,
+		CreatedAt: time.Now(),
+	}
+
 	database.DB.Create(&post)
 	database.DB.Preload("User").First(&post, post.ID)
+
 	return c.JSON(post)
 }
 
+// 2. Obtener Feed Social
 func GetSocialFeed(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
 	var posts []models.Post
-	database.DB.Preload("User").Preload("Likes").Order("created_at desc").Find(&posts)
+	database.DB.Preload("User").Order("created_at desc").Find(&posts)
 
-	// Preparamos cache de historias para no hacer 1000 consultas
-	// Mapa: UserID -> Bool (Tiene historia?)
 	activeStoriesMap := make(map[uint]bool)
 	var activeUserIDs []uint
-
-	// Buscamos usuarios únicos con historias activas
-	database.DB.Model(&models.Story{}).
-		Where("expires_at > ?", time.Now()).
-		Distinct("user_id").
-		Pluck("user_id", &activeUserIDs)
-
+	database.DB.Model(&models.Story{}).Where("expires_at > ?", time.Now()).Distinct("user_id").Pluck("user_id", &activeUserIDs)
 	for _, id := range activeUserIDs {
 		activeStoriesMap[id] = true
 	}
 
 	for i := range posts {
-		// 1. Likes Logic
-		posts[i].LikesCount = int64(len(posts[i].Likes))
-		for _, like := range posts[i].Likes {
-			if like.UserID == myId {
-				posts[i].IsLiked = true
-				break
-			}
-		}
-		posts[i].Likes = nil
+		var count int64
+		database.DB.Model(&models.PostLike{}).Where("post_id = ?", posts[i].ID).Count(&count)
+		posts[i].LikesCount = count
 
-		// 2. Has Story Logic (NUEVO)
+		var like models.PostLike
+		if database.DB.Where("user_id = ? AND post_id = ?", myId, posts[i].ID).First(&like).RowsAffected > 0 {
+			posts[i].IsLiked = true
+		}
+
 		if activeStoriesMap[posts[i].UserID] {
 			posts[i].User.HasStory = true
 		}
@@ -65,45 +68,128 @@ func GetSocialFeed(c *fiber.Ctx) error {
 	return c.JSON(posts)
 }
 
-func TogglePostLike(c *fiber.Ctx) error {
+// 3. Eliminar Post
+func DeletePost(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	postId := c.Params("id")
-	var like models.PostLike
-	result := database.DB.Where("user_id = ? AND post_id = ?", myId, postId).First(&like)
-	if result.RowsAffected > 0 {
-		database.DB.Delete(&like)
-		return c.JSON(fiber.Map{"liked": false})
-	} else {
-		database.DB.Exec("INSERT INTO post_likes (user_id, post_id) VALUES (?, ?)", myId, postId)
-		return c.JSON(fiber.Map{"liked": true})
-	}
-}
-
-// --- COMENTARIOS (MEJORADO) ---
-
-// 4. Crear Comentario (Soporta Respuestas)
-func CreateComment(c *fiber.Ctx) error {
-	myId := uint(c.Locals("userId").(float64))
-	postId := c.Params("id")
-
-	var data struct {
-		Content  string `json:"content"`
-		ParentID *uint  `json:"parent_id"` // Opcional, si es respuesta
-	}
-	if err := c.BodyParser(&data); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
-	}
 
 	var post models.Post
 	if err := database.DB.First(&post, postId).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Post no encontrado"})
 	}
 
+	if post.UserID != myId {
+		return c.Status(403).JSON(fiber.Map{"error": "No tienes permiso"})
+	}
+
+	// Borrar dependencias del post
+	database.DB.Where("post_id = ?", postId).Delete(&models.Comment{})
+	database.DB.Where("post_id = ?", postId).Delete(&models.PostLike{})
+	database.DB.Delete(&post)
+
+	return c.JSON(fiber.Map{"message": "Post eliminado"})
+}
+
+// 4. Like Post
+func TogglePostLike(c *fiber.Ctx) error {
+	userId := uint(c.Locals("userId").(float64))
+	postId := c.Params("id")
+
+	var like models.PostLike
+	result := database.DB.Where("user_id = ? AND post_id = ?", userId, postId).First(&like)
+
+	if result.RowsAffected > 0 {
+		database.DB.Delete(&like)
+		return c.JSON(fiber.Map{"liked": false})
+	} else {
+		var pID uint
+		database.DB.Model(&models.Post{}).Select("id").Where("id = ?", postId).Scan(&pID)
+		if pID == 0 {
+			return c.Status(404).JSON(fiber.Map{"error": "Post no existe"})
+		}
+
+		newLike := models.PostLike{UserID: userId, PostID: pID}
+		database.DB.Create(&newLike)
+		return c.JSON(fiber.Map{"liked": true})
+	}
+}
+
+// 5. Reportar Post
+func ReportPost(c *fiber.Ctx) error {
+	userId := uint(c.Locals("userId").(float64))
+	postId := c.Params("id")
+
+	var data struct {
+		Reason string `json:"reason"`
+	}
+	c.BodyParser(&data)
+
+	var pID uint
+	database.DB.Model(&models.Post{}).Select("id").Where("id = ?", postId).Scan(&pID)
+
+	report := models.Report{
+		UserID:    userId,
+		PostID:    pID,
+		Reason:    data.Reason,
+		CreatedAt: time.Now(),
+	}
+	database.DB.Create(&report)
+	return c.JSON(fiber.Map{"message": "Reporte recibido"})
+}
+
+// ==========================================
+// SECCIÓN DE COMENTARIOS
+// ==========================================
+
+// 6. Obtener Comentarios
+func GetPostComments(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
+	postId := c.Params("id")
+
+	var comments []models.Comment
+	if err := database.DB.Preload("User").Where("post_id = ?", postId).Order("created_at asc").Find(&comments).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error cargando comentarios"})
+	}
+
+	for i := range comments {
+		var count int64
+		database.DB.Model(&models.CommentLike{}).Where("comment_id = ?", comments[i].ID).Count(&count)
+		comments[i].LikesCount = count
+
+		var like models.CommentLike
+		if database.DB.Where("user_id = ? AND comment_id = ?", myId, comments[i].ID).First(&like).RowsAffected > 0 {
+			comments[i].IsLiked = true
+		}
+	}
+
+	return c.JSON(comments)
+}
+
+// 7. Crear Comentario
+func CreateComment(c *fiber.Ctx) error {
+	userId := uint(c.Locals("userId").(float64))
+	postId := c.Params("id")
+
+	var data struct {
+		Content  string `json:"content"`
+		ParentID *uint  `json:"parent_id"`
+	}
+
+	if err := c.BodyParser(&data); err != nil || data.Content == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Comentario vacío"})
+	}
+
+	var pID uint
+	if err := database.DB.Model(&models.Post{}).Select("id").Where("id = ?", postId).Scan(&pID).Error; err != nil || pID == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "Post no encontrado"})
+	}
+
 	comment := models.Comment{
-		UserID:   myId,
-		PostID:   post.ID,
-		Content:  data.Content,
-		ParentID: data.ParentID, // Se guarda si existe
+		PostID:    pID,
+		UserID:    userId,
+		Content:   data.Content,
+		ParentID:  data.ParentID,
+		CreatedAt: time.Now(),
 	}
 
 	database.DB.Create(&comment)
@@ -112,227 +198,106 @@ func CreateComment(c *fiber.Ctx) error {
 	return c.JSON(comment)
 }
 
-// 5. Obtener Comentarios (Con Likes y Respuestas)
-func GetPostComments(c *fiber.Ctx) error {
-	myId := uint(c.Locals("userId").(float64))
-	postId := c.Params("id")
-
-	var comments []models.Comment
-
-	// Traemos solo los comentarios PRINCIPALES (ParentID IS NULL)
-	// Y precargamos sus Respuestas (Replies) y los datos necesarios
-	database.DB.
-		Where("post_id = ? AND parent_id IS NULL", postId).
-		Preload("User").
-		Preload("Likes").
-		Preload("Replies").Preload("Replies.User").Preload("Replies.Likes"). // Cargar respuestas y sus datos
-		Order("created_at asc").
-		Find(&comments)
-
-	// Función auxiliar para procesar likes de un comentario
-	processComment := func(c *models.Comment) {
-		c.LikesCount = int64(len(c.Likes))
-		for _, like := range c.Likes {
-			if like.UserID == myId {
-				c.IsLiked = true
-				break
-			}
-		}
-		c.Likes = nil // Limpiar para no enviar JSON gigante
-	}
-
-	// Procesar principales y sus respuestas
-	for i := range comments {
-		processComment(&comments[i])
-		for j := range comments[i].Replies {
-			processComment(&comments[i].Replies[j])
-		}
-	}
-
-	return c.JSON(comments)
-}
-
-// 6. Eliminar Comentario
+// 8. Borrar Comentario (✅ CORREGIDO: Borrado en Cascada)
 func DeleteComment(c *fiber.Ctx) error {
-	myId := uint(c.Locals("userId").(float64))
+	userId := uint(c.Locals("userId").(float64))
 	commentId := c.Params("id")
+
 	var comment models.Comment
 	if err := database.DB.First(&comment, commentId).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "No encontrado"})
+		return c.Status(404).JSON(fiber.Map{"error": "Comentario no encontrado"})
 	}
 
-	// Verificar permisos (Dueño del comentario o del post)
-	var post models.Post
-	database.DB.First(&post, comment.PostID)
-
-	if comment.UserID != myId && post.UserID != myId {
-		return c.Status(403).JSON(fiber.Map{"error": "Sin permiso"})
+	if comment.UserID != userId {
+		return c.Status(403).JSON(fiber.Map{"error": "No autorizado"})
 	}
 
-	// Borrar comentario y sus respuestas (Cascada manual si BD no lo tiene)
-	database.DB.Where("parent_id = ?", comment.ID).Delete(&models.Comment{})
-	database.DB.Delete(&comment)
+	// 1. Encontrar todas las respuestas (hijos)
+	var replies []models.Comment
+	database.DB.Where("parent_id = ?", commentId).Find(&replies)
 
-	return c.JSON(fiber.Map{"message": "Eliminado"})
+	// 2. Borrar Likes de las respuestas
+	for _, reply := range replies {
+		database.DB.Where("comment_id = ?", reply.ID).Delete(&models.CommentLike{})
+	}
+
+	// 3. Borrar las Respuestas
+	database.DB.Where("parent_id = ?", commentId).Delete(&models.Comment{})
+
+	// 4. Borrar Likes del comentario principal
+	database.DB.Where("comment_id = ?", commentId).Delete(&models.CommentLike{})
+
+	// 5. Finalmente, borrar el comentario principal
+	if err := database.DB.Delete(&comment).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "No se pudo eliminar el comentario"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Comentario eliminado correctamente"})
 }
 
-// 7. Toggle Like Comentario (NUEVO)
+// 9. Like Comentario
 func ToggleCommentLike(c *fiber.Ctx) error {
-	myId := uint(c.Locals("userId").(float64))
+	userId := uint(c.Locals("userId").(float64))
 	commentId := c.Params("id")
 
 	var like models.CommentLike
-	result := database.DB.Where("user_id = ? AND comment_id = ?", myId, commentId).First(&like)
+	result := database.DB.Where("user_id = ? AND comment_id = ?", userId, commentId).First(&like)
 
 	if result.RowsAffected > 0 {
 		database.DB.Delete(&like)
 		return c.JSON(fiber.Map{"liked": false})
 	} else {
-		database.DB.Exec("INSERT INTO comment_likes (user_id, comment_id) VALUES (?, ?)", myId, commentId)
+		var cID uint
+		database.DB.Model(&models.Comment{}).Select("id").Where("id = ?", commentId).Scan(&cID)
+		if cID == 0 {
+			return c.Status(404).JSON(fiber.Map{"error": "Comentario no existe"})
+		}
+
+		newLike := models.CommentLike{UserID: userId, CommentID: cID}
+		database.DB.Create(&newLike)
 		return c.JSON(fiber.Map{"liked": true})
 	}
 }
 
-// --- HISTORIAS --- (Sin cambios)
-func CreateStory(c *fiber.Ctx) error {
-	myId := uint(c.Locals("userId").(float64))
-	var data struct {
-		ImageURL string `json:"image_url"`
-	}
-	if err := c.BodyParser(&data); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Falta imagen"})
-	}
-	story := models.Story{UserID: myId, ImageURL: data.ImageURL, ExpiresAt: time.Now().Add(24 * time.Hour)}
-	database.DB.Create(&story)
-	return c.JSON(story)
-}
-
+// ==========================================
+// SECCIÓN DE HISTORIAS
+// ==========================================
 func GetActiveStories(c *fiber.Ctx) error {
-	var stories []models.Story
-	database.DB.Where("expires_at > ?", time.Now()).Preload("User").Order("created_at asc").Find(&stories)
-	type UserStories struct {
+	type StoryGroup struct {
 		User    models.User    `json:"user"`
 		Stories []models.Story `json:"stories"`
 	}
-	grouped := make(map[uint]*UserStories)
-	var result []UserStories
-	for _, s := range stories {
+	var activeStories []models.Story
+	database.DB.Preload("User").Where("expires_at > ?", time.Now()).Order("created_at asc").Find(&activeStories)
+	grouped := make(map[uint]*StoryGroup)
+	var result []StoryGroup
+	for _, s := range activeStories {
 		if _, exists := grouped[s.UserID]; !exists {
-			grouped[s.UserID] = &UserStories{User: s.User, Stories: []models.Story{}}
+			grouped[s.UserID] = &StoryGroup{User: s.User, Stories: []models.Story{}}
 		}
-		grouped[s.UserID].Stories = append(grouped[s.UserID].Stories, s)
+		entry := grouped[s.UserID]
+		entry.Stories = append(entry.Stories, s)
 	}
-	for _, v := range grouped {
-		result = append(result, *v)
+	for _, g := range grouped {
+		result = append(result, *g)
 	}
 	return c.JSON(result)
 }
 
-// 9. Eliminar Post
-func DeletePost(c *fiber.Ctx) error {
-	myId := uint(c.Locals("userId").(float64))
-	postId := c.Params("id")
-
-	// Iniciar Transacción (Todo o nada)
-	tx := database.DB.Begin()
-
-	var post models.Post
-	if err := tx.First(&post, postId).Error; err != nil {
-		tx.Rollback()
-		return c.Status(404).JSON(fiber.Map{"error": "Post no encontrado"})
-	}
-
-	// Verificar dueño
-	if post.UserID != myId {
-		tx.Rollback()
-		return c.Status(403).JSON(fiber.Map{"error": "No eres el dueño de este post"})
-	}
-
-	// 1. Borrar Likes del Post
-	if err := tx.Where("post_id = ?", post.ID).Delete(&models.PostLike{}).Error; err != nil {
-		tx.Rollback()
-		return c.Status(500).JSON(fiber.Map{"error": "Error borrando likes del post"})
-	}
-
-	// 2. Borrar Reportes del Post
-	if err := tx.Where("post_id = ?", post.ID).Delete(&models.Report{}).Error; err != nil {
-		tx.Rollback()
-		return c.Status(500).JSON(fiber.Map{"error": "Error borrando reportes"})
-	}
-
-	// 3. LIMPIEZA PROFUNDA DE COMENTARIOS
-	// Primero: Obtener IDs de los comentarios de este post
-	var commentIDs []uint
-	tx.Model(&models.Comment{}).Where("post_id = ?", post.ID).Pluck("id", &commentIDs)
-
-	if len(commentIDs) > 0 {
-		// A. Borrar Likes de esos comentarios (CRÍTICO: Esto era lo que faltaba)
-		if err := tx.Where("comment_id IN ?", commentIDs).Delete(&models.CommentLike{}).Error; err != nil {
-			tx.Rollback()
-			return c.Status(500).JSON(fiber.Map{"error": "Error borrando likes de comentarios"})
-		}
-
-		// B. Borrar los Comentarios en sí
-		if err := tx.Where("id IN ?", commentIDs).Delete(&models.Comment{}).Error; err != nil {
-			tx.Rollback()
-			return c.Status(500).JSON(fiber.Map{"error": "Error borrando comentarios"})
-		}
-	}
-
-	// 4. Finalmente, Borrar el Post
-	if err := tx.Delete(&post).Error; err != nil {
-		tx.Rollback()
-		return c.Status(500).JSON(fiber.Map{"error": "Error final borrando el post"})
-	}
-
-	// Confirmar cambios
-	tx.Commit()
-
-	return c.JSON(fiber.Map{"message": "Post eliminado correctamente"})
-}
-
-// 10. Reportar Post
-func ReportPost(c *fiber.Ctx) error {
-	myId := uint(c.Locals("userId").(float64))
-	postId := c.Params("id")
-
+func CreateStory(c *fiber.Ctx) error {
+	userId := uint(c.Locals("userId").(float64))
 	var data struct {
-		Reason string `json:"reason"`
+		ImageURL string `json:"image_url"`
 	}
-	if err := c.BodyParser(&data); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
+	c.BodyParser(&data)
+	story := models.Story{
+		UserID:    userId,
+		ImageURL:  data.ImageURL,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		CreatedAt: time.Now(),
 	}
-
-	// Verificar si el post existe
-	var post models.Post
-	if err := database.DB.First(&post, postId).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Post no encontrado"})
-	}
-
-	// Crear reporte
-	report := models.Report{
-		ReporterID: myId,
-		PostID:     post.ID,
-		Reason:     data.Reason,
-	}
-	database.DB.Create(&report)
-
-	return c.JSON(fiber.Map{"message": "Reporte enviado. Gracias por ayudarnos."})
+	database.DB.Create(&story)
+	return c.JSON(story)
 }
 
-func DeleteStory(c *fiber.Ctx) error {
-	myId := uint(c.Locals("userId").(float64))
-	storyId := c.Params("id")
-
-	var story models.Story
-	if err := database.DB.First(&story, storyId).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Historia no encontrada"})
-	}
-
-	if story.UserID != myId {
-		return c.Status(403).JSON(fiber.Map{"error": "No puedes borrar la historia de otro"})
-	}
-
-	database.DB.Delete(&story)
-	return c.JSON(fiber.Map{"message": "Historia eliminada"})
-}
+func DeleteStory(c *fiber.Ctx) error { return c.JSON(fiber.Map{"message": "Ok"}) }
