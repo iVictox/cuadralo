@@ -31,6 +31,7 @@ func Connect() {
 		panic("No se pudo conectar a la base de datos")
 	}
 
+	// Migrar el esquema
 	db.AutoMigrate(
 		&models.User{},
 		&models.Match{},
@@ -42,7 +43,44 @@ func Connect() {
 		&models.Story{},
 		&models.Report{},
 		&models.Follow{},
+		&models.Interest{}, // Aseguramos que Interest esté en la migración
 	)
 
 	DB = db
+
+	// ✅ IMPORTANTE: Ejecutar el semillero de intereses
+	SeedInterests()
+}
+
+// Función para poblar la base de datos con intereses organizados
+func SeedInterests() {
+	// Mapa de Categoría -> Lista de Intereses
+	data := map[string][]string{
+		"Deportes":       {"Fútbol", "Gym", "Baloncesto", "Tenis", "Natación", "Ciclismo", "Yoga", "Running", "Crossfit"},
+		"Creatividad":    {"Arte", "Diseño", "Fotografía", "Escritura", "Música", "Baile", "Moda", "Maquillaje", "Arquitectura"},
+		"Tecnología":     {"Programación", "Gaming", "IA", "Cripto", "Startups", "Diseño Web", "Robótica", "Gadgets"},
+		"Estilo de Vida": {"Viajes", "Cocina", "Café", "Vino", "Jardinería", "Minimalismo", "Tatuajes", "Astrología"},
+		"Social":         {"Fiesta", "Voluntariado", "Política", "Debate", "Idiomas", "Juegos de Mesa", "Cine", "Series"},
+		"Naturaleza":     {"Senderismo", "Camping", "Playa", "Animales", "Ecología", "Surf", "Pesca"},
+	}
+
+	for category, interests := range data {
+		for _, name := range interests {
+			// Crear Slug (usamos el nombre por ahora)
+			slug := name
+
+			var count int64
+			DB.Model(&models.Interest{}).Where("name = ?", name).Count(&count)
+
+			if count == 0 {
+				interest := models.Interest{
+					Name:     name,
+					Slug:     slug, // ✅ CORRECCIÓN: Usamos la variable 'slug' aquí
+					Category: category,
+				}
+				DB.Create(&interest)
+				fmt.Printf("🌱 Interés creado: %s (%s)\n", name, category)
+			}
+		}
+	}
 }

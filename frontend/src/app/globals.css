@@ -3,34 +3,77 @@
 @tailwind utilities;
 
 :root {
-  /* Mapeamos tus colores a variables CSS por si acaso */
-  --background: #130119;
-  --foreground: #F2F2F2;
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 15, 5, 24; /* #0f0518 */
+  --background-end-rgb: 5, 2, 10;    /* #05020a */
 }
 
 body {
-  color: var(--foreground);
-  background-color: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  overflow-x: hidden; /* Evita scroll lateral en celulares */
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  font-family: 'Inter', sans-serif; /* O la fuente que uses */
+  overflow-x: hidden; /* Evita scroll horizontal indeseado */
 }
 
-/* Clase utilitaria para textos con gradiente (estilo moderno) */
-.text-gradient {
-  background: linear-gradient(to right, #F2138E, #551CA6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* Ocultar scrollbar en elementos con clase .no-scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-@layer utilities {
-  /* Oculta scrollbar en Chrome, Safari y Opera */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
+/* Animación de spin lento para historias */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
   }
-  
-  /* Oculta scrollbar en IE, Edge y Firefox */
-  .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+  to {
+    transform: rotate(360deg);
   }
+}
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+/* =========================================
+   ✅ SCROLLBAR PERSONALIZADO (GLOBAL)
+   ========================================= */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #f2138e #1a0b2e; /* Thumb Track */
+}
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 8px; /* Ancho vertical */
+  height: 8px; /* Alto horizontal */
+}
+
+::-webkit-scrollbar-track {
+  background: #0f0518; /* Color de fondo del carril (mismo que la app) */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #3f1e56; /* Color base (morado oscuro) */
+  border-radius: 10px;        /* Bordes redondos */
+  border: 2px solid #0f0518;  /* Borde para efecto "flotante" */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #f2138e; /* Al pasar el mouse: ¡ROSA NEÓN! */
+}
+
+/* Scrollbar específico para modales o contenedores oscuros */
+.modal-content::-webkit-scrollbar-track {
+  background: transparent;
 }

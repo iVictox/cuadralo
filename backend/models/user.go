@@ -12,23 +12,17 @@ type User struct {
 	Gender    string `json:"gender"`
 	BirthDate string `json:"birth_date"`
 
-	// FOTO PRINCIPAL (Avatar clásico)
-	Photo string `json:"photo"`
-
-	// ✅ GALERÍA DE PERFIL (Hasta 9 fotos)
-	// GORM guardará esto como un JSON text en la base de datos automáticamente
+	Photo  string   `json:"photo"`
 	Photos []string `gorm:"serializer:json" json:"photos"`
 
-	Bio string `json:"bio"`
+	// ✅ CAMBIO: Permitir hasta 1000 caracteres
+	Bio string `gorm:"size:1000" json:"bio"`
 
-	// RELACIÓN MANY-TO-MANY
-	Interests []Interest `gorm:"many2many:user_interests;" json:"interests_obj"`
-	// Campo virtual para devolver solo nombres/slugs
-	InterestsList []string `gorm:"-" json:"interests"`
+	Interests     []Interest `gorm:"many2many:user_interests;" json:"interests_obj"`
+	InterestsList []string   `gorm:"-" json:"interests"`
 
 	Preferences string `json:"preferences"`
 
-	// Relaciones
 	Likes         []Like         `gorm:"foreignKey:FromUserID"`
 	Matches       []Match        `gorm:"foreignKey:User1ID"`
 	Subscriptions []Subscription `gorm:"foreignKey:UserID"`
@@ -36,7 +30,6 @@ type User struct {
 
 	CreatedAt time.Time `json:"created_at"`
 
-	// Campos Virtuales (Estadísticas)
 	HasStory    bool  `gorm:"-" json:"has_story"`
 	Followers   int64 `gorm:"-" json:"followers_count"`
 	Following   int64 `gorm:"-" json:"following_count"`
