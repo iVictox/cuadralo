@@ -1,13 +1,14 @@
 "use client";
 
-import { Home, Search, Heart, MessageCircle, User } from "lucide-react";
+// Cambiamos 'Search' por 'Flame' en los imports
+import { Home, Flame, Heart, MessageCircle, User } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function BottomNav({ activeTab, onTabChange, chatBadge }) {
   
   const navItems = [
     { id: "social", icon: Home, label: "Inicio" },
-    { id: "home", icon: Search, label: "Swipe" }, // Icono Search para Swipe (lupa)
+    { id: "home", icon: Flame, label: "Swipe" }, // ✅ Icono actualizado a Fuego (Flame)
     { id: "likes", icon: Heart, label: "Likes" },
     { id: "chat", icon: MessageCircle, label: "Chat", badge: chatBadge },
     { id: "profile", icon: User, label: "Perfil" },
@@ -47,6 +48,7 @@ export default function BottomNav({ activeTab, onTabChange, chatBadge }) {
             <div className="relative">
                 <Icon 
                     size={26} 
+                    /* Ajustamos strokeWidth para que el fuego se vea bien definido */
                     strokeWidth={isActive ? 2.5 : 2} 
                     className={`transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-105"}`}
                 />
@@ -59,7 +61,7 @@ export default function BottomNav({ activeTab, onTabChange, chatBadge }) {
                 )}
             </div>
 
-            {/* Indicador de activo (Punto debajo en móvil, Barra lateral en Desktop) */}
+            {/* Indicador de activo */}
             {isActive && (
               <>
                   {/* Móvil: Punto abajo */}

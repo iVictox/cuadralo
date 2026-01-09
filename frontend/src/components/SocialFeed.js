@@ -1,26 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
-import { Plus, Bell, Search, Loader2, RefreshCw } from "lucide-react"; 
-import StoriesBar from "./StoriesBar"; // Ahora es tonto (solo visual)
+import { Plus, Loader2, RefreshCw } from "lucide-react"; 
+import StoriesBar from "./StoriesBar"; 
 import FeedPost from "./FeedPost";
-import StoryViewer from "./StoryViewer"; // Visor Global
+import StoryViewer from "./StoryViewer";
 import { api } from "@/utils/api";
 import { AnimatePresence } from "framer-motion";
 
-export default function SocialFeed({ onSearchClick, onNotificationClick, onUploadClick }) {
+export default function SocialFeed({ onUploadClick }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // --- LÓGICA DE HISTORIAS ELEVADA ---
+  // --- LÓGICA DE HISTORIAS ---
   const [stories, setStories] = useState([]); 
   const [myStories, setMyStories] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [viewingUserStories, setViewingUserStories] = useState(null);
 
-  // Cargar Todo (Feed + Historias)
   const fetchData = async () => {
     try {
       const userStr = localStorage.getItem("user");
@@ -62,9 +60,7 @@ export default function SocialFeed({ onSearchClick, onNotificationClick, onUploa
       setPosts(prev => prev.filter(p => p.id !== deletedPostId));
   };
 
-  // --- FUNCIÓN PARA ABRIR HISTORIA (Desde Barra o Post) ---
   const handleViewStory = (userId) => {
-      // Buscar si es mi historia
       if (currentUser && userId === currentUser.id) {
           if (myStories.length > 0) {
               setViewingUserStories({ list: myStories.map(s => ({...s, user: currentUser})), isOwner: true });
@@ -72,7 +68,6 @@ export default function SocialFeed({ onSearchClick, onNotificationClick, onUploa
           return;
       }
 
-      // Buscar en otras historias
       const group = stories.find(g => g.user.id === userId);
       if (group) {
           const formattedStories = group.stories.map(s => ({ ...s, user: group.user }));
@@ -83,24 +78,12 @@ export default function SocialFeed({ onSearchClick, onNotificationClick, onUploa
   return (
     <div className="w-full h-full bg-[#0f0518] relative">
       
-      {/* HEADER */}
-      <div className="absolute top-0 left-0 w-full z-40 px-5 py-4 flex justify-between items-center bg-[#0f0518]/90 backdrop-blur-xl border-b border-white/5 shadow-sm">
-          <div className="relative h-10 w-32">
-            <Image src="/logo.svg" alt="Logo" fill className="object-contain object-left" priority />
-          </div>
-          <div className="flex gap-3">
-            <button onClick={onSearchClick} className="p-2.5 rounded-full bg-white/5 text-gray-300 hover:text-white transition-all"><Search size={22} /></button>
-            <button onClick={onNotificationClick} className="relative p-2.5 rounded-full bg-white/5 text-gray-300 hover:text-white transition-all">
-              <Bell size={22} />
-              <span className="absolute top-2.5 right-3 w-2 h-2 bg-cuadralo-pink rounded-full ring-2 ring-[#0f0518]" />
-            </button>
-          </div>
-      </div>
-
       {/* FEED SCROLL */}
-      <div className="w-full h-full overflow-y-auto pt-20 pb-28 no-scrollbar">
-        <div className="mb-4">
-            {/* BARRA DE HISTORIAS (Pasamos datos y función) */}
+      <div className="w-full h-full overflow-y-auto pb-28 no-scrollbar scroll-smooth">
+        
+        {/* Barra de Historias */}
+        {/* pt-20: Ajustado para reducir espacio con el navbar */}
+        <div className="mb-2 pt-20 px-2 md:px-6">
             <StoriesBar 
                 stories={stories} 
                 myStories={myStories} 
@@ -111,19 +94,31 @@ export default function SocialFeed({ onSearchClick, onNotificationClick, onUploa
         </div>
 
         {loading ? (
-           <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" size={32} /></div>
+           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-cuadralo-pink" size={40} /></div>
         ) : (
-           <div className="flex flex-col gap-4 pb-4">
-              {posts.map(post => (
-                <FeedPost 
-                    key={post.id} 
-                    post={post} 
-                    onDelete={() => handlePostDeleted(post.id)}
-                    onViewStory={() => handleViewStory(post.user.id)} // <--- PASAMOS FUNCIÓN AQUÍ
-                />
-              ))}
+           // w-full max-w-[1800px]: Permite que el contenido ocupe casi toda la pantalla
+           <div className="w-full max-w-[1800px] mx-auto px-2 md:px-4">
               
-              <button onClick={handleRefresh} className="mx-auto flex items-center gap-2 text-xs text-gray-600 uppercase tracking-widest hover:text-cuadralo-pink transition-colors py-4">
+              {/* --- DISEÑO MASONRY AJUSTADO --- */}
+              {/* columns-1 (Móvil) -> columns-2 (Tablet/Laptop) -> columns-3 (Pantallas Gigantes) */}
+              {/* Esto hace que las tarjetas se vean mucho más grandes en laptops */}
+              <div className="columns-1 md:columns-2 xl:columns-3 gap-4 md:gap-6 space-y-4 md:space-y-6">
+                  {posts.map(post => (
+                    <div key={post.id} className="break-inside-avoid">
+                        <FeedPost 
+                            post={post} 
+                            onDelete={() => handlePostDeleted(post.id)}
+                            onViewStory={() => handleViewStory(post.user.id)}
+                        />
+                    </div>
+                  ))}
+              </div>
+
+              {posts.length === 0 && (
+                 <div className="text-center text-gray-500 py-20">No hay publicaciones aún. ¡Sé el primero!</div>
+              )}
+              
+              <button onClick={handleRefresh} className="mx-auto flex items-center gap-2 text-xs text-gray-500 uppercase tracking-widest hover:text-cuadralo-pink transition-colors py-10">
                   {refreshing ? <Loader2 className="animate-spin" size={14}/> : <RefreshCw size={14}/>}
                   Actualizar Feed
               </button>
@@ -131,9 +126,9 @@ export default function SocialFeed({ onSearchClick, onNotificationClick, onUploa
         )}
       </div>
 
-      {/* FAB */}
-      <button onClick={onUploadClick} className="absolute bottom-24 right-5 w-14 h-14 bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all z-40 border border-white/20">
-        <Plus size={28} className="text-white" strokeWidth={2.5} />
+      {/* FAB (Botón flotante) */}
+      <button onClick={onUploadClick} className="absolute bottom-24 right-5 md:bottom-10 md:right-10 w-14 h-14 bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all z-40 border border-white/20 group">
+        <Plus size={28} className="text-white group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
       </button>
 
       {/* VISOR GLOBAL DE HISTORIAS */}

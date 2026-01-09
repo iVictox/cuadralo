@@ -1,140 +1,210 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Copy, Trash2, AlertTriangle } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import CommentsModal from "./CommentsModal"; 
+import { useState } from "react";
+import { Heart, MessageCircle, MoreVertical, Flag, Trash2, Share2 } from "lucide-react";
 import { api } from "@/utils/api";
-import { useToast } from "@/context/ToastContext";
-import { useConfirm } from "@/context/ConfirmContext";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
+import CommentsModal from "./CommentsModal";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function FeedPost({ post, onDelete, onViewStory }) {
-  const { showToast } = useToast();
-  const { confirm } = useConfirm();
-
   const [liked, setLiked] = useState(post.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
-  const [showComments, setShowComments] = useState(false);
-  const [showBigHeart, setShowBigHeart] = useState(false);
+  const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
+  
   const [showMenu, setShowMenu] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const timerRef = useRef(null);
-
-  useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    if (userStr) setCurrentUser(JSON.parse(userStr));
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, []);
+  const [showComments, setShowComments] = useState(false);
+  
+  const userStr = typeof window !== 'undefined' ? localStorage.getItem("user") : null;
+  const currentUser = userStr ? JSON.parse(userStr) : null;
+  const isMyPost = currentUser && currentUser.id === post.user.id;
 
   const handleLike = async () => {
-    const isLikingAction = !liked;
-    if (isLikingAction) {
-        setShowBigHeart(true);
-        if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => setShowBigHeart(false), 1000);
+    const prevLiked = liked;
+    const prevCount = likesCount;
+
+    setLiked(!liked);
+    setLikesCount(prev => prev + (liked ? -1 : 1));
+
+    try {
+        await api.post(`/social/posts/${post.id}/like`);
+    } catch (error) {
+        setLiked(prevLiked);
+        setLikesCount(prevCount);
     }
-    setLiked(isLikingAction);
-    setLikesCount(prev => isLikingAction ? prev + 1 : prev - 1);
-    try { await api.post(`/social/posts/${post.id}/like`, {}); } 
-    catch (error) { setLiked(!isLikingAction); setLikesCount(prev => !isLikingAction ? prev + 1 : prev - 1); }
   };
 
   const handleShare = async () => {
-    if (navigator.share) { try { await navigator.share({ title: 'Cuadralo', text: post.caption, url: window.location.href }); } catch (e) {} } 
-    else { handleCopyLink(); }
+    const shareData = {
+        title: `Post de ${post.user?.name}`,
+        text: post.description || 'Mira esta publicación en Cuadralo',
+        url: window.location.href,
+    };
+
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+        } catch (err) {
+            console.log("Error al compartir", err);
+        }
+    } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert("Enlace copiado al portapapeles");
+    }
   };
 
-  const handleCopyLink = () => {
-      navigator.clipboard.writeText(`https://cuadralo.com/post/${post.id}`);
-      showToast("Enlace copiado");
-      setShowMenu(false);
-  };
-
-  const handleDeletePost = async () => {
-      setShowMenu(false);
-      const ok = await confirm({ title: "¿Eliminar?", message: "Se borrará para siempre.", confirmText: "Eliminar", variant: "danger" });
-      if (!ok) return;
+  const handleDelete = async () => {
+      if (!confirm("¿Seguro que quieres eliminar este post?")) return;
       try {
           await api.delete(`/social/posts/${post.id}`);
-          showToast("Eliminado");
           if (onDelete) onDelete();
-      } catch (error) { showToast("Error", "error"); }
+      } catch (e) {
+          alert("Error al eliminar");
+      }
   };
 
-  const handleReportPost = async () => {
-      setShowMenu(false);
-      const ok = await confirm({ title: "¿Reportar?", message: "Contenido inapropiado", confirmText: "Reportar", variant: "danger" });
-      if(!ok) return;
-      try { await api.post(`/social/posts/${post.id}/report`, { reason: "spam" }); showToast("Reportado"); } catch (error) {}
+  const handleReport = async () => {
+      try {
+          await api.post(`/social/posts/${post.id}/report`);
+          alert("Publicación reportada. Gracias.");
+          setShowMenu(false);
+      } catch (e) {}
   };
-
-  const handleAvatarClick = () => { if (post.user?.has_story && onViewStory) onViewStory(); };
-  const timeAgo = (d) => { const diff = new Date() - new Date(d); const h = Math.floor(diff/36e5); return h<1?"AHORA":h<24?`${h}H`:new Date(d).toLocaleDateString(); };
-  const isMyPost = currentUser?.id === post.user_id;
 
   return (
     <>
-        <div className="w-full max-w-lg mx-auto bg-[#1a0b2e] border-t border-b border-white/5 sm:border sm:rounded-3xl overflow-hidden mb-2 relative">
-            <div className="flex justify-between items-center px-4 py-3 relative z-10">
-                <div className="flex items-center gap-3">
-                    <div className="relative cursor-pointer" onClick={handleAvatarClick}>
-                        <div className={`w-10 h-10 rounded-full p-[2px] ${post.user?.has_story ? "bg-gradient-to-tr from-yellow-400 via-cuadralo-pink to-purple-600" : "bg-transparent"}`}>
-                            <img src={post.user?.photo || "https://via.placeholder.com/150"} className="w-full h-full rounded-full object-cover border border-white/10" alt={post.user?.name} />
-                        </div>
+        <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+            className="w-full bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300"
+        >
+            
+            {/* HEADER DEL POST */}
+            <div className="flex justify-between items-center p-3">
+                <div 
+                    className="flex items-center gap-3 cursor-pointer group" 
+                    onClick={onViewStory}
+                >
+                    <div className="relative">
+                        <img 
+                            src={post.user?.photo || "https://via.placeholder.com/150"} 
+                            alt={post.user?.name} 
+                            className="w-9 h-9 rounded-full object-cover ring-2 ring-transparent group-hover:ring-cuadralo-pink transition-all"
+                        />
                     </div>
                     <div>
-                        <h4 className="font-bold text-sm text-white leading-none">{post.user?.name}</h4>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{post.location}</p>
+                        <h4 className="text-white font-bold text-sm group-hover:text-cuadralo-pink transition-colors">
+                            {post.user?.name}
+                        </h4>
+                        <p className="text-gray-500 text-[10px] uppercase tracking-wide">
+                            {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: es })}
+                        </p>
                     </div>
                 </div>
+
                 <div className="relative">
-                    <button onClick={() => setShowMenu(!showMenu)} className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-white/5"><MoreHorizontal size={20} /></button>
-                    <AnimatePresence>
-                        {showMenu && (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="absolute right-0 top-10 w-40 bg-[#0f0518] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden text-sm">
-                                    {isMyPost ? (
-                                        <>
-                                            <button onClick={handleDeletePost} className="w-full text-left px-4 py-3 hover:bg-red-500/10 text-red-500 flex gap-2"><Trash2 size={16} /> Eliminar</button>
-                                            <button onClick={handleCopyLink} className="w-full text-left px-4 py-3 hover:bg-white/5 text-gray-200 flex gap-2"><Copy size={16} /> Copiar</button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button onClick={handleReportPost} className="w-full text-left px-4 py-3 hover:bg-white/5 text-red-400 flex gap-2"><AlertTriangle size={16} /> Reportar</button>
-                                            <button onClick={handleCopyLink} className="w-full text-left px-4 py-3 hover:bg-white/5 text-gray-200 flex gap-2"><Copy size={16} /> Copiar</button>
-                                        </>
-                                    )}
-                                </motion.div>
-                            </>
-                        )}
-                    </AnimatePresence>
+                    <button onClick={() => setShowMenu(!showMenu)} className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors">
+                        <MoreVertical size={20} />
+                    </button>
+
+                    {showMenu && (
+                        <div className="absolute right-0 top-8 w-40 bg-[#1a0b2e] border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden py-1">
+                            {isMyPost ? (
+                                <button onClick={handleDelete} className="w-full text-left px-4 py-3 text-red-400 hover:bg-white/5 text-sm flex items-center gap-2">
+                                    <Trash2 size={16} /> Eliminar
+                                </button>
+                            ) : (
+                                <button onClick={handleReport} className="w-full text-left px-4 py-3 text-yellow-500 hover:bg-white/5 text-sm flex items-center gap-2">
+                                    <Flag size={16} /> Reportar
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <div className="relative w-full aspect-[4/5] bg-[#0f0518] cursor-pointer group" onDoubleClick={handleLike}>
-                <img src={post.image_url} className="w-full h-full object-cover" alt="Post" />
-                <AnimatePresence>
-                    {showBigHeart && <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1.2 }} exit={{ opacity: 0, scale: 0.8 }} className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"><Heart size={100} className="text-white fill-white drop-shadow-lg" /></motion.div>}
-                </AnimatePresence>
+            {/* IMAGEN DEL POST */}
+            <div className="relative w-full group overflow-hidden bg-black">
+                {/* Doble click para dar like */}
+                <img 
+                    src={post.image_url} 
+                    alt="Post content" 
+                    onDoubleClick={handleLike}
+                    className="w-full h-auto object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out cursor-pointer"
+                    loading="lazy"
+                />
             </div>
 
-            <div className="px-4 py-3">
-                <div className="flex justify-between items-center mb-3">
-                    <div className="flex gap-5">
-                        <button onClick={handleLike} className="active:scale-90 transition-transform"><Heart size={26} className={liked ? "text-cuadralo-pink fill-cuadralo-pink" : "text-white"} strokeWidth={liked ? 0 : 2} /></button>
-                        <button onClick={() => setShowComments(true)}><MessageCircle size={26} className="text-white -rotate-90" /></button>
-                        <button onClick={handleShare}><Send size={26} className="text-white -rotate-12 mb-1" /></button>
-                    </div>
-                    <button><Bookmark size={26} className="text-white" /></button>
+            {/* ACCIONES Y DESCRIPCIÓN */}
+            <div className="p-3">
+                <div className="flex gap-4 mb-2 items-center">
+                    {/* Botón de Like con Animación Corregida */}
+                    <button 
+                        onClick={handleLike} 
+                        className="focus:outline-none"
+                    >
+                        <motion.div
+                            whileTap={{ scale: 0.8 }}
+                            // CORRECCIÓN: Quitamos type: "spring" en el transition de abajo para evitar el error
+                            animate={liked ? { scale: [1, 1.4, 1], rotate: [0, 15, -15, 0] } : { scale: 1, rotate: 0 }}
+                            transition={{ duration: 0.4 }} // Se elimina type: "spring"
+                        >
+                            <Heart 
+                                size={28} 
+                                className={`transition-colors duration-300 ${liked ? "fill-red-500 text-red-500" : "text-white hover:text-red-400"}`} 
+                                strokeWidth={2} 
+                            />
+                        </motion.div>
+                    </button>
+
+                    <button 
+                        onClick={() => setShowComments(true)} 
+                        className="text-white hover:text-cuadralo-pink transition-all hover:scale-110"
+                    >
+                        <MessageCircle size={28} strokeWidth={2} />
+                    </button>
+                    
+                    <button 
+                        onClick={handleShare}
+                        className="text-white hover:text-blue-400 transition-all hover:scale-110 ml-auto"
+                        title="Compartir"
+                    >
+                        <Share2 size={26} strokeWidth={2} />
+                    </button>
                 </div>
-                <p className="font-bold text-sm text-white mb-2">{likesCount} Me gusta</p>
-                <div className="text-sm text-gray-300 leading-relaxed mb-2"><span className="font-bold text-white mr-2">{post.user?.name}</span>{post.caption}</div>
-                <button onClick={() => setShowComments(true)} className="text-xs text-gray-500">Ver comentarios</button>
-                <p className="text-[10px] text-gray-600 uppercase tracking-wide mt-1">{timeAgo(post.created_at)}</p>
+
+                <div className="font-bold text-white text-sm mb-1 ml-1">
+                    {likesCount} Me gusta
+                </div>
+
+                {post.description && (
+                    <p className="text-gray-300 text-sm leading-relaxed ml-1 break-words">
+                        <span className="font-bold text-white mr-2">{post.user?.name}</span>
+                        {post.description}
+                    </p>
+                )}
+
+                <button 
+                    onClick={() => setShowComments(true)} 
+                    className="text-gray-500 text-xs mt-2 ml-1 hover:text-gray-300 transition-colors"
+                >
+                    {commentsCount > 0 
+                        ? `Ver los ${commentsCount} comentarios...` 
+                        : "Añadir un comentario..."
+                    }
+                </button>
             </div>
-        </div>
-        <AnimatePresence>{showComments && <CommentsModal onClose={() => setShowComments(false)} postId={post.id} postAuthor={post.user?.name} postOwnerId={post.user_id} />}</AnimatePresence>
+        </motion.div>
+
+        {showComments && (
+            <CommentsModal 
+                postId={post.id} 
+                onClose={() => setShowComments(false)} 
+            />
+        )}
     </>
   );
 }

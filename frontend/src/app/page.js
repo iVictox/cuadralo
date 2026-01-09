@@ -17,7 +17,6 @@ import SocialFeed from "@/components/SocialFeed";
 
 // Modales
 import FilterModal from "@/components/FilterModal";
-import SearchModal from "@/components/SearchModal";
 import UploadModal from "@/components/UploadModal";
 
 export default function Home() {
@@ -27,7 +26,6 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("social");
   
   const [showFilters, setShowFilters] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   
   const [selectedChat, setSelectedChat] = useState(null);
@@ -40,7 +38,8 @@ export default function Home() {
       }
   }, [searchParams]);
 
-  const showNavbar = !selectedChat && activeTab === 'home';
+  // ✅ CORRECCIÓN: Mostrar Navbar en 'home' (Swipe) Y en 'social'
+  const showNavbar = !selectedChat && (activeTab === 'home' || activeTab === 'social');
 
   const checkNotifications = async () => {
       try {
@@ -72,6 +71,7 @@ export default function Home() {
     }
 
     switch(activeTab) {
+        // En SocialFeed pasamos la función para abrir el modal de subida (FAB)
         case "social": return <SocialFeed onUploadClick={() => setShowUpload(true)} />;
         case "home": return <CardStack />; 
         case "likes": return <MyLikes />;
@@ -82,13 +82,12 @@ export default function Home() {
   };
 
   return (
-    // ✅ AGREGADO: md:pl-20 para empujar el contenido cuando aparece la sidebar
     <main className="h-screen w-full bg-[#0f0518] relative overflow-hidden flex flex-col md:pl-20">
       
       {showNavbar && (
           <Navbar 
-            onFilterClick={() => setShowFilters(true)} 
-            onSearchClick={() => setShowSearch(true)} 
+            // ✅ Solo mostramos el botón de filtros si estamos en la vista de Swipe (home)
+            onFilterClick={activeTab === 'home' ? () => setShowFilters(true) : null} 
           />
       )}
 
@@ -97,7 +96,6 @@ export default function Home() {
         {renderView()}
       </div>
 
-      {/* Navegación (Ahora responsive: Bottom en móvil, Left en PC) */}
       {!selectedChat && (
           <BottomNav 
             activeTab={activeTab} 
@@ -111,7 +109,7 @@ export default function Home() {
 
       <AnimatePresence>
         {showFilters && <FilterModal onClose={() => setShowFilters(false)} />}
-        {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
+        {/* Nota: SearchModal y NotificationModal ahora viven dentro de Navbar.js */}
         {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
       </AnimatePresence>
 
