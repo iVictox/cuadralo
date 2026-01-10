@@ -19,7 +19,7 @@ func Setup(app *fiber.App) {
 	// MIDDLEWARE
 	api.Use(middleware.IsAuthenticated)
 
-	// --- BUSQUEDA & NOTIFICACIONES (NUEVO) ---
+	// --- BUSQUEDA & NOTIFICACIONES ---
 	api.Get("/search", controllers.SearchUsers)
 	api.Get("/notifications", controllers.GetNotifications)
 	api.Post("/notifications/:id/read", controllers.MarkNotificationRead)
@@ -36,13 +36,15 @@ func Setup(app *fiber.App) {
 	api.Delete("/social/comments/:id", controllers.DeleteComment)
 	api.Post("/social/comments/:id/like", controllers.ToggleCommentLike)
 
+	// ✅ RUTAS DE HISTORIAS
 	api.Get("/social/stories", controllers.GetActiveStories)
 	api.Post("/social/stories", controllers.CreateStory)
 	api.Delete("/social/stories/:id", controllers.DeleteStory)
+	api.Post("/social/stories/:id/view", controllers.ViewStory) // Nueva
 
 	// --- PERFILES ---
 	api.Get("/u/:username", controllers.GetProfileByUsername)
-	api.Post("/users/:id/follow", controllers.FollowUser) // ✅ Renombrado a FollowUser
+	api.Post("/users/:id/follow", controllers.FollowUser)
 	api.Get("/users/:id", controllers.GetUser)
 
 	// --- USUARIO ---

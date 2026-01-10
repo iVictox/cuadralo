@@ -32,6 +32,7 @@ func Connect() {
 	}
 
 	// Migrar el esquema
+	// ✅ IMPORTANTE: Agregamos StoryView y Notification aquí para que se creen las tablas
 	db.AutoMigrate(
 		&models.User{},
 		&models.Match{},
@@ -41,14 +42,16 @@ func Connect() {
 		&models.Comment{},
 		&models.CommentLike{},
 		&models.Story{},
+		&models.StoryView{},    // <-- FALTABA ESTO (Soluciona el error 42P01)
+		&models.Notification{}, // <-- FALTABA ESTO (Para notificaciones de likes/comments)
 		&models.Report{},
 		&models.Follow{},
-		&models.Interest{}, // Aseguramos que Interest esté en la migración
+		&models.Interest{},
 	)
 
 	DB = db
 
-	// ✅ IMPORTANTE: Ejecutar el semillero de intereses
+	// Ejecutar el semillero de intereses
 	SeedInterests()
 }
 
@@ -75,7 +78,7 @@ func SeedInterests() {
 			if count == 0 {
 				interest := models.Interest{
 					Name:     name,
-					Slug:     slug, // ✅ CORRECCIÓN: Usamos la variable 'slug' aquí
+					Slug:     slug,
 					Category: category,
 				}
 				DB.Create(&interest)

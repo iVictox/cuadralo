@@ -6,9 +6,11 @@ import { api } from "@/utils/api";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import CommentsModal from "./CommentsModal";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation"; // ✅ IMPORTANTE PARA NAVEGAR
 
 export default function FeedPost({ post, onDelete, onViewStory }) {
+  const router = useRouter();
   const [liked, setLiked] = useState(post.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
@@ -19,6 +21,30 @@ export default function FeedPost({ post, onDelete, onViewStory }) {
   const userStr = typeof window !== 'undefined' ? localStorage.getItem("user") : null;
   const currentUser = userStr ? JSON.parse(userStr) : null;
   const isMyPost = currentUser && currentUser.id === post.user.id;
+
+  // Estado de historia
+  const hasStory = post.user?.has_story;
+  const hasUnseen = post.user?.has_unseen_story;
+  
+  // Color del anillo
+  const ringClass = hasStory 
+    ? (hasUnseen ? "bg-gradient-to-tr from-yellow-400 via-cuadralo-pink to-purple-600" : "bg-gray-600")
+    : "bg-transparent";
+
+  // --- NAVEGACIÓN ---
+  const handleAvatarClick = (e) => {
+      e.stopPropagation();
+      if (hasStory) {
+          onViewStory(post.user.id);
+      } else {
+          router.push(`/u/${post.user.username}`);
+      }
+  };
+
+  const handleNameClick = (e) => {
+      e.stopPropagation();
+      router.push(`/u/${post.user.username}`);
+  };
 
   const handleLike = async () => {
     const prevLiked = liked;
@@ -41,13 +67,8 @@ export default function FeedPost({ post, onDelete, onViewStory }) {
         text: post.description || 'Mira esta publicación en Cuadralo',
         url: window.location.href,
     };
-
     if (navigator.share) {
-        try {
-            await navigator.share(shareData);
-        } catch (err) {
-            console.log("Error al compartir", err);
-        }
+        try { await navigator.share(shareData); } catch (err) {}
     } else {
         navigator.clipboard.writeText(window.location.href);
         alert("Enlace copiado al portapapeles");
@@ -84,18 +105,22 @@ export default function FeedPost({ post, onDelete, onViewStory }) {
             
             {/* HEADER DEL POST */}
             <div className="flex justify-between items-center p-3">
-                <div 
-                    className="flex items-center gap-3 cursor-pointer group" 
-                    onClick={onViewStory}
-                >
-                    <div className="relative">
+                <div className="flex items-center gap-3">
+                    
+                    {/* AVATAR: Clic -> Historia o Perfil */}
+                    <div 
+                        className={`relative p-[2px] rounded-full ${ringClass} cursor-pointer`}
+                        onClick={handleAvatarClick}
+                    >
                         <img 
                             src={post.user?.photo || "https://via.placeholder.com/150"} 
                             alt={post.user?.name} 
-                            className="w-9 h-9 rounded-full object-cover ring-2 ring-transparent group-hover:ring-cuadralo-pink transition-all"
+                            className="w-9 h-9 rounded-full object-cover ring-2 ring-black bg-black"
                         />
                     </div>
-                    <div>
+
+                    {/* NOMBRE: Clic -> Perfil */}
+                    <div className="cursor-pointer group" onClick={handleNameClick}>
                         <h4 className="text-white font-bold text-sm group-hover:text-cuadralo-pink transition-colors">
                             {post.user?.name}
                         </h4>
@@ -128,7 +153,6 @@ export default function FeedPost({ post, onDelete, onViewStory }) {
 
             {/* IMAGEN DEL POST */}
             <div className="relative w-full group overflow-hidden bg-black">
-                {/* Doble click para dar like */}
                 <img 
                     src={post.image_url} 
                     alt="Post content" 
@@ -141,16 +165,11 @@ export default function FeedPost({ post, onDelete, onViewStory }) {
             {/* ACCIONES Y DESCRIPCIÓN */}
             <div className="p-3">
                 <div className="flex gap-4 mb-2 items-center">
-                    {/* Botón de Like con Animación Corregida */}
-                    <button 
-                        onClick={handleLike} 
-                        className="focus:outline-none"
-                    >
+                    <button onClick={handleLike} className="focus:outline-none">
                         <motion.div
                             whileTap={{ scale: 0.8 }}
-                            // CORRECCIÓN: Quitamos type: "spring" en el transition de abajo para evitar el error
                             animate={liked ? { scale: [1, 1.4, 1], rotate: [0, 15, -15, 0] } : { scale: 1, rotate: 0 }}
-                            transition={{ duration: 0.4 }} // Se elimina type: "spring"
+                            transition={{ duration: 0.4 }}
                         >
                             <Heart 
                                 size={28} 
@@ -182,7 +201,12 @@ export default function FeedPost({ post, onDelete, onViewStory }) {
 
                 {post.description && (
                     <p className="text-gray-300 text-sm leading-relaxed ml-1 break-words">
-                        <span className="font-bold text-white mr-2">{post.user?.name}</span>
+                        <span 
+                            className="font-bold text-white mr-2 cursor-pointer hover:underline"
+                            onClick={handleNameClick} // También linkeamos el nombre en el caption
+                        >
+                            {post.user?.name}
+                        </span>
                         {post.description}
                     </p>
                 )}

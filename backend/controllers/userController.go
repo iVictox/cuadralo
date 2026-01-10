@@ -3,6 +3,7 @@ package controllers
 import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -10,23 +11,57 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// --- BUSCADOR ---
+// --- BUSCADOR POR INTERESES ---
 func SearchUsers(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
 	query := c.Query("q")
-	if query == "" {
-		return c.JSON([]models.User{})
+	interestsStr := c.Query("interests") // Ejemplo: "futbol,cine,viajes"
+
+	db := database.DB.Model(&models.User{})
+
+	// 1. Excluir al propio usuario
+	db = db.Where("users.id != ?", myId)
+
+	// 2. Filtro de Texto (Nombre, Username, Bio)
+	if query != "" {
+		searchLike := "%" + query + "%"
+		db = db.Where("(users.username ILIKE ? OR users.name ILIKE ? OR users.bio ILIKE ?)", searchLike, searchLike, searchLike)
+	}
+
+	// 3. Filtro por Intereses
+	if interestsStr != "" {
+		slugs := strings.Split(interestsStr, ",")
+		if len(slugs) > 0 {
+			// Hacemos JOIN con la tabla pivote y la tabla de intereses
+			// Filtramos usuarios que tengan AL MENOS UNO de los intereses seleccionados
+			db = db.Joins("JOIN user_interests ui ON ui.user_id = users.id").
+				Joins("JOIN interests i ON i.id = ui.interest_id").
+				Where("i.slug IN ?", slugs).
+				Group("users.id")
+		}
 	}
 
 	var users []models.User
-	// Búsqueda insensible a mayúsculas (ILIKE en Postgres, LIKE en otros)
-	database.DB.Where("username ILIKE ? OR name ILIKE ?", "%"+query+"%", "%"+query+"%").
-		Limit(20).
-		Find(&users)
+	// Preload Interests para poder mostrarlos en el frontend
+	result := db.Preload("Interests").Limit(50).Find(&users)
+
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error al buscar usuarios"})
+	}
+
+	// Mapear los intereses a Strings simples para el JSON response
+	for idx := range users {
+		var interestsList []string
+		for _, i := range users[idx].Interests {
+			interestsList = append(interestsList, i.Slug)
+		}
+		users[idx].InterestsList = interestsList
+	}
 
 	return c.JSON(users)
 }
 
-// --- SEGUIR USUARIO (RENOMBREADA PARA EVITAR CONFLICTO) ---
+// --- SEGUIR USUARIO ---
 func FollowUser(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	targetId := c.Params("id")
@@ -68,7 +103,7 @@ func FollowUser(c *fiber.Ctx) error {
 	}
 }
 
-// ... RESTO DE FUNCIONES (UpdateMe, etc.) ...
+// ... RESTO DE FUNCIONES ...
 
 func GetAllInterests(c *fiber.Ctx) error {
 	var interests []models.Interest

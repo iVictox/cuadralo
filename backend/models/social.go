@@ -44,12 +44,23 @@ type CommentLike struct {
 	CommentID uint `gorm:"primaryKey" json:"comment_id"`
 }
 
+// ✅ MODIFICADO: Historias
 type Story struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `json:"user_id"`
 	User      User      `json:"user"`
 	ImageURL  string    `json:"image_url"`
 	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// Auxiliar para saber si el usuario actual ya vio esta historia específica
+	Seen bool `gorm:"-" json:"seen"`
+}
+
+// ✅ NUEVO: Tabla para registrar vistas
+type StoryView struct {
+	StoryID   uint      `gorm:"primaryKey" json:"story_id"`
+	UserID    uint      `gorm:"primaryKey" json:"user_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -61,14 +72,13 @@ type Report struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// ✅ NUEVO: Modelo de Notificación
 type Notification struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	UserID    uint      `json:"user_id"`   // Destinatario
-	SenderID  uint      `json:"sender_id"` // Quien realiza la acción
+	UserID    uint      `json:"user_id"`
+	SenderID  uint      `json:"sender_id"`
 	Sender    User      `json:"sender" gorm:"foreignKey:SenderID"`
-	Type      string    `json:"type"`    // like, comment, follow, match
-	PostID    *uint     `json:"post_id"` // Opcional (si es en un post)
+	Type      string    `json:"type"`
+	PostID    *uint     `json:"post_id"`
 	Post      Post      `json:"post"`
 	Message   string    `json:"message"`
 	IsRead    bool      `json:"is_read" gorm:"default:false"`

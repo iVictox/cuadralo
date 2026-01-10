@@ -8,6 +8,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// --- POSTS ---
+
 func CreatePost(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	var data struct {
@@ -27,25 +29,78 @@ func CreatePost(c *fiber.Ctx) error {
 func GetSocialFeed(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	var posts []models.Post
+
+	// 1. Obtener Posts
 	database.DB.Preload("User").Order("created_at desc").Find(&posts)
-	activeStoriesMap := make(map[uint]bool)
-	var activeUserIDs []uint
-	database.DB.Model(&models.Story{}).Where("expires_at > ?", time.Now()).Distinct("user_id").Pluck("user_id", &activeUserIDs)
-	for _, id := range activeUserIDs {
-		activeStoriesMap[id] = true
+
+	if len(posts) == 0 {
+		return c.JSON([]models.Post{})
 	}
+
+	// 2. Obtener IDs de usuarios en el feed
+	userIDs := make([]uint, 0)
+	for _, p := range posts {
+		userIDs = append(userIDs, p.UserID)
+	}
+
+	// 3. Buscar todas las historias activas de esos usuarios
+	var activeStories []models.Story
+	database.DB.Where("user_id IN ? AND expires_at > ?", userIDs, time.Now()).Find(&activeStories)
+
+	// 4. Buscar cuáles de esas historias YA he visto yo
+	var myViews []models.StoryView
+	storyIDs := make([]uint, 0)
+	for _, s := range activeStories {
+		storyIDs = append(storyIDs, s.ID)
+	}
+	if len(storyIDs) > 0 {
+		database.DB.Where("user_id = ? AND story_id IN ?", myId, storyIDs).Find(&myViews)
+	}
+
+	// Mapa: storyID -> true (si ya la vi)
+	seenMap := make(map[uint]bool)
+	for _, v := range myViews {
+		seenMap[v.StoryID] = true
+	}
+
+	// 5. Determinar estado por usuario
+	type UserStatus struct {
+		HasStory       bool
+		HasUnseenStory bool
+	}
+	userStatusMap := make(map[uint]*UserStatus)
+
+	for _, s := range activeStories {
+		if _, exists := userStatusMap[s.UserID]; !exists {
+			userStatusMap[s.UserID] = &UserStatus{HasStory: true, HasUnseenStory: false}
+		}
+		// Si encuentro UNA historia que no está en seenMap, entonces el usuario tiene historias nuevas
+		if !seenMap[s.ID] {
+			userStatusMap[s.UserID].HasUnseenStory = true
+		}
+	}
+
+	// 6. Asignar datos a los posts
 	for i := range posts {
 		var count int64
 		database.DB.Model(&models.PostLike{}).Where("post_id = ?", posts[i].ID).Count(&count)
 		posts[i].LikesCount = count
+
 		var like models.PostLike
 		if database.DB.Where("user_id = ? AND post_id = ?", myId, posts[i].ID).First(&like).RowsAffected > 0 {
 			posts[i].IsLiked = true
 		}
-		if activeStoriesMap[posts[i].UserID] {
+
+		// Asignar estado de historia
+		if status, ok := userStatusMap[posts[i].UserID]; ok {
 			posts[i].User.HasStory = true
+			posts[i].User.HasUnseenStory = status.HasUnseenStory
+		} else {
+			posts[i].User.HasStory = false
+			posts[i].User.HasUnseenStory = false
 		}
 	}
+
 	return c.JSON(posts)
 }
 
@@ -65,7 +120,6 @@ func DeletePost(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Post eliminado"})
 }
 
-// ✅ MODIFICADO: Like con Notificación
 func TogglePostLike(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	postId := c.Params("id")
@@ -88,7 +142,6 @@ func TogglePostLike(c *fiber.Ctx) error {
 		newLike := models.PostLike{UserID: userId, PostID: pID}
 		database.DB.Create(&newLike)
 
-		// 🔔 Crear Notificación
 		if postOwnerID != userId {
 			notif := models.Notification{
 				UserID:    postOwnerID,
@@ -107,6 +160,8 @@ func TogglePostLike(c *fiber.Ctx) error {
 
 func ReportPost(c *fiber.Ctx) error { return c.JSON(fiber.Map{"ok": true}) }
 
+// --- COMENTARIOS ---
+
 func GetPostComments(c *fiber.Ctx) error {
 	postId := c.Params("id")
 	var comments []models.Comment
@@ -114,7 +169,6 @@ func GetPostComments(c *fiber.Ctx) error {
 	return c.JSON(comments)
 }
 
-// ✅ MODIFICADO: Comentario con Notificación
 func CreateComment(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	postId := c.Params("id")
@@ -135,7 +189,6 @@ func CreateComment(c *fiber.Ctx) error {
 	database.DB.Create(&comment)
 	database.DB.Preload("User").First(&comment, comment.ID)
 
-	// 🔔 Crear Notificación
 	targetUserID := postOwnerID
 	msg := "comentó tu publicación"
 
@@ -175,14 +228,11 @@ func DeleteComment(c *fiber.Ctx) error {
 
 func ToggleCommentLike(c *fiber.Ctx) error { return c.JSON(fiber.Map{"ok": true}) }
 
-// ==========================================
-// ✅ SECCIÓN NOTIFICACIONES (NUEVA)
-// ==========================================
+// --- NOTIFICACIONES ---
 
 func GetNotifications(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	var notifs []models.Notification
-	// Preload Post para saber la imagen si es like/comment
 	database.DB.Preload("Sender").Preload("Post").Where("user_id = ?", userId).Order("created_at desc").Limit(50).Find(&notifs)
 	return c.JSON(notifs)
 }
@@ -206,6 +256,131 @@ func MarkNotificationRead(c *fiber.Ctx) error {
 	return c.JSON(notif)
 }
 
-func GetActiveStories(c *fiber.Ctx) error { return c.JSON([]interface{}{}) }
-func CreateStory(c *fiber.Ctx) error      { return c.JSON(fiber.Map{"ok": true}) }
-func DeleteStory(c *fiber.Ctx) error      { return c.JSON(fiber.Map{"ok": true}) }
+// ==========================================
+// ✅ SECCIÓN HISTORIAS (COMPLETA)
+// ==========================================
+
+type StoryFeedItem struct {
+	User    models.User    `json:"user"`
+	Stories []models.Story `json:"stories"`
+	AllSeen bool           `json:"all_seen"`
+}
+
+func GetActiveStories(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
+
+	// 1. Historias activas
+	var activeStories []models.Story
+	database.DB.Preload("User").Where("expires_at > ?", time.Now()).Order("created_at asc").Find(&activeStories)
+
+	// 2. Vistas mías
+	var myViews []models.StoryView
+	database.DB.Where("user_id = ?", myId).Find(&myViews)
+	seenMap := make(map[uint]bool)
+	for _, v := range myViews {
+		seenMap[v.StoryID] = true
+	}
+
+	// 3. Agrupar
+	grouped := make(map[uint]*StoryFeedItem)
+	var userOrder []uint
+
+	for _, s := range activeStories {
+		s.Seen = seenMap[s.ID]
+
+		if _, exists := grouped[s.UserID]; !exists {
+			grouped[s.UserID] = &StoryFeedItem{
+				User:    s.User,
+				Stories: []models.Story{},
+				AllSeen: true,
+			}
+			userOrder = append(userOrder, s.UserID)
+		}
+
+		grouped[s.UserID].Stories = append(grouped[s.UserID].Stories, s)
+
+		if !s.Seen {
+			grouped[s.UserID].AllSeen = false
+		}
+	}
+
+	var result []StoryFeedItem
+	var seenResult []StoryFeedItem
+	var unseenResult []StoryFeedItem
+
+	for _, uid := range userOrder {
+		item := grouped[uid]
+		if uid == myId {
+			continue
+		}
+
+		if item.AllSeen {
+			seenResult = append(seenResult, *item)
+		} else {
+			unseenResult = append(unseenResult, *item)
+		}
+	}
+	result = append(unseenResult, seenResult...)
+
+	var myStories []models.Story
+	if myItem, ok := grouped[myId]; ok {
+		myStories = myItem.Stories
+	}
+
+	return c.JSON(fiber.Map{
+		"feed":       result,
+		"my_stories": myStories,
+	})
+}
+
+func CreateStory(c *fiber.Ctx) error {
+	userId := uint(c.Locals("userId").(float64))
+	var data struct {
+		ImageURL string `json:"image_url"`
+	}
+	if err := c.BodyParser(&data); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	story := models.Story{
+		UserID:    userId,
+		ImageURL:  data.ImageURL,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+
+	database.DB.Create(&story)
+	return c.JSON(story)
+}
+
+func DeleteStory(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
+	storyId := c.Params("id")
+
+	var story models.Story
+	if err := database.DB.First(&story, storyId).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "No encontrada"})
+	}
+	if story.UserID != myId {
+		return c.Status(403).JSON(fiber.Map{"error": "No autorizado"})
+	}
+	database.DB.Delete(&story)
+	return c.JSON(fiber.Map{"message": "Historia eliminada"})
+}
+
+// ✅ NUEVO: Marcar como vista
+func ViewStory(c *fiber.Ctx) error {
+	userId := uint(c.Locals("userId").(float64))
+	storyId := c.Params("id")
+
+	var existing models.StoryView
+	if database.DB.Where("user_id = ? AND story_id = ?", userId, storyId).First(&existing).RowsAffected > 0 {
+		return c.JSON(fiber.Map{"ok": true})
+	}
+
+	// Insertar raw para evitar conflictos de parseo uint/string, aunque gorm lo maneja
+	// Preferible usar modelo si se puede parsear, aquí usamos exec directo para robustez rápida
+	database.DB.Exec("INSERT INTO story_views (user_id, story_id, created_at) VALUES (?, ?, ?)", userId, storyId, time.Now())
+
+	return c.JSON(fiber.Map{"ok": true})
+}

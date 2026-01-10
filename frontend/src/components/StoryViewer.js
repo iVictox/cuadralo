@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Trash2, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { X, Trash2 } from "lucide-react";
 import { api } from "@/utils/api";
 import { useConfirm } from "@/context/ConfirmContext";
 import { useToast } from "@/context/ToastContext";
@@ -17,12 +17,28 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
 
   const currentStory = stories[currentIndex];
 
+  // ✅ EFECTO: Marcar como vista
+  useEffect(() => {
+    if (!currentStory || isOwner) return;
+
+    // Llamada "silenciosa" para marcar vista
+    const markAsRead = async () => {
+        try {
+            await api.post(`/social/stories/${currentStory.id}/view`);
+        } catch (e) {
+            console.error("Error marcando vista", e);
+        }
+    };
+    markAsRead();
+
+  }, [currentStory, isOwner]);
+
   // --- LÓGICA DE TIEMPO Y PROGRESO ---
   useEffect(() => {
     if (!currentStory || isPaused) return;
 
     setProgress(0);
-    const duration = 5000; // 5 segundos por historia
+    const duration = 5000; 
     const intervalTime = 50;
     const increment = 100 / (duration / intervalTime);
 
@@ -30,7 +46,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
         setProgress((prev) => {
             if (prev >= 100) {
                 clearInterval(timer);
-                handleNext(); // Avanzar automáticamente
+                handleNext(); 
                 return 100;
             }
             return prev + increment;
@@ -40,13 +56,13 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
     return () => clearInterval(timer);
   }, [currentIndex, isPaused, currentStory]);
 
-  // --- NAVEGACIÓN ---
   const handleNext = useCallback(() => {
       if (currentIndex < stories.length - 1) {
           setCurrentIndex(prev => prev + 1);
           setProgress(0);
       } else {
-          onClose(); // Si es la última, cerramos
+          // Al cerrar, pasamos "true" para forzar un refresh en el padre
+          onClose(true); 
       }
   }, [currentIndex, stories.length, onClose]);
 
@@ -57,9 +73,8 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
       }
   }, [currentIndex]);
 
-  // --- ACCIONES ---
   const handleDelete = async () => {
-      setIsPaused(true); // Pausar mientras confirma
+      setIsPaused(true); 
       const ok = await confirm({
           title: "¿Eliminar historia?",
           message: "Desaparecerá permanentemente.",
@@ -73,10 +88,9 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
               showToast("Historia eliminada");
               
               if (stories.length === 1) {
-                  onClose(); // Si era la única, cerrar
-                  if (onDeleteSuccess) onDeleteSuccess(); // Recargar feed
+                  onClose(true); 
+                  if (onDeleteSuccess) onDeleteSuccess(); 
               } else {
-                  // Si quedan más, quitar esta de la lista local (simple hack visual o recargar)
                   if (onDeleteSuccess) onDeleteSuccess();
                   handleNext();
               }
@@ -123,7 +137,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
                         <Trash2 size={20} />
                     </button>
                 )}
-                <button onClick={onClose} className="text-white p-2">
+                <button onClick={() => onClose(true)} className="text-white p-2">
                     <X size={28} />
                 </button>
             </div>

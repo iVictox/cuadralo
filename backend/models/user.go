@@ -14,9 +14,7 @@ type User struct {
 
 	Photo  string   `json:"photo"`
 	Photos []string `gorm:"serializer:json" json:"photos"`
-
-	// ✅ CAMBIO: Permitir hasta 1000 caracteres
-	Bio string `gorm:"size:1000" json:"bio"`
+	Bio    string   `gorm:"size:1000" json:"bio"`
 
 	Interests     []Interest `gorm:"many2many:user_interests;" json:"interests_obj"`
 	InterestsList []string   `gorm:"-" json:"interests"`
@@ -30,10 +28,13 @@ type User struct {
 
 	CreatedAt time.Time `json:"created_at"`
 
-	HasStory    bool  `gorm:"-" json:"has_story"`
 	Followers   int64 `gorm:"-" json:"followers_count"`
 	Following   int64 `gorm:"-" json:"following_count"`
 	IsFollowing bool  `gorm:"-" json:"is_following"`
+
+	// ✅ NUEVOS CAMPOS PARA HISTORIAS
+	HasStory       bool `gorm:"-" json:"has_story"`
+	HasUnseenStory bool `gorm:"-" json:"has_unseen_story"`
 }
 
 type Follow struct {

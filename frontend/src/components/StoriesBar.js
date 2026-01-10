@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 import { AnimatePresence } from "framer-motion";
 import StoryPreview from "./StoryPreview";
 
-// Ahora recibe props del padre (SocialFeed)
 export default function StoriesBar({ stories, myStories, currentUser, onViewStory, onRefresh }) {
   const { showToast } = useToast();
   const fileInputRef = useRef(null);
@@ -46,8 +45,20 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
   const [isDown, setIsDown] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
-  const handleMouseDown = (e) => { setIsDown(true); setStartX(e.pageX - sliderRef.current.offsetLeft); setScrollLeft(sliderRef.current.scrollLeft); };
-  const handleMouseMove = (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - sliderRef.current.offsetLeft; const walk = (x - startX) * 1.5; sliderRef.current.scrollLeft = scrollLeft - walk; };
+  
+  const handleMouseDown = (e) => { 
+      setIsDown(true); 
+      setStartX(e.pageX - sliderRef.current.offsetLeft); 
+      setScrollLeft(sliderRef.current.scrollLeft); 
+  };
+  
+  const handleMouseMove = (e) => { 
+      if (!isDown) return; 
+      e.preventDefault(); 
+      const x = e.pageX - sliderRef.current.offsetLeft; 
+      const walk = (x - startX) * 1.5; 
+      sliderRef.current.scrollLeft = scrollLeft - walk; 
+  };
 
   return (
     <>
@@ -62,18 +73,29 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
           {/* MI HISTORIA */}
           <div className="flex flex-col items-center min-w-[70px] cursor-pointer group select-none relative">
               <div 
-                className={`w-[74px] h-[74px] rounded-full flex items-center justify-center ${myStories.length > 0 ? "bg-gradient-to-tr from-yellow-400 via-cuadralo-pink to-purple-600" : "bg-transparent border-2 border-white/20 border-dashed"}`}
+                className={`w-[74px] h-[74px] rounded-full flex items-center justify-center p-[2px] ${
+                    myStories.length > 0 
+                    ? "bg-gray-500" // Mis historias en gris
+                    : "bg-transparent border-2 border-white/20 border-dashed"
+                }`}
                 onClick={() => {
                     if (myStories.length > 0) onViewStory(currentUser.id);
                     else fileInputRef.current.click();
                 }}
               >
-                  <div className="w-[68px] h-[68px] rounded-full bg-black border-2 border-black overflow-hidden relative">
-                      <img src={currentUser?.photo || "https://via.placeholder.com/150"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80 group-hover:opacity-100" alt="Mi historia" />
+                  <div className="w-full h-full rounded-full bg-black border-2 border-black overflow-hidden relative">
+                      <img 
+                        src={currentUser?.photo || "https://via.placeholder.com/150"} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80 group-hover:opacity-100" 
+                        alt="Mi historia" 
+                      />
                   </div>
               </div>
               
-              <button onClick={(e) => { e.stopPropagation(); fileInputRef.current.click(); }} className="absolute bottom-5 right-0 bg-cuadralo-pink rounded-full p-1 border-2 border-black hover:scale-110 transition-transform z-10">
+              <button 
+                onClick={(e) => { e.stopPropagation(); fileInputRef.current.click(); }} 
+                className="absolute bottom-5 right-0 bg-cuadralo-pink rounded-full p-1 border-2 border-black hover:scale-110 transition-transform z-10"
+              >
                  <Plus size={12} className="text-white" />
               </button>
               
@@ -82,22 +104,44 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
           </div>
 
           {/* OTRAS HISTORIAS */}
-          {stories.map((group) => (
-            <div key={group.user.id} className="flex flex-col items-center min-w-[70px] cursor-pointer group select-none" onClick={() => onViewStory(group.user.id)}>
-              <div className="w-[74px] h-[74px] rounded-full flex items-center justify-center bg-gradient-to-tr from-yellow-400 via-cuadralo-pink to-purple-600 animate-spin-slow p-[2px]">
-                  <div className="w-full h-full rounded-full bg-black border-2 border-black overflow-hidden relative">
-                      <img src={group.user.photo || "https://via.placeholder.com/150"} alt={group.user.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                  </div>
-              </div>
-              <span className="text-xs text-white mt-2 font-medium truncate w-16 text-center">{group.user.name}</span>
-            </div>
-          ))}
+          {stories.map((group) => {
+            // ✅ LÓGICA DE COLOR: all_seen ? Gris : Gradiente
+            const ringColor = group.all_seen 
+                ? "bg-gray-600" 
+                : "bg-gradient-to-tr from-yellow-400 via-cuadralo-pink to-purple-600";
+
+            return (
+                <div 
+                    key={group.user.id} 
+                    className="flex flex-col items-center min-w-[70px] cursor-pointer group select-none" 
+                    onClick={() => onViewStory(group.user.id)}
+                >
+                    <div className={`w-[74px] h-[74px] rounded-full flex items-center justify-center ${ringColor} p-[2px] transition-colors duration-300`}>
+                        <div className="w-full h-full rounded-full bg-black border-2 border-black overflow-hidden relative">
+                            <img 
+                                src={group.user.photo || "https://via.placeholder.com/150"} 
+                                alt={group.user.name} 
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                            />
+                        </div>
+                    </div>
+                    <span className="text-xs text-white mt-2 font-medium truncate w-16 text-center">
+                        {group.user.name}
+                    </span>
+                </div>
+            );
+          })}
         </div>
 
         {/* EDITOR (PREVIEW) */}
         <AnimatePresence>
             {previewFile && (
-                <StoryPreview file={previewFile} onClose={() => setPreviewFile(null)} onUpload={handleConfirmUpload} isUploading={uploading} />
+                <StoryPreview 
+                    file={previewFile} 
+                    onClose={() => setPreviewFile(null)} 
+                    onUpload={handleConfirmUpload} 
+                    isUploading={uploading} 
+                />
             )}
         </AnimatePresence>
     </>
