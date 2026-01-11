@@ -86,9 +86,18 @@ export default function RegisterPage() {
       setError("");
 
       try {
-          // El backend ahora espera "interests" como array de strings, que es exactamente
-          // lo que tenemos en formData.interests. No hace falta cambiar nada aquí.
-          const payload = { ...formData };
+          // ✅ CORRECCIÓN: Convertir 'distance' a entero y limpiar payload
+          const payload = { 
+              ...formData,
+              preferences: {
+                  ...formData.preferences,
+                  distance: parseInt(formData.preferences.distance, 10) // Aseguramos que sea INT
+              }
+          };
+          
+          // Eliminamos confirmPassword ya que el backend no lo espera
+          delete payload.confirmPassword;
+
           const response = await api.post("/register", payload);
           
           setTimeout(() => {

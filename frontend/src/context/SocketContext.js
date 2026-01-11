@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { api } from "@/utils/api";
+import { usePathname } from "next/navigation";
 
 const SocketContext = createContext();
 
@@ -14,14 +15,25 @@ export const SocketProvider = ({ children }) => {
     
     // Referencia para evitar reconexiones multiples
     const socketRef = useRef(null);
+    const pathname = usePathname();
 
     useEffect(() => {
         const connectSocket = async () => {
             try {
-                // Obtener mi ID (asumiendo que hay un endpoint /me o lo tienes en localstorage)
-                // Aquí usaremos una llamada a /me para asegurar el ID
-                const me = await api.get("/me");
-                if (!me.id) return;
+                // ✅ CORRECCIÓN: No conectar en páginas públicas
+                if (pathname === "/login" || pathname === "/register") return;
+
+                // ✅ CORRECCIÓN: Manejar error de sesión silenciosamente
+                let me;
+                try {
+                    me = await api.get("/me");
+                } catch (e) {
+                    // Si falla (ej: 401 Unauthorized), simplemente no conectamos socket
+                    // y evitamos que explote la app con "Sesión expirada"
+                    return; 
+                }
+                
+                if (!me || !me.id) return;
 
                 if (socketRef.current) return; // Ya conectado
 
@@ -70,7 +82,7 @@ export const SocketProvider = ({ children }) => {
                 socketRef.current.close();
             }
         };
-    }, []);
+    }, [pathname]); // ✅ Añadido pathname como dependencia
 
     const sendMessage = (payload) => {
         if (socket && socket.readyState === WebSocket.OPEN) {
