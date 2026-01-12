@@ -9,33 +9,41 @@ export const useSocket = () => useContext(SocketContext);
 
 export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
-    const [onlineUsers, setOnlineUsers] = useState(new Set()); // Set de IDs
-    const [messages, setMessages] = useState([]); // Buffer global de mensajes entrantes
+    const [onlineUsers, setOnlineUsers] = useState(new Set()); 
+    const [messages, setMessages] = useState([]); 
     const [isConnected, setIsConnected] = useState(false);
     
-    // Referencia para evitar reconexiones multiples
     const socketRef = useRef(null);
     const pathname = usePathname();
 
     useEffect(() => {
-        const connectSocket = async () => {
-            try {
-                // ✅ CORRECCIÓN: No conectar en páginas públicas
-                if (pathname === "/login" || pathname === "/register") return;
+        // 1. Si vamos a páginas públicas (Login/Register), CERRAR conexión si existe.
+        if (pathname === "/login" || pathname === "/register") {
+            if (socketRef.current) {
+                console.log("🔒 Cerrando sesión de chat (página pública)");
+                socketRef.current.close();
+                socketRef.current = null;
+                setSocket(null);
+                setIsConnected(false);
+            }
+            return;
+        }
 
-                // ✅ CORRECCIÓN: Manejar error de sesión silenciosamente
-                let me;
-                try {
-                    me = await api.get("/me");
-                } catch (e) {
-                    // Si falla (ej: 401 Unauthorized), simplemente no conectamos socket
-                    // y evitamos que explote la app con "Sesión expirada"
-                    return; 
-                }
-                
+        // 2. Función para iniciar conexión (solo si no existe ya)
+        const connectSocket = async () => {
+            // ✅ SINGLETON: Si ya hay conexión abierta, NO hacemos nada.
+            // Esto evita que el socket se reinicie al navegar, quitando el spinner.
+            if (socketRef.current && (socketRef.current.readyState === WebSocket.OPEN || socketRef.current.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+
+            try {
+                // Verificar sesión (solo si no estamos conectados)
+                const me = await api.get("/me").catch(() => null);
                 if (!me || !me.id) return;
 
-                if (socketRef.current) return; // Ya conectado
+                // Doble chequeo por si se conectó mientras esperábamos la API
+                if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) return;
 
                 const wsUrl = `ws://localhost:8000/ws/${me.id}`;
                 const ws = new WebSocket(wsUrl);
@@ -48,8 +56,11 @@ export const SocketProvider = ({ children }) => {
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
                     
+                    // Emitir evento global para otros componentes
+                    const eventCustom = new CustomEvent("socket_event", { detail: data });
+                    window.dispatchEvent(eventCustom);
+                    
                     if (data.type === "new_message") {
-                        // Disparar evento global o guardar en estado
                         setMessages((prev) => [...prev, data.payload]);
                     } else if (data.type === "user_status") {
                         const { user_id, status } = data.payload;
@@ -66,6 +77,11 @@ export const SocketProvider = ({ children }) => {
                     console.log("🔴 Desconectado del Chat");
                     setIsConnected(false);
                     socketRef.current = null;
+                    setSocket(null);
+                };
+
+                ws.onerror = (error) => {
+                    console.error("Error WS:", error);
                 };
 
                 socketRef.current = ws;
@@ -75,14 +91,22 @@ export const SocketProvider = ({ children }) => {
             }
         };
 
-        connectSocket();
+        // 3. ESTRATEGIA ANTI-SPINNER
+        // Si el documento ya cargó, conectamos. Si no, esperamos al evento 'load'.
+        if (document.readyState === 'complete') {
+            connectSocket();
+        } else {
+            window.addEventListener('load', connectSocket);
+        }
 
+        // ✅ IMPORTANTE: Cleanup modificado
+        // Quitamos el listener de 'load', pero NO cerramos el socket al desmontar el efecto
+        // debido a cambios de ruta. Solo se cierra explícitamente en el punto 1.
         return () => {
-            if (socketRef.current) {
-                socketRef.current.close();
-            }
+            window.removeEventListener('load', connectSocket);
         };
-    }, [pathname]); // ✅ Añadido pathname como dependencia
+
+    }, [pathname]); // Se ejecuta al cambiar de ruta, pero el punto 2 filtra si ya estamos conectados.
 
     const sendMessage = (payload) => {
         if (socket && socket.readyState === WebSocket.OPEN) {
@@ -90,13 +114,11 @@ export const SocketProvider = ({ children }) => {
                 type: "send_message",
                 payload: payload
             }));
-        } else {
-            console.error("Socket no conectado");
         }
     };
 
     const markViewed = (msgId) => {
-        if (socket) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({
                 type: "view_once_opened",
                 payload: { message_id: msgId }
@@ -105,7 +127,7 @@ export const SocketProvider = ({ children }) => {
     }
 
     const toggleSave = (msgId, isSaved) => {
-        if (socket) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({
                 type: "save_message",
                 payload: { message_id: msgId, is_saved: isSaved }

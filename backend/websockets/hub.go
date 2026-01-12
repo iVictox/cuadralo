@@ -1,10 +1,10 @@
 package websockets
 
 import (
-	"log"
-	"sync"
-
 	"cuadralo-backend/models"
+	"log"
+	"strconv"
+	"sync"
 
 	"github.com/gofiber/contrib/websocket"
 )
@@ -80,15 +80,15 @@ func (h *Hub) notifyUserStatus(userID uint, isOnline bool) {
 			"status":  status,
 		},
 	}
-	// En una app real, aquí filtraríamos para enviar solo a los "matches" de ese usuario
-	// Por simplicidad, enviamos broadcast o dejamos que el cliente actualice
-	// Para este ejemplo, enviaremos a todos los conectados (broadcast simple)
+	// Enviar a todos los conectados
+	h.Mutex.Lock()
+	defer h.Mutex.Unlock()
 	for _, conn := range h.Clients {
 		conn.WriteJSON(msg)
 	}
 }
 
-// Enviar mensaje privado en tiempo real
+// Enviar mensaje privado en tiempo real (Chat)
 func SendPrivateMessage(senderID, receiverID uint, msgData models.Message) {
 	MainHub.Mutex.Lock()
 	recipientConn, ok := MainHub.Clients[receiverID]
@@ -107,12 +107,52 @@ func SendPrivateMessage(senderID, receiverID uint, msgData models.Message) {
 		}
 	}
 
-	// 2. Enviar confirmación al remitente (para que aparezca en su chat UI instantáneamente si usa sockets)
-	// Aunque el frontend suele añadirlo optimísticamente, esto asegura sincronía.
+	// 2. Enviar confirmación al remitente
 	MainHub.Mutex.Lock()
 	senderConn, okSender := MainHub.Clients[senderID]
 	MainHub.Mutex.Unlock()
 	if okSender {
 		senderConn.WriteJSON(packet)
+	}
+}
+
+// ✅ NUEVO: Función para enviar evento a TODOS (Broadcast)
+// Usado para: "new_story"
+func BroadcastEvent(eventType string, payload interface{}) {
+	packet := WSMessage{
+		Type:    eventType,
+		Payload: payload,
+	}
+
+	MainHub.Mutex.Lock()
+	defer MainHub.Mutex.Unlock()
+
+	for _, conn := range MainHub.Clients {
+		// Ignoramos errores individuales para no romper el bucle
+		conn.WriteJSON(packet)
+	}
+}
+
+// ✅ NUEVO: Función para enviar evento a UN USUARIO ESPECÍFICO
+// Usado para: "story_viewed"
+func SendToUser(userIDStr string, eventType string, payload interface{}) {
+	// Convertir string ID a uint
+	uid, err := strconv.ParseUint(userIDStr, 10, 64)
+	if err != nil {
+		log.Println("Error parseando UserID en socket:", err)
+		return
+	}
+	userID := uint(uid)
+
+	MainHub.Mutex.Lock()
+	conn, ok := MainHub.Clients[userID]
+	MainHub.Mutex.Unlock()
+
+	if ok {
+		packet := WSMessage{
+			Type:    eventType,
+			Payload: payload,
+		}
+		conn.WriteJSON(packet)
 	}
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
-import { X, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { X, Trash2, Eye } from "lucide-react";
 import { api } from "@/utils/api";
 import { useConfirm } from "@/context/ConfirmContext";
 import { useToast } from "@/context/ToastContext";
@@ -14,14 +14,18 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
   const [currentIndex, setCurrentIndex] = useState(initialStoryIndex);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  
+  // ✅ NUEVOS ESTADOS PARA VISTAS
+  const [showViewers, setShowViewers] = useState(false);
+  const [viewersList, setViewersList] = useState([]);
+  const [loadingViewers, setLoadingViewers] = useState(false);
 
   const currentStory = stories[currentIndex];
 
-  // ✅ EFECTO: Marcar como vista
+  // EFECTO 1: Marcar como vista
   useEffect(() => {
     if (!currentStory || isOwner) return;
 
-    // Llamada "silenciosa" para marcar vista
     const markAsRead = async () => {
         try {
             await api.post(`/social/stories/${currentStory.id}/view`);
@@ -33,35 +37,11 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
 
   }, [currentStory, isOwner]);
 
-  // --- LÓGICA DE TIEMPO Y PROGRESO ---
-  useEffect(() => {
-    if (!currentStory || isPaused) return;
-
-    setProgress(0);
-    const duration = 5000; 
-    const intervalTime = 50;
-    const increment = 100 / (duration / intervalTime);
-
-    const timer = setInterval(() => {
-        setProgress((prev) => {
-            if (prev >= 100) {
-                clearInterval(timer);
-                handleNext(); 
-                return 100;
-            }
-            return prev + increment;
-        });
-    }, intervalTime);
-
-    return () => clearInterval(timer);
-  }, [currentIndex, isPaused, currentStory]);
-
+  // Funciones de navegación
   const handleNext = useCallback(() => {
       if (currentIndex < stories.length - 1) {
           setCurrentIndex(prev => prev + 1);
-          setProgress(0);
       } else {
-          // Al cerrar, pasamos "true" para forzar un refresh en el padre
           onClose(true); 
       }
   }, [currentIndex, stories.length, onClose]);
@@ -69,9 +49,37 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
   const handlePrev = useCallback(() => {
       if (currentIndex > 0) {
           setCurrentIndex(prev => prev - 1);
-          setProgress(0);
       }
   }, [currentIndex]);
+
+  // EFECTO 2: TIMER SEGURO
+  useEffect(() => {
+    // Si estamos viendo la lista de usuarios, pausamos el timer
+    if (!currentStory || isPaused || showViewers) return;
+
+    setProgress(0); 
+
+    const duration = 5000; 
+    const intervalTime = 50;
+    const increment = 100 / (duration / intervalTime);
+
+    const timer = setInterval(() => {
+        setProgress((prev) => {
+            if (prev >= 100) return 100;
+            return prev + increment;
+        });
+    }, intervalTime);
+
+    return () => clearInterval(timer);
+  }, [currentIndex, isPaused, currentStory, showViewers]);
+
+  // EFECTO 3: VIGILANTE
+  useEffect(() => {
+      if (progress >= 100 && !showViewers) {
+          handleNext();
+      }
+  }, [progress, handleNext, showViewers]);
+
 
   const handleDelete = async () => {
       setIsPaused(true); 
@@ -86,20 +94,31 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
           try {
               await api.delete(`/social/stories/${currentStory.id}`);
               showToast("Historia eliminada");
-              
-              if (stories.length === 1) {
-                  onClose(true); 
-                  if (onDeleteSuccess) onDeleteSuccess(); 
-              } else {
-                  if (onDeleteSuccess) onDeleteSuccess();
-                  handleNext();
-              }
+              if (onDeleteSuccess) onDeleteSuccess();
+              else onClose(true);
           } catch (error) {
               showToast("Error al eliminar", "error");
               setIsPaused(false);
           }
       } else {
           setIsPaused(false);
+      }
+  };
+
+  // ✅ FUNCION: Cargar vistas
+  const handleOpenViewers = async (e) => {
+      e.stopPropagation(); // Evitar que el clic pase a la navegación
+      setIsPaused(true);
+      setShowViewers(true);
+      setLoadingViewers(true);
+
+      try {
+          const data = await api.get(`/social/stories/${currentStory.id}/viewers`);
+          setViewersList(data || []);
+      } catch (error) {
+          console.error("Error cargando vistas", error);
+      } finally {
+          setLoadingViewers(false);
       }
   };
 
@@ -122,7 +141,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
             ))}
         </div>
 
-        {/* HEADER USUARIO */}
+        {/* HEADER */}
         <div className="absolute top-8 left-0 w-full px-4 flex justify-between items-center z-20 pt-2">
             <div className="flex items-center gap-3">
                 <img src={currentStory.user?.photo || "https://via.placeholder.com/40"} className="w-8 h-8 rounded-full border border-white/50 object-cover" />
@@ -157,10 +176,75 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
                 alt="Story"
             />
             
-            {/* ÁREAS DE NAVEGACIÓN INVISIBLES */}
+            {/* ÁREAS DE NAVEGACIÓN */}
             <div className="absolute inset-y-0 left-0 w-1/3 z-10" onClick={(e) => { e.stopPropagation(); handlePrev(); }} />
             <div className="absolute inset-y-0 right-0 w-1/3 z-10" onClick={(e) => { e.stopPropagation(); handleNext(); }} />
         </div>
+
+        {/* ✅ FOOTER: CONTADOR DE VISTAS (SOLO SI ES DUEÑO) */}
+        {isOwner && (
+            <div className="absolute bottom-6 left-4 z-30">
+                <button 
+                    onClick={handleOpenViewers}
+                    className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-white border border-white/20 hover:bg-white/20 transition-colors"
+                >
+                    <Eye size={18} />
+                    <span className="font-bold text-sm">{currentStory.views_count || 0}</span>
+                    <span className="text-xs text-white/80 ml-1">vistas</span>
+                </button>
+            </div>
+        )}
+
+        {/* ✅ MODAL DE ESPECTADORES (SLIDE UP) */}
+        <AnimatePresence>
+            {showViewers && (
+                <motion.div 
+                    initial={{ y: "100%" }}
+                    animate={{ y: 0 }}
+                    exit={{ y: "100%" }}
+                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                    className="absolute bottom-0 left-0 w-full h-[60%] bg-[#1a0b2e] rounded-t-3xl z-40 shadow-2xl border-t border-white/10 flex flex-col"
+                    onClick={(e) => e.stopPropagation()} // Evitar clicks fantasma
+                >
+                    {/* Header Modal */}
+                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#0f0518]/50 rounded-t-3xl">
+                        <div className="flex items-center gap-2 text-white">
+                            <Eye size={20} className="text-cuadralo-pink" />
+                            <h3 className="font-bold">Visto por {viewersList.length} personas</h3>
+                        </div>
+                        <button onClick={() => { setShowViewers(false); setIsPaused(false); }} className="p-2 bg-white/10 rounded-full text-white hover:bg-white/20">
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    {/* Lista */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {loadingViewers ? (
+                             <div className="text-white/50 text-center py-10">Cargando...</div>
+                        ) : viewersList.length === 0 ? (
+                             <div className="text-white/50 text-center py-10">Aún nadie ha visto esto 👀</div>
+                        ) : (
+                            viewersList.map((view) => (
+                                <div key={view.user_id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-xl transition-colors">
+                                    <img 
+                                        src={view.user?.photo || "https://via.placeholder.com/40"} 
+                                        alt={view.user?.name}
+                                        className="w-10 h-10 rounded-full object-cover border border-white/20"
+                                    />
+                                    <div className="flex-1">
+                                        <h4 className="text-white font-medium text-sm">{view.user?.name}</h4>
+                                        <p className="text-white/40 text-xs">
+                                            {new Date(view.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
     </div>
   );
 }

@@ -9,36 +9,41 @@ import (
 	"log"
 	"time"
 
-	"github.com/gofiber/contrib/websocket" // Importante: usar contrib/websocket
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func main() {
+	// 1. Conectar a Base de Datos
 	database.Connect()
 
-	// AUTOMIGRATE ACTUALIZADO
+	// 2. Ejecutar Migraciones Automáticas
+	// Se han eliminado modelos viejos y agregado Transaction
 	database.DB.AutoMigrate(
 		&models.User{},
 		&models.Like{},
 		&models.Match{},
 		&models.Message{},
-		&models.Subscription{},
-		&models.Boost{},
-		&models.Interest{},
+		&models.Post{},
+		&models.Comment{},
+		&models.Story{},
+		&models.StoryView{},
+		&models.Notification{},
+		&models.PostLike{},
+		&models.CommentLike{},
+		&models.Transaction{}, // ✅ NUEVO: Historial de Pagos
 	)
 
-	// Iniciar Hub de WebSockets en una goroutine
+	// 3. Iniciar Hub de WebSockets (en segundo plano)
 	go websockets.MainHub.Run()
 
-	// --- CRON JOB: LIMPIEZA DE MENSAJES (24 HORAS) ---
+	// 4. Cron Job: Limpieza de mensajes efímeros (cada hora)
 	go func() {
 		for {
-			time.Sleep(1 * time.Hour) // Ejecutar cada hora
+			time.Sleep(1 * time.Hour)
 
-			// Borrar mensajes:
-			// 1. Que tengan más de 24h de antigüedad
-			// 2. Que NO estén guardados (is_saved = false)
+			// Borrar mensajes con > 24h de antigüedad que NO estén guardados
 			expirationTime := time.Now().Add(-24 * time.Hour)
 			result := database.DB.Where("created_at < ? AND is_saved = ?", expirationTime, false).Delete(&models.Message{})
 
@@ -48,16 +53,20 @@ func main() {
 		}
 	}()
 
+	// 5. Configurar Servidor Fiber
 	app := fiber.New()
 
+	// Configuración CORS
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,
-		AllowOrigins:     "http://localhost:3000",
+		AllowOrigins:     "http://localhost:3000", // Ajustar según puerto frontend
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, Upgrade, Connection",
 	}))
 
+	// Servir archivos estáticos (imágenes subidas)
 	app.Static("/uploads", "./uploads")
 
+	// Middleware para WebSocket Upgrade
 	app.Use("/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
 			c.Locals("allowed", true)
@@ -66,10 +75,12 @@ func main() {
 		return fiber.ErrUpgradeRequired
 	})
 
-	// Ruta WebSocket: ws://localhost:8000/ws/:id
+	// Ruta WebSocket
 	app.Get("/ws/:id", websocket.New(controllers.HandleWebSocket))
 
+	// Configurar Rutas de la API
 	routes.Setup(app)
 
+	// Iniciar servidor en puerto 8000
 	log.Fatal(app.Listen(":8000"))
 }

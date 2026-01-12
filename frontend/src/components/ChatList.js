@@ -1,15 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Search, MoreVertical, MessageCircle, UserPlus } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, MoreVertical, MessageCircle, UserPlus, Zap, Crown } from "lucide-react";
 import { api } from "@/utils/api";
+import BoostModal from "@/components/BoostModal"; // ✅ NUEVO
+import PrimeModal from "@/components/PrimeModal"; // ✅ NUEVO
 
 export default function ChatList({ onChatSelect }) {
   const [newMatches, setNewMatches] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState(""); // <--- Estado del buscador
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  // ✅ ESTADOS PARA MODALES
+  const [showBoost, setShowBoost] = useState(false);
+  const [showPrime, setShowPrime] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -32,7 +38,6 @@ export default function ChatList({ onChatSelect }) {
     }
   };
 
-  // --- LÓGICA DE FILTRADO ---
   const filteredNewMatches = newMatches.filter(match => 
     match.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -46,14 +51,14 @@ export default function ChatList({ onChatSelect }) {
       {/* Header Fijo */}
       <div className="px-6 pt-16 pb-4 flex justify-between items-center bg-[#0f0518]/95 backdrop-blur-md sticky top-0 z-10 border-b border-white/5">
         <h1 className="text-3xl font-bold tracking-tight">Chats</h1>
-        <button className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-            <MoreVertical size={20} className="text-gray-400" />
+        <button onClick={() => setShowPrime(true)} className="p-2 bg-yellow-500/10 rounded-full hover:bg-yellow-500/20 transition-colors border border-yellow-500/20">
+            <Crown size={20} className="text-yellow-400" />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto pb-24 scrollbar-hide">
         
-        {/* BUSCADOR FUNCIONAL */}
+        {/* BUSCADOR */}
         <div className="px-6 py-4">
             <div className="relative">
                 <Search className="absolute left-4 top-3.5 text-gray-500" size={18} />
@@ -61,13 +66,29 @@ export default function ChatList({ onChatSelect }) {
                     type="text" 
                     placeholder="Buscar..." 
                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-cuadralo-pink/50 transition-all placeholder:text-gray-600"
-                    value={searchQuery} // <--- Vinculado al estado
-                    onChange={(e) => setSearchQuery(e.target.value)} // <--- Actualiza estado
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
         </div>
+        
+        {/* 🔥 BANNER PROMO BOOST (SI NO HAY MUCHOS CHATS) */}
+        {conversations.length < 5 && (
+            <div 
+                onClick={() => setShowBoost(true)}
+                className="mx-6 mb-6 p-3 rounded-xl bg-gradient-to-r from-cuadralo-pink/10 to-purple-600/10 border border-cuadralo-pink/20 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors"
+            >
+                <div className="p-2 bg-cuadralo-pink rounded-lg text-white">
+                    <Zap size={16} fill="currentColor" />
+                </div>
+                <div className="flex-1">
+                    <h4 className="text-sm font-bold text-white">¿Pocos matches?</h4>
+                    <p className="text-[10px] text-gray-400">Usa un destello y consigue chats más rápido.</p>
+                </div>
+            </div>
+        )}
 
-        {/* SECCIÓN: NUEVOS MATCHES (Filtrados) */}
+        {/* SECCIÓN: NUEVOS MATCHES */}
         {filteredNewMatches.length > 0 && (
             <div className="px-6 mb-6">
                 <h2 className="text-xs font-bold text-cuadralo-pink uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -96,20 +117,26 @@ export default function ChatList({ onChatSelect }) {
             </div>
         )}
 
-        {/* SECCIÓN: MENSAJES (Filtrados) */}
+        {/* SECCIÓN: MENSAJES */}
         <div className="px-2">
             <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-4">Conversaciones</h2>
             
             {loading && <p className="text-center text-xs text-gray-600 py-4">Cargando chats...</p>}
             
-            {/* Estado Vacío Inteligente: Si busca y no encuentra vs Si no tiene chats */}
             {!loading && filteredConversations.length === 0 && (
                 <div className="text-center py-12 opacity-50 flex flex-col items-center">
                     <MessageCircle size={24} className="text-gray-500 mb-2" />
                     <p className="text-sm text-gray-300">
                         {searchQuery ? "No se encontraron resultados" : "No hay mensajes recientes"}
                     </p>
-                    {!searchQuery && <p className="text-xs text-gray-500">Escribe a tus nuevos matches arriba 👆</p>}
+                    {!searchQuery && (
+                        <button 
+                            onClick={() => setShowBoost(true)} 
+                            className="mt-4 text-xs font-bold text-cuadralo-pink hover:underline"
+                        >
+                            ¡Consigue tu primer match hoy! 🚀
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -123,34 +150,26 @@ export default function ChatList({ onChatSelect }) {
                             onClick={() => onChatSelect(chat)}
                             className={`flex items-center gap-3 p-3 mx-2 rounded-2xl cursor-pointer transition-all group ${hasUnread ? 'bg-white/10' : 'hover:bg-white/5'}`}
                         >
-                            {/* COLUMNA IZQ: AVATAR */}
                             <div className="relative flex-shrink-0">
                                 <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-800 border border-white/5">
                                     <img src={chat.photo || "https://via.placeholder.com/150"} className="w-full h-full object-cover" />
                                 </div>
                             </div>
 
-                            {/* COLUMNA CENTRAL: NOMBRE Y MENSAJE */}
                             <div className="flex-1 min-w-0 flex flex-col justify-center h-full">
                                 <div className="flex justify-between items-center mb-0.5">
-                                    {/* Nombre */}
                                     <h3 className={`text-[15px] truncate pr-2 ${hasUnread ? "font-bold text-white" : "font-medium text-gray-200"}`}>
                                         {chat.name}
                                     </h3>
-                                    
-                                    {/* Hora */}
                                     <span className={`text-[10px] flex-shrink-0 ${hasUnread ? "text-cuadralo-pink font-bold" : "text-gray-500"}`}>
                                         {new Date(chat.last_message_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                     </span>
                                 </div>
 
                                 <div className="flex justify-between items-center">
-                                    {/* Último mensaje */}
                                     <p className={`text-sm truncate pr-4 ${hasUnread ? "text-white font-medium" : "text-gray-400 font-normal"}`}>
                                         {chat.last_message}
                                     </p>
-
-                                    {/* Badge de No Leídos */}
                                     {hasUnread && (
                                         <div className="flex-shrink-0">
                                             <span className="min-w-[20px] h-5 px-1.5 bg-cuadralo-pink rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
@@ -166,6 +185,11 @@ export default function ChatList({ onChatSelect }) {
             </div>
         </div>
       </div>
+
+      <AnimatePresence>
+         {showBoost && <BoostModal onClose={() => setShowBoost(false)} />}
+         {showPrime && <PrimeModal onClose={() => setShowPrime(false)} />}
+      </AnimatePresence>
     </div>
   );
 }

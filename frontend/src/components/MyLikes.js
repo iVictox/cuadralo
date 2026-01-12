@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion"; // <--- AQUÍ FALTABA AnimatePresence
+import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Heart, Loader2, Zap, Crown, Sparkles, ArrowUpCircle } from "lucide-react";
 import { api } from "@/utils/api";
-import StoreModal from "@/components/StoreModal";
+import PrimeModal from "@/components/PrimeModal"; // ✅ NUEVO
+import BoostModal from "@/components/BoostModal"; // ✅ NUEVO
 
 export default function MyLikes() {
   const [likes, setLikes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showStore, setShowStore] = useState(false);
+  
+  // ✅ ESTADOS PARA MODALES
+  const [showPrime, setShowPrime] = useState(false);
+  const [showBoost, setShowBoost] = useState(false);
 
   useEffect(() => {
     fetchLikes();
@@ -50,7 +54,7 @@ export default function MyLikes() {
                 </p>
             </div>
 
-            {/* Banner Gold si hay bloqueados */}
+            {/* Banner Gold/Prime si hay bloqueados */}
             {likes.some(l => l.locked) && (
                 <div className="bg-gradient-to-r from-yellow-600/20 to-yellow-800/20 border border-yellow-500/30 p-4 rounded-2xl mb-8 flex items-center justify-between shadow-[0_0_20px_rgba(234,179,8,0.1)] backdrop-blur-md">
                     <div className="flex gap-3 items-center">
@@ -59,14 +63,14 @@ export default function MyLikes() {
                         </div>
                         <div>
                             <h3 className="font-bold text-yellow-400 text-sm">Descubre quiénes son</h3>
-                            <p className="text-[10px] text-yellow-200/70">Actualiza a Gold para ver las fotos.</p>
+                            <p className="text-[10px] text-yellow-200/70">Hazte Prime para ver las fotos ocultas.</p>
                         </div>
                     </div>
                     <button 
-                        onClick={() => setShowStore(true)}
+                        onClick={() => setShowPrime(true)}
                         className="px-5 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs rounded-full shadow-lg transition-all hover:scale-105 active:scale-95"
                     >
-                        Ver Gold
+                        Ver con Prime
                     </button>
                 </div>
             )}
@@ -78,9 +82,9 @@ export default function MyLikes() {
                     className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-gray-900 group cursor-pointer border border-white/5 hover:border-cuadralo-pink/50 transition-all hover:shadow-[0_10px_30px_-10px_rgba(236,72,153,0.3)]"
                     onClick={() => {
                         if (user.locked) {
-                            setShowStore(true);
+                            setShowPrime(true); // 👑 Trigger Prime
                         } else {
-                            alert(`Abrir perfil de ${user.name}`);
+                            // Lógica para ver perfil desbloqueado
                         }
                     }}
                 >
@@ -101,8 +105,8 @@ export default function MyLikes() {
                             >
                                 <Lock size={20} />
                             </motion.div>
-                            <span className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-1">Gold</span>
-                            <p className="text-[10px] text-gray-300 leading-tight">Desbloquea para ver a esta persona</p>
+                            <span className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-1">Prime</span>
+                            <p className="text-[10px] text-gray-300 leading-tight">Toca para desbloquear</p>
                         </div>
                     ) : (
                         <div className="absolute bottom-4 left-4 z-10">
@@ -162,24 +166,25 @@ export default function MyLikes() {
                     </div>
                     
                     <p className="text-sm text-gray-300 mb-6 leading-relaxed">
-                        Los usuarios <span className="text-yellow-400 font-bold">Cuadralo Gold</span> aparecen primero en el feed. ¡Haz que todos te vean!
+                        Activa un <span className="text-yellow-400 font-bold">Destello</span> para que tu perfil salga al principio. ¡Haz que todos te vean!
                     </p>
 
                     <button 
-                        onClick={() => setShowStore(true)}
+                        onClick={() => setShowBoost(true)} // 🔥 Trigger Boost
                         className="w-full py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-xl text-black font-extrabold text-sm shadow-lg shadow-yellow-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                     >
                         <Zap size={18} fill="currentColor" />
-                        ACTIVAR BOOST AHORA
+                        ACTIVAR DESTELLO
                     </button>
                 </div>
             </div>
         </div>
       )}
 
-      {/* MODAL DE TIENDA */}
+      {/* --- MODALES --- */}
       <AnimatePresence>
-        {showStore && <StoreModal onClose={() => setShowStore(false)} />}
+        {showPrime && <PrimeModal onClose={() => setShowPrime(false)} />}
+        {showBoost && <BoostModal onClose={() => setShowBoost(false)} />}
       </AnimatePresence>
     </motion.div>
   );

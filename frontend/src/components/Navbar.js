@@ -1,79 +1,118 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { SlidersHorizontal, Search, Bell } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { 
+  Home, MessageCircle, Heart, User, Search, 
+  Bell, LogOut, Crown, Zap 
+} from "lucide-react";
 import SearchModal from "./SearchModal";
 import NotificationModal from "./NotificationModal";
+import UploadModal from "./UploadModal";
+import PrimeModal from "./PrimeModal"; // ✅ IMPORTADO
+import BoostModal from "./BoostModal"; // ✅ IMPORTADO
 
-export default function Navbar({ onFilterClick }) {
+export default function Navbar() {
+  const pathname = usePathname();
   const [showSearch, setShowSearch] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-
-  // Clase común para los botones
-  const buttonClass = "p-3 rounded-full bg-white/5 text-white backdrop-blur-md border border-white/10 hover:bg-cuadralo-pink hover:scale-105 transition-all shadow-lg";
+  const [showUpload, setShowUpload] = useState(false);
+  
+  // Estados para los modales premium
+  const [showPrime, setShowPrime] = useState(false);
+  const [showBoost, setShowBoost] = useState(false);
+  
+  // Rutas donde NO mostrar navbar
+  if (pathname === "/login" || pathname === "/register") return null;
 
   return (
     <>
-      {/* CORRECCIÓN VISUAL PARA PC:
-         - md:left-20  -> Empuja el navbar 80px (ancho del sidebar) a la derecha.
-         - right-0     -> Lo ancla al borde derecho.
-         - md:w-auto   -> Deja que el ancho se calcule automáticamente (100% - 80px).
-      */}
-      <div className="fixed top-0 left-0 md:left-20 right-0 z-50 px-6 py-4 flex justify-between items-center bg-gradient-to-b from-cuadralo-dark/90 to-transparent pointer-events-none w-full md:w-auto">
+      {/* NAVBAR SUPERIOR (Desktop) */}
+      <div className="hidden md:flex fixed top-0 left-0 h-full w-20 bg-[#0f0518] border-r border-white/10 flex-col items-center py-8 z-50">
         
-        {/* Logo */}
-        <div className="relative h-12 w-32 pointer-events-auto cursor-pointer">
-          <Link href="/feed">
-            <Image 
-              src="/logo.svg" 
-              alt="Logo Cuadralo" 
-              fill
-              className="object-contain object-left"
-              priority
-            />
-          </Link>
+        {/* LOGO */}
+        <Link href="/" className="mb-10">
+          <div className="w-10 h-10 bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-xl flex items-center justify-center font-bold text-white text-xl shadow-lg shadow-purple-500/20">
+            C
+          </div>
+        </Link>
+
+        {/* NAV ITEMS PRINCIPALES */}
+        <div className="flex flex-col gap-6 w-full px-4">
+            <NavItem icon={Home} href="/" active={pathname === "/"} />
+            <NavItem icon={Search} onClick={() => setShowSearch(true)} />
+            <NavItem icon={Heart} href="/likes" active={pathname === "/likes"} />
+            <NavItem icon={MessageCircle} href="/chat" active={pathname.startsWith("/chat")} />
+            <NavItem icon={Bell} onClick={() => setShowNotifications(true)} />
+            <NavItem icon={User} href="/profile" active={pathname === "/profile"} />
         </div>
 
-        {/* Botones */}
-        <div className="flex gap-3 pointer-events-auto">
-          
-          <button 
-            onClick={() => setShowSearch(true)}
-            className={buttonClass}
-            aria-label="Buscar"
-          >
-            <Search size={20} />
-          </button>
+        {/* ✅ ACCIONES PREMIUM (Separadas visualmente) */}
+        <div className="flex flex-col gap-4 w-full px-4 mt-8 pt-6 border-t border-white/5">
+             {/* Botón Prime */}
+             <button 
+                onClick={() => setShowPrime(true)}
+                className="w-full aspect-square flex items-center justify-center rounded-xl bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 border border-yellow-500/30 text-yellow-400 hover:scale-110 transition-all group relative"
+                title="Cuadralo Prime"
+             >
+                <Crown size={20} strokeWidth={2.5} />
+                <div className="absolute inset-0 bg-yellow-500/20 blur-lg rounded-full opacity-0 group-hover:opacity-50 transition-opacity" />
+             </button>
 
-          <button 
-            onClick={() => setShowNotifications(true)}
-            className={buttonClass}
-            aria-label="Notificaciones"
-          >
-            <Bell size={20} />
-          </button>
+             {/* Botón Boost */}
+             <button 
+                onClick={() => setShowBoost(true)}
+                className="w-full aspect-square flex items-center justify-center rounded-xl bg-white/5 text-cuadralo-pink hover:bg-white/10 hover:text-white transition-all"
+                title="Activar Destello"
+             >
+                <Zap size={20} className="fill-current" />
+             </button>
+        </div>
 
-          {onFilterClick && (
-            <button 
-                onClick={onFilterClick}
-                className={buttonClass}
-                aria-label="Filtros"
-            >
-              <SlidersHorizontal size={20} />
-            </button>
-          )}
+        {/* BOTTOM ACTIONS (Upload & Logout) */}
+        <div className="mt-auto flex flex-col gap-6 w-full px-4 mb-4">
+             <button 
+                onClick={() => setShowUpload(true)}
+                className="w-10 h-10 rounded-xl bg-white/5 text-white flex items-center justify-center hover:bg-white/10 transition-all"
+             >
+                <div className="w-6 h-6 border-2 border-white rounded-md flex items-center justify-center">
+                    <span className="text-lg font-bold leading-none">+</span>
+                </div>
+             </button>
+             
+             <button 
+                onClick={() => { localStorage.removeItem("user"); window.location.href = "/login"; }}
+                className="w-10 h-10 rounded-xl text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all"
+             >
+                <LogOut size={20} />
+             </button>
         </div>
       </div>
 
-      {showSearch && (
-        <SearchModal onClose={() => setShowSearch(false)} />
-      )}
-
-      {showNotifications && (
-        <NotificationModal onClose={() => setShowNotifications(false)} />
-      )}
+      {/* MODALES GLOBALES */}
+      {showSearch && <SearchModal onClose={() => setShowSearch(false)} />}
+      {showNotifications && <NotificationModal onClose={() => setShowNotifications(false)} />}
+      {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
+      
+      {/* ✅ MODALES PREMIUM */}
+      {showPrime && <PrimeModal onClose={() => setShowPrime(false)} />}
+      {showBoost && <BoostModal onClose={() => setShowBoost(false)} />}
     </>
   );
+}
+
+function NavItem({ icon: Icon, href, active, onClick }) {
+    if (onClick) {
+        return (
+            <button onClick={onClick} className={`w-full aspect-square flex items-center justify-center rounded-xl transition-all duration-300 ${active ? "bg-cuadralo-pink text-white shadow-lg shadow-purple-500/30" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
+                <Icon size={22} strokeWidth={active ? 2.5 : 2} />
+            </button>
+        );
+    }
+    return (
+        <Link href={href} className={`w-full aspect-square flex items-center justify-center rounded-xl transition-all duration-300 ${active ? "bg-cuadralo-pink text-white shadow-lg shadow-purple-500/30" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
+            <Icon size={22} strokeWidth={active ? 2.5 : 2} />
+        </Link>
+    );
 }

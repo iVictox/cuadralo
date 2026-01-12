@@ -7,9 +7,9 @@ import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import CommentsModal from "./CommentsModal";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation"; // ✅ IMPORTANTE PARA NAVEGAR
+import { useRouter } from "next/navigation";
 
-export default function FeedPost({ post, onDelete, onViewStory }) {
+export default function FeedPost({ post, onDelete, onViewStory, isModal = false }) {
   const router = useRouter();
   const [liked, setLiked] = useState(post.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
@@ -107,7 +107,6 @@ export default function FeedPost({ post, onDelete, onViewStory }) {
             <div className="flex justify-between items-center p-3">
                 <div className="flex items-center gap-3">
                     
-                    {/* AVATAR: Clic -> Historia o Perfil */}
                     <div 
                         className={`relative p-[2px] rounded-full ${ringClass} cursor-pointer`}
                         onClick={handleAvatarClick}
@@ -119,7 +118,6 @@ export default function FeedPost({ post, onDelete, onViewStory }) {
                         />
                     </div>
 
-                    {/* NOMBRE: Clic -> Perfil */}
                     <div className="cursor-pointer group" onClick={handleNameClick}>
                         <h4 className="text-white font-bold text-sm group-hover:text-cuadralo-pink transition-colors">
                             {post.user?.name}
@@ -131,7 +129,11 @@ export default function FeedPost({ post, onDelete, onViewStory }) {
                 </div>
 
                 <div className="relative">
-                    <button onClick={() => setShowMenu(!showMenu)} className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors">
+                    {/* ✅ CORRECCIÓN: Botón visible pero desplazado si es modal */}
+                    <button 
+                        onClick={() => setShowMenu(!showMenu)} 
+                        className={`text-gray-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors ${isModal ? "mr-12" : ""}`}
+                    >
                         <MoreVertical size={20} />
                     </button>
 
@@ -203,7 +205,7 @@ export default function FeedPost({ post, onDelete, onViewStory }) {
                     <p className="text-gray-300 text-sm leading-relaxed ml-1 break-words">
                         <span 
                             className="font-bold text-white mr-2 cursor-pointer hover:underline"
-                            onClick={handleNameClick} // También linkeamos el nombre en el caption
+                            onClick={handleNameClick}
                         >
                             {post.user?.name}
                         </span>

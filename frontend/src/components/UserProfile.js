@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
     ArrowLeft, MoreVertical, MapPin, Grid, Settings, 
-    Loader2, Heart, Edit3, Share2, X, MessageCircle, UserPlus, UserCheck
+    Loader2, Heart, Edit3, Share2, X, MessageCircle, UserPlus, UserCheck, ChevronLeft, ChevronRight,
+    Crown, Zap
 } from "lucide-react";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 import { motion, AnimatePresence } from "framer-motion";
 import EditProfileModal from "./EditProfileModal"; 
-import SettingsModal from "./SettingsModal"; // ✅ IMPORTAMOS EL NUEVO MODAL
+import SettingsModal from "./SettingsModal"; 
 import FeedPost from "./FeedPost"; 
 import { getInterestInfo } from "@/utils/interests"; 
 
@@ -25,17 +26,20 @@ export default function UserProfile({ username, isTab = false }) {
   
   // Modales
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false); // ✅ ESTADO NUEVO
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   
   const [selectedPost, setSelectedPost] = useState(null);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
 
   const fetchProfile = async () => {
     try {
-      const myUser = JSON.parse(localStorage.getItem("user"));
+      // Leer usuario actual para comparar IDs
+      const userStr = localStorage.getItem("user");
+      const myUser = userStr ? JSON.parse(userStr) : null;
       setCurrentUser(myUser);
 
-      const endpoint = (isTab && (!username || username === myUser.username)) 
+      // Si estoy en la pestaña de perfil, cargo "/me" para tener datos frescos (Premium/Boost)
+      const endpoint = (isTab && (!username || username === myUser?.username)) 
           ? "/me" 
           : `/u/${username}`;
 
@@ -45,6 +49,7 @@ export default function UserProfile({ username, isTab = false }) {
           setProfile(data);
           setIsFollowing(data.user.is_following);
       } else {
+          // Soporte para estructura antigua o directa de usuario
           if(!data.posts) {
               const myPosts = await api.get("/social/feed?user_id=" + data.id).catch(() => []);
               setProfile({ user: data, posts: myPosts });
@@ -123,6 +128,10 @@ export default function UserProfile({ username, isTab = false }) {
   const { user, posts } = profile;
   const isMe = currentUser?.id === user.id;
 
+  // ✅ LÓGICA VISUAL PREMIUM
+  const isPrime = user.is_prime;
+  const isBoosted = user.is_boosted;
+
   return (
     <div className={`w-full bg-[#05020a] relative ${isTab ? 'h-full overflow-y-auto pb-24' : 'min-h-screen pb-24 md:pl-20'}`}>
       
@@ -130,19 +139,26 @@ export default function UserProfile({ username, isTab = false }) {
 
       <div className="relative z-10 w-full max-w-7xl mx-auto md:px-6 md:py-8 grid grid-cols-1 md:grid-cols-12 gap-8">
         
-        {/* COLUMNA IZQUIERDA */}
+        {/* COLUMNA IZQUIERDA (FOTO) */}
         <div className="md:col-span-5 lg:col-span-4 flex flex-col gap-4">
-            <div className="relative w-full aspect-[3/4] sm:aspect-[4/5] md:aspect-[3/4] bg-[#1a0b2e] md:rounded-3xl overflow-hidden shadow-2xl border-b border-white/5 md:border md:border-white/10 group">
+            <div className={`relative w-full aspect-[3/4] sm:aspect-[4/5] md:aspect-[3/4] bg-[#1a0b2e] md:rounded-3xl overflow-hidden shadow-2xl group border-b border-white/5 md:border 
+                ${isPrime ? 'border-yellow-500/50 shadow-yellow-900/20' : 'md:border-white/10'}
+            `}>
+                
+                {/* ✅ EFECTO BOOST: Anillo Animado si está Boosted */}
+                {isBoosted && (
+                    <div className="absolute inset-0 z-20 pointer-events-none border-[3px] border-transparent rounded-3xl animate-pulse shadow-[inset_0_0_20px_rgba(236,72,153,0.5)] border-t-cuadralo-pink/50" />
+                )}
+
                 <AnimatePresence mode="wait">
                     <motion.img key={currentPhotoIndex} src={galleryImages[currentPhotoIndex]} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="w-full h-full object-cover" alt="Profile" />
                 </AnimatePresence>
 
+                {/* Navbar flotante en móvil */}
                 <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent z-20">
                     <div>{!isTab && <button onClick={() => router.back()} className="p-2 rounded-full bg-black/20 backdrop-blur-md text-white border border-white/10 hover:bg-black/40"><ArrowLeft size={24} /></button>}</div>
                     <div>
                          {isMe ? (
-                            // ✅ MÓVIL: Edit abre Perfil, pero Settings abre Ajustes (si hubiese botón, aquí solo mostramos Edit por espacio)
-                            // Podríamos agregar un botón extra al lado.
                             <div className="flex gap-2 md:hidden">
                                 <button onClick={() => setShowEditModal(true)} className="px-4 py-2 rounded-full bg-cuadralo-pink text-white text-xs font-bold shadow-lg flex items-center gap-2"><Edit3 size={14} /> Editar</button>
                                 <button onClick={() => setShowSettingsModal(true)} className="p-2 rounded-full bg-black/40 text-white border border-white/10"><Settings size={18} /></button>
@@ -151,6 +167,7 @@ export default function UserProfile({ username, isTab = false }) {
                     </div>
                 </div>
 
+                {/* Navegación Galería */}
                 {galleryImages.length > 1 && (
                     <>
                         <div className="absolute inset-y-0 left-0 w-1/3 z-10 cursor-pointer" onClick={prevPhoto} />
@@ -165,13 +182,21 @@ export default function UserProfile({ username, isTab = false }) {
                     </>
                 )}
 
+                {/* Info en Móvil (con badges) */}
                 <div className="md:hidden absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-[#05020a] via-[#05020a]/80 to-transparent z-20 pt-24">
-                    <h1 className="text-3xl font-bold text-white flex items-end gap-2">{user.name} <span className="text-xl font-normal text-gray-300">{user.age}</span></h1>
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-3xl font-bold text-white flex items-end gap-2">
+                            {user.name} 
+                        </h1>
+                        {isPrime && <Crown size={24} className="text-yellow-400 fill-yellow-400 mb-1" />}
+                        {isBoosted && <Zap size={24} className="text-cuadralo-pink fill-current mb-1 animate-pulse" />}
+                        <span className="text-xl font-normal text-gray-300 mb-1">{user.age}</span>
+                    </div>
                     <p className="text-sm text-gray-300 mt-1 flex items-center gap-1"><MapPin size={14} className="text-cuadralo-pink" /> {user.location || "Venezuela"}</p>
                 </div>
             </div>
 
-            {/* ✅ BOTONES PC (SIDEBAR) */}
+            {/* BOTONES PC (SIDEBAR) */}
             <div className="hidden md:flex flex-col gap-3">
                  {isMe ? (
                     <>
@@ -191,12 +216,22 @@ export default function UserProfile({ username, isTab = false }) {
             </div>
         </div>
 
-        {/* COLUMNA DERECHA */}
+        {/* COLUMNA DERECHA (DETALLES Y POSTS) */}
         <div className="md:col-span-7 lg:col-span-8 flex flex-col gap-6 px-4 md:px-0">
             <div className="hidden md:flex flex-col gap-4 p-6 bg-[#0f0518] border border-white/5 rounded-3xl shadow-lg relative overflow-hidden">
                 <div className="relative z-10">
                     <div className="flex justify-between items-start">
-                        <div><h1 className="text-4xl font-bold text-white mb-1">{user.name}</h1><p className="text-gray-400 text-lg">@{user.username || "usuario"} • {user.age} años</p></div>
+                        <div>
+                            {/* ✅ NOMBRE CON INSIGNIAS (PC) */}
+                            <div className="flex items-center gap-3 mb-1">
+                                <h1 className={`text-4xl font-bold ${isPrime ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-yellow-500' : 'text-white'}`}>
+                                    {user.name}
+                                </h1>
+                                {isPrime && <Crown size={28} className="text-yellow-400 fill-yellow-400" />}
+                                {isBoosted && <div title="Perfil Destacado"><Zap size={28} className="text-cuadralo-pink fill-current animate-bounce" /></div>}
+                            </div>
+                            <p className="text-gray-400 text-lg">@{user.username || "usuario"} • {user.age} años</p>
+                        </div>
                         <button onClick={handleShareProfile} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors"><Share2 size={24}/></button>
                     </div>
 
@@ -213,6 +248,7 @@ export default function UserProfile({ username, isTab = false }) {
                 </div>
             </div>
 
+            {/* INFO MOVIL */}
             <div className="md:hidden space-y-4">
                  {user.interests && <div className="px-2">{renderInterests()}</div>}
                  {user.bio && <p className="text-gray-300 text-sm leading-relaxed px-2">{user.bio}</p>}
@@ -229,6 +265,7 @@ export default function UserProfile({ username, isTab = false }) {
                  )}
             </div>
 
+            {/* GRID DE POSTS */}
             <div className="md:mt-4">
                 <div className="hidden md:flex items-center gap-2 mb-4 pb-2 border-b border-white/5"><Grid size={20} className="text-cuadralo-pink" /><h3 className="text-lg font-bold text-white">Publicaciones</h3></div>
                 {!posts || posts.length === 0 ? (
@@ -252,7 +289,11 @@ export default function UserProfile({ username, isTab = false }) {
             <div className="fixed inset-0 z-[50] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md" onClick={() => setSelectedPost(null)}>
                 <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto no-scrollbar rounded-3xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => setSelectedPost(null)} className="absolute top-4 right-4 z-50 p-2 bg-black/50 text-white rounded-full hover:bg-white/20 backdrop-blur-sm transition-colors"><X size={24} /></button>
-                    <FeedPost post={selectedPost} onDelete={() => { setSelectedPost(null); fetchProfile(); }} />
+                    <FeedPost 
+                        post={selectedPost} 
+                        isModal={true} 
+                        onDelete={() => { setSelectedPost(null); fetchProfile(); }} 
+                    />
                 </motion.div>
             </div>
         )}

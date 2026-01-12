@@ -44,7 +44,7 @@ type CommentLike struct {
 	CommentID uint `gorm:"primaryKey" json:"comment_id"`
 }
 
-// ✅ MODIFICADO: Historias
+// ✅ MODIFICADO: Agregamos ViewsCount
 type Story struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `json:"user_id"`
@@ -53,14 +53,15 @@ type Story struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	CreatedAt time.Time `json:"created_at"`
 
-	// Auxiliar para saber si el usuario actual ya vio esta historia específica
-	Seen bool `gorm:"-" json:"seen"`
+	Seen       bool  `gorm:"-" json:"seen"`
+	ViewsCount int64 `gorm:"-" json:"views_count"` // <--- NUEVO
 }
 
-// ✅ NUEVO: Tabla para registrar vistas
+// ✅ MODIFICADO: Agregamos relación User
 type StoryView struct {
 	StoryID   uint      `gorm:"primaryKey" json:"story_id"`
 	UserID    uint      `gorm:"primaryKey" json:"user_id"`
+	User      User      `json:"user" gorm:"foreignKey:UserID"` // <--- NUEVO
 	CreatedAt time.Time `json:"created_at"`
 }
 

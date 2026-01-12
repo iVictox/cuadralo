@@ -3,6 +3,9 @@ package controllers
 import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
+	"cuadralo-backend/websockets"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -325,6 +328,13 @@ func GetActiveStories(c *fiber.Ctx) error {
 	var myStories []models.Story
 	if myItem, ok := grouped[myId]; ok {
 		myStories = myItem.Stories
+
+		// ✅ NUEVO: Contar vistas para mis historias
+		for i := range myStories {
+			var count int64
+			database.DB.Model(&models.StoryView{}).Where("story_id = ?", myStories[i].ID).Count(&count)
+			myStories[i].ViewsCount = count
+		}
 	}
 
 	return c.JSON(fiber.Map{
@@ -350,6 +360,12 @@ func CreateStory(c *fiber.Ctx) error {
 	}
 
 	database.DB.Create(&story)
+
+	// Preload User para enviar en el socket
+	database.DB.Preload("User").First(&story, story.ID)
+
+	websockets.BroadcastEvent("new_story", story)
+
 	return c.JSON(story)
 }
 
@@ -368,7 +384,6 @@ func DeleteStory(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Historia eliminada"})
 }
 
-// ✅ NUEVO: Marcar como vista
 func ViewStory(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	storyId := c.Params("id")
@@ -378,9 +393,42 @@ func ViewStory(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"ok": true})
 	}
 
-	// Insertar raw para evitar conflictos de parseo uint/string, aunque gorm lo maneja
-	// Preferible usar modelo si se puede parsear, aquí usamos exec directo para robustez rápida
 	database.DB.Exec("INSERT INTO story_views (user_id, story_id, created_at) VALUES (?, ?, ?)", userId, storyId, time.Now())
 
+	websockets.SendToUser(fmt.Sprintf("%d", userId), "story_viewed", fiber.Map{
+		"story_id": storyId,
+		"user_id":  userId,
+	})
+
+	var story models.Story
+	if err := database.DB.Select("user_id").First(&story, storyId).Error; err == nil {
+		websockets.SendToUser(strconv.Itoa(int(story.UserID)), "story_seen_by", fiber.Map{
+			"story_id": storyId,
+			"viewer":   userId,
+		})
+	}
+
 	return c.JSON(fiber.Map{"ok": true})
+}
+
+// ✅ NUEVO: Obtener lista de quién vio la historia
+func GetStoryViewers(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
+	storyId := c.Params("id")
+
+	// 1. Verificar que la historia es mía
+	var story models.Story
+	if err := database.DB.First(&story, storyId).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Historia no encontrada"})
+	}
+
+	if story.UserID != myId {
+		return c.Status(403).JSON(fiber.Map{"error": "No tienes permiso"})
+	}
+
+	// 2. Obtener las vistas con los usuarios precargados
+	var views []models.StoryView
+	database.DB.Preload("User").Where("story_id = ?", storyId).Order("created_at desc").Find(&views)
+
+	return c.JSON(views)
 }

@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { X, Heart, MapPin, Info, RotateCcw, Music, Gamepad2, Plane, Coffee, Dumbbell, Film, Palette, Book, Dog, Wine, Camera, Laptop, Mountain } from "lucide-react";
+import { X, Heart, MapPin, Info, RotateCcw, Music, Gamepad2, Plane, Coffee, Dumbbell, Film, Palette, Book, Dog, Wine, Camera, Laptop, Mountain, Zap, Crown } from "lucide-react";
 import Image from "next/image"; 
 import { api } from "@/utils/api"; 
-import StoreModal from "@/components/StoreModal";
 import MatchModal from "@/components/MatchModal"; 
-import ProfileDetailsModal from "@/components/ProfileDetailsModal"; // <--- USAMOS EL COMPONENTE EXTERNO
+import ProfileDetailsModal from "@/components/ProfileDetailsModal";
+import PrimeModal from "@/components/PrimeModal"; 
+import BoostModal from "@/components/BoostModal"; 
 
-// DICCIONARIO DE INTERESES (Solo para los iconos de las cartas)
 const AVAILABLE_INTERESTS = [
     { id: "music", label: "Música", icon: <Music size={12} /> },
     { id: "games", label: "Gaming", icon: <Gamepad2 size={12} /> },
@@ -40,11 +40,14 @@ export default function CardStack() {
   
   // Estados de Modales
   const [selectedProfile, setSelectedProfile] = useState(null); 
-  const [showStore, setShowStore] = useState(false);
   const [matchData, setMatchData] = useState(null); 
+  
+  // ESTADOS PARA MODALES DE PAGO
+  const [showPrime, setShowPrime] = useState(false);
+  const [showBoost, setShowBoost] = useState(false);
 
   // Datos Usuario
-  const [userPlan, setUserPlan] = useState("free");
+  const [isPrime, setIsPrime] = useState(false); 
   const [myPhoto, setMyPhoto] = useState(null);
 
   useEffect(() => {
@@ -54,8 +57,10 @@ export default function CardStack() {
 
   const fetchMyData = async () => {
       try {
+          const status = await api.get("/premium/status");
+          setIsPrime(status.is_prime);
+          
           const me = await api.get("/me");
-          setUserPlan(me.role || "free");
           setMyPhoto(me.photo || "https://via.placeholder.com/150");
       } catch (e) {}
   };
@@ -73,7 +78,8 @@ export default function CardStack() {
           interests: typeof u.interests === 'string' ? JSON.parse(u.interests || "[]") : u.interests || [],
           img: u.photo || "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=600",
           location: "Valencia, VE", 
-          matchPercentage: Math.floor(Math.random() * (99 - 70) + 70)
+          matchPercentage: Math.floor(Math.random() * (99 - 70) + 70),
+          is_prime: u.is_prime // Aseguramos traer esto si el backend lo manda
       }));
 
       setCards(formattedCards);
@@ -99,8 +105,8 @@ export default function CardStack() {
   };
 
   const handleRewind = () => {
-    if (userPlan === "free") {
-        setShowStore(true);
+    if (!isPrime) {
+        setShowPrime(true);
         return;
     }
     if (history.length === 0) return;
@@ -120,15 +126,33 @@ export default function CardStack() {
                <Image src="/globe.svg" fill alt="Buscando" className="object-contain opacity-80" />
             </motion.div>
         </div>
-        <h3 className="text-2xl font-bold text-white mb-2">No hay nadie más</h3>
-        <button onClick={() => window.location.reload()} className="mt-4 text-cuadralo-pink text-xs font-bold hover:underline">Recargar</button>
+        <h3 className="text-2xl font-bold text-white mb-2">No hay nadie más cerca</h3>
+        <p className="text-gray-400 text-sm mb-6 max-w-xs mx-auto">
+            ¿Quieres ver a más gente? Usa un Destello para expandir tu alcance.
+        </p>
+        
+        <button 
+            onClick={() => setShowBoost(true)}
+            className="px-6 py-3 bg-white text-black rounded-full font-bold flex items-center gap-2 hover:bg-gray-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-pulse"
+        >
+            <Zap size={18} fill="black" />
+            Usar Destello
+        </button>
+
+        <button onClick={() => window.location.reload()} className="mt-8 text-cuadralo-pink text-xs font-bold hover:underline">Recargar página</button>
+        
+        {/* Modales en estado vacío */}
+        <AnimatePresence>
+            {showBoost && <BoostModal onClose={() => setShowBoost(false)} />}
+        </AnimatePresence>
       </div>
     );
   }
 
   return (
     <div className="relative w-full h-[65vh] flex justify-center items-center mt-4">
-      {/* 3. CARTAS (Si hay) */}
+      
+      {/* 3. CARTAS */}
       {!loading && cards.length > 0 && (
           <>
             <AnimatePresence>
@@ -146,7 +170,7 @@ export default function CardStack() {
                 })}
             </AnimatePresence>
 
-            {/* BOTONES FLOTANTES */}
+            {/* BOTONES FLOTANTES (z-50) */}
             <div className="absolute -bottom-20 flex items-center gap-6 z-50">
                 <button onClick={() => removeCard(cards[cards.length - 1].id, "left")} className="w-14 h-14 bg-[#1a1a1a]/80 backdrop-blur-md rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.3)] border border-white/10 hover:scale-110 active:scale-95 transition-all group">
                     <X size={28} className="text-red-500 group-hover:text-red-400" />
@@ -154,16 +178,23 @@ export default function CardStack() {
                 
                 <button 
                     onClick={handleRewind} 
-                    disabled={userPlan !== "free" && history.length === 0} 
-                    className={`w-10 h-10 rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.3)] border border-white/10 transition-all ${ (history.length === 0 && userPlan !== "free") ? 'bg-gray-800 opacity-50' : 'bg-[#1a1a1a]/80 hover:bg-yellow-500/20 hover:border-yellow-500'}`}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.3)] border border-white/10 transition-all ${ (history.length === 0 && isPrime) ? 'bg-gray-800 opacity-50' : 'bg-[#1a1a1a]/80 hover:bg-yellow-500/20 hover:border-yellow-500'}`}
                 >
-                    <RotateCcw size={18} className={(history.length === 0 && userPlan !== "free") ? 'text-gray-500' : 'text-yellow-500'} />
+                    <RotateCcw size={18} className="text-yellow-500" />
                 </button>
 
                 <button onClick={() => removeCard(cards[cards.length - 1].id, "right")} className="w-14 h-14 bg-[#1a1a1a]/80 backdrop-blur-md rounded-full flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.3)] border border-white/10 hover:scale-110 active:scale-95 transition-all group">
                     <Heart size={28} className="text-cuadralo-pink fill-current group-hover:text-white group-hover:fill-white" />
                 </button>
             </div>
+            
+            <button 
+                onClick={() => setShowBoost(true)}
+                className="absolute top-0 right-4 p-2 bg-white/10 backdrop-blur-md rounded-full border border-white/10 hover:bg-white/20 transition-all z-40 group"
+                title="Ser más visible"
+            >
+                <Zap size={20} className="text-cuadralo-pink fill-current group-hover:animate-bounce" />
+            </button>
           </>
       )}
 
@@ -176,7 +207,11 @@ export default function CardStack() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {showStore && <StoreModal onClose={() => setShowStore(false)} />}
+        {showPrime && <PrimeModal onClose={() => setShowPrime(false)} />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showBoost && <BoostModal onClose={() => setShowBoost(false)} />}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -193,7 +228,7 @@ export default function CardStack() {
   );
 }
 
-// --- SUBCOMPONENTES ---
+// --- SUBCOMPONENTE CARD CORREGIDO ---
 function Card({ data, isFront, onSwipe, onInfo }) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -201,7 +236,8 @@ function Card({ data, isFront, onSwipe, onInfo }) {
 
   return (
     <motion.div
-      style={{ x, rotate, opacity, zIndex: isFront ? 100 : 0 }}
+      // ✅ CORRECCIÓN: zIndex bajado de 100 a 20 para no tapar los modales (que son z-60)
+      style={{ x, rotate, opacity, zIndex: isFront ? 20 : 0 }}
       drag={isFront ? "x" : false} dragConstraints={{ left: 0, right: 0 }}
       onDragEnd={(e, i) => { if (i.offset.x > 100) onSwipe(data.id, "right"); else if (i.offset.x < -100) onSwipe(data.id, "left"); }}
       className={`absolute w-[90%] md:w-[360px] h-full bg-gray-900 rounded-[2rem] overflow-hidden shadow-[0_10px_25px_-5px_rgba(0,0,0,0.4)] border border-white/10 ${!isFront && 'pointer-events-none'}`}
@@ -214,6 +250,9 @@ function Card({ data, isFront, onSwipe, onInfo }) {
 
       <div className="absolute bottom-0 w-full bg-gradient-to-t from-black via-black/80 to-transparent pt-32 pb-24 px-6 text-white pointer-events-none">
         <h2 className="text-3xl font-extrabold flex items-end gap-2 mb-1">{data.name} <span className="text-xl text-gray-300 font-medium">{data.age}</span></h2>
+        
+        {data.is_prime && <div className="flex items-center gap-1 text-yellow-400 mb-1"><Crown size={14} fill="currentColor"/> <span className="text-xs font-bold uppercase">Prime Member</span></div>}
+        
         <div className="flex items-center gap-2 text-gray-300 text-xs mb-2"><MapPin size={14} className="text-cuadralo-pink" /> {data.location}</div>
         <p className="text-gray-200 text-xs leading-relaxed line-clamp-2 opacity-90">{data.bio}</p>
         
