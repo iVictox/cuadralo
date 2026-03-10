@@ -90,11 +90,16 @@ export default function CardStack() {
   const removeCard = async (id, direction) => {
     const cardToRemove = cards.find(c => c.id === id);
     setHistory(prev => [...prev, cardToRemove]);
+    
+    // Primero actualizamos el estado visual para que la carta se vaya
     setCards((prev) => prev.filter((card) => card.id !== id));
 
     const action = direction === "right" ? "right" : "left";
     try {
+        // Le enviamos la petición al servidor
         const response = await api.post("/swipe", { target_id: id, action: action });
+        
+        // Si el backend dice que hay match mutuo, levantamos el modal
         if (response.match) {
             setMatchData(cardToRemove);
         }
@@ -120,93 +125,84 @@ export default function CardStack() {
     </div>
   );
 
-  // PANTALLA VACÍA (Sin más perfiles)
-  if (cards.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in absolute inset-0 z-0 bg-transparent">
-        <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
-            <motion.div animate={{ scale: [1, 1.5, 2], opacity: [0.4, 0.1, 0] }} transition={{ duration: 3, repeat: Infinity }} className="absolute inset-0 bg-cuadralo-pink/30 rounded-full blur-2xl"/>
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 30, repeat: Infinity, ease: "linear" }} className="relative w-32 h-32 z-10">
-               {/* Invertimos la imagen en modo claro para que se vea el globo */}
-               <Image src="/globe.svg" fill alt="Buscando" className="object-contain opacity-80 dark:invert-0 invert" />
-            </motion.div>
-        </div>
-        <h3 className="text-2xl font-bold text-cuadralo-textLight dark:text-cuadralo-textDark mb-2">No hay nadie más cerca</h3>
-        <p className="text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark text-sm mb-8 max-w-xs mx-auto leading-relaxed">
-            Hemos agotado los perfiles en tu área. Usa un Destello para expandir tu alcance.
-        </p>
-        
-        <button 
-            onClick={() => setShowBoost(true)}
-            className="px-8 py-3.5 bg-cuadralo-textLight dark:bg-white text-cuadralo-bgLight dark:text-black rounded-full font-bold flex items-center gap-2 hover:scale-105 transition-all shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-pulse"
-        >
-            <Zap size={20} className="fill-current" />
-            Usar Destello
-        </button>
-
-        <button onClick={() => window.location.reload()} className="mt-8 text-cuadralo-pink text-sm font-semibold hover:underline transition-all">
-            Volver a buscar
-        </button>
-        
-        <AnimatePresence>
-            {showBoost && <BoostModal onClose={() => setShowBoost(false)} />}
-        </AnimatePresence>
-      </div>
-    );
-  }
-
-  // VISTA PRINCIPAL DE SWIPES
+  // ✅ CORRECCIÓN: Unificamos el Return para que los modales JAMÁS se destruyan de la memoria de React
   return (
     <div className="relative w-full h-[65vh] max-h-[600px] flex justify-center items-center mt-6">
       
-      {/* CARTAS */}
-      {!loading && cards.length > 0 && (
-          <>
-            <AnimatePresence>
-                {cards.map((card, index) => {
-                const isFront = index === cards.length - 1;
-                return (
-                    <Card 
-                        key={card.id} 
-                        data={card} 
-                        isFront={isFront} 
-                        onSwipe={removeCard} 
-                        onInfo={() => setSelectedProfile(card)} 
-                    />
-                );
-                })}
-            </AnimatePresence>
+      {cards.length === 0 ? (
+        /* PANTALLA VACÍA (Sin más perfiles) */
+        <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in absolute inset-0 z-0 bg-transparent">
+          <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
+              <motion.div animate={{ scale: [1, 1.5, 2], opacity: [0.4, 0.1, 0] }} transition={{ duration: 3, repeat: Infinity }} className="absolute inset-0 bg-cuadralo-pink/30 rounded-full blur-2xl"/>
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 30, repeat: Infinity, ease: "linear" }} className="relative w-32 h-32 z-10">
+                 <Image src="/globe.svg" fill alt="Buscando" className="object-contain opacity-80 dark:invert-0 invert" />
+              </motion.div>
+          </div>
+          <h3 className="text-2xl font-bold text-cuadralo-textLight dark:text-cuadralo-textDark mb-2">No hay nadie más cerca</h3>
+          <p className="text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark text-sm mb-8 max-w-xs mx-auto leading-relaxed">
+              Hemos agotado los perfiles en tu área. Usa un Destello para expandir tu alcance.
+          </p>
+          
+          <button 
+              onClick={() => setShowBoost(true)}
+              className="px-8 py-3.5 bg-cuadralo-textLight dark:bg-white text-cuadralo-bgLight dark:text-black rounded-full font-bold flex items-center gap-2 hover:scale-105 transition-all shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-pulse"
+          >
+              <Zap size={20} className="fill-current" />
+              Usar Destello
+          </button>
 
-            {/* BOTONES FLOTANTES (GLASSMORPHISM) */}
-            <div className="absolute -bottom-24 flex items-center gap-6 z-50">
-                <button onClick={() => removeCard(cards[cards.length - 1].id, "left")} className="w-16 h-16 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 hover:bg-white dark:hover:bg-[#2a2a2a] active:scale-95 transition-all group">
-                    <X size={32} className="text-red-500 group-hover:text-red-600 dark:group-hover:text-red-400" strokeWidth={2.5} />
-                </button>
-                
-                <button 
-                    onClick={handleRewind} 
-                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark backdrop-blur-xl border transition-all ${ (history.length === 0 && isPrime) ? 'bg-gray-200/50 dark:bg-gray-800/50 opacity-50 border-transparent cursor-not-allowed' : 'bg-white/70 dark:bg-[#1a1a1a]/80 border-gray-200/50 dark:border-white/10 hover:bg-yellow-50 dark:hover:bg-yellow-500/20 hover:border-yellow-400 cursor-pointer'}`}
-                >
-                    <RotateCcw size={22} className="text-yellow-500" strokeWidth={2.5} />
-                </button>
+          <button onClick={() => window.location.reload()} className="mt-8 text-cuadralo-pink text-sm font-semibold hover:underline transition-all">
+              Volver a buscar
+          </button>
+        </div>
+      ) : (
+        /* VISTA PRINCIPAL DE SWIPES */
+        <>
+          <AnimatePresence>
+              {cards.map((card, index) => {
+              const isFront = index === cards.length - 1;
+              return (
+                  <Card 
+                      key={card.id} 
+                      data={card} 
+                      isFront={isFront} 
+                      onSwipe={removeCard} 
+                      onInfo={() => setSelectedProfile(card)} 
+                  />
+              );
+              })}
+          </AnimatePresence>
 
-                <button onClick={() => removeCard(cards[cards.length - 1].id, "right")} className="w-16 h-16 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 hover:bg-white dark:hover:bg-[#2a2a2a] active:scale-95 transition-all group">
-                    <Heart size={32} className="text-cuadralo-pink fill-current group-hover:scale-110 transition-transform" strokeWidth={2} />
-                </button>
-            </div>
-            
-            {/* BOTÓN DE DESTELLO SUPERIOR */}
-            <button 
-                onClick={() => setShowBoost(true)}
-                className="absolute -top-12 right-2 md:right-4 p-2.5 bg-white/70 dark:bg-white/10 backdrop-blur-xl rounded-full shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 transition-all z-40 group"
-                title="Ser más visible"
-            >
-                <Zap size={20} className="text-cuadralo-pink fill-current group-hover:animate-pulse" />
-            </button>
-          </>
+          {/* BOTONES FLOTANTES */}
+          <div className="absolute -bottom-24 flex items-center gap-6 z-50">
+              <button onClick={() => removeCard(cards[cards.length - 1].id, "left")} className="w-16 h-16 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 hover:bg-white dark:hover:bg-[#2a2a2a] active:scale-95 transition-all group">
+                  <X size={32} className="text-red-500 group-hover:text-red-600 dark:group-hover:text-red-400" strokeWidth={2.5} />
+              </button>
+              
+              <button 
+                  onClick={handleRewind} 
+                  className={`w-12 h-12 rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark backdrop-blur-xl border transition-all ${ (history.length === 0 && isPrime) ? 'bg-gray-200/50 dark:bg-gray-800/50 opacity-50 border-transparent cursor-not-allowed' : 'bg-white/70 dark:bg-[#1a1a1a]/80 border-gray-200/50 dark:border-white/10 hover:bg-yellow-50 dark:hover:bg-yellow-500/20 hover:border-yellow-400 cursor-pointer'}`}
+              >
+                  <RotateCcw size={22} className="text-yellow-500" strokeWidth={2.5} />
+              </button>
+
+              <button onClick={() => removeCard(cards[cards.length - 1].id, "right")} className="w-16 h-16 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 hover:bg-white dark:hover:bg-[#2a2a2a] active:scale-95 transition-all group">
+                  <Heart size={32} className="text-cuadralo-pink fill-current group-hover:scale-110 transition-transform" strokeWidth={2} />
+              </button>
+          </div>
+          
+          {/* BOTÓN DE DESTELLO SUPERIOR */}
+          <button 
+              onClick={() => setShowBoost(true)}
+              className="absolute -top-12 right-2 md:right-4 p-2.5 bg-white/70 dark:bg-white/10 backdrop-blur-xl rounded-full shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 transition-all z-40 group"
+              title="Ser más visible"
+          >
+              <Zap size={20} className="text-cuadralo-pink fill-current group-hover:animate-pulse" />
+          </button>
+        </>
       )}
 
-      {/* --- MODALES --- */}
+      {/* --- MODALES SIEMPRE ACTIVOS (Fuera de las condicionales) --- */}
       <AnimatePresence>
         {selectedProfile && (
             <ProfileDetailsModal profile={selectedProfile} onClose={() => setSelectedProfile(null)} />
@@ -221,9 +217,11 @@ export default function CardStack() {
         {showBoost && <BoostModal onClose={() => setShowBoost(false)} />}
       </AnimatePresence>
 
+      {/* AQUÍ VIVE EL MATCH AHORA. NO SE DESTRUIRÁ AUNQUE CARDS.LENGTH SEA 0 */}
       <AnimatePresence>
         {matchData && (
             <MatchModal 
+                key="match-modal-premium"
                 myPhoto={myPhoto} 
                 matchedUser={matchData} 
                 onClose={() => setMatchData(null)} 
@@ -235,7 +233,7 @@ export default function CardStack() {
   );
 }
 
-// --- SUBCOMPONENTE CARD RE-DISEÑADO ---
+// --- SUBCOMPONENTE CARD ---
 function Card({ data, isFront, onSwipe, onInfo }) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -250,12 +248,12 @@ function Card({ data, isFront, onSwipe, onInfo }) {
     >
       <img src={data.img} alt={data.name} className="w-full h-full object-cover pointer-events-none" />
       
-      {/* Botón de Info Minimalista */}
+      {/* Botón de Info */}
       <button onClick={(e) => { e.stopPropagation(); onInfo(); }} className="absolute top-5 right-5 w-10 h-10 flex items-center justify-center bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition-colors z-20 shadow-sm border border-white/20">
         <Info size={22} />
       </button>
 
-      {/* OVERLAY DE INFORMACIÓN (Mantiene fondo oscuro para legibilidad sobre la foto) */}
+      {/* OVERLAY DE INFORMACIÓN */}
       <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-32 pb-8 px-6 text-white pointer-events-none">
         <h2 className="text-3xl font-extrabold flex items-end gap-2 mb-1 drop-shadow-md">
             {data.name} <span className="text-2xl text-white/90 font-medium">{data.age}</span>
