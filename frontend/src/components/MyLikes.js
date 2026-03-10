@@ -4,14 +4,13 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Heart, Loader2, Zap, Crown, Sparkles, ArrowUpCircle } from "lucide-react";
 import { api } from "@/utils/api";
-import PrimeModal from "@/components/PrimeModal"; // ✅ NUEVO
-import BoostModal from "@/components/BoostModal"; // ✅ NUEVO
+import PrimeModal from "@/components/PrimeModal"; 
+import BoostModal from "@/components/BoostModal"; 
 
 export default function MyLikes() {
   const [likes, setLikes] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // ✅ ESTADOS PARA MODALES
   const [showPrime, setShowPrime] = useState(false);
   const [showBoost, setShowBoost] = useState(false);
 
@@ -42,33 +41,33 @@ export default function MyLikes() {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full h-full text-white pt-20 pb-28 px-4 overflow-y-auto max-w-5xl mx-auto scrollbar-hide [&::-webkit-scrollbar]:hidden"
+      className="w-full h-full text-cuadralo-textLight dark:text-white pt-20 pb-28 px-4 overflow-y-auto max-w-5xl mx-auto scrollbar-hide [&::-webkit-scrollbar]:hidden transition-colors duration-300"
     >
       {/* --- SI HAY LIKES --- */}
       {likes.length > 0 ? (
         <>
             <div className="text-center mb-8 animate-fade-in">
-                <h2 className="text-2xl font-bold mb-1">Te quieren conocer 💖</h2>
-                <p className="text-gray-400 text-sm">
+                <h2 className="text-2xl font-black tracking-tighter mb-1">Te quieren conocer 💖</h2>
+                <p className="text-gray-500 text-sm font-medium">
                     A <span className="text-cuadralo-pink font-bold">{likes.length} personas</span> les gustas
                 </p>
             </div>
 
             {/* Banner Gold/Prime si hay bloqueados */}
             {likes.some(l => l.locked) && (
-                <div className="bg-gradient-to-r from-yellow-600/20 to-yellow-800/20 border border-yellow-500/30 p-4 rounded-2xl mb-8 flex items-center justify-between shadow-[0_0_20px_rgba(234,179,8,0.1)] backdrop-blur-md">
-                    <div className="flex gap-3 items-center">
-                        <div className="p-2 bg-yellow-500/20 rounded-lg text-yellow-400">
-                            <Crown size={20} />
+                <div className="bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 border border-yellow-500/20 p-4 rounded-3xl mb-8 flex items-center justify-between shadow-sm backdrop-blur-md">
+                    <div className="flex gap-4 items-center">
+                        <div className="p-3 bg-yellow-500/20 rounded-2xl text-yellow-600 dark:text-yellow-400">
+                            <Crown size={22} />
                         </div>
                         <div>
-                            <h3 className="font-bold text-yellow-400 text-sm">Descubre quiénes son</h3>
-                            <p className="text-[10px] text-yellow-200/70">Hazte Prime para ver las fotos ocultas.</p>
+                            <h3 className="font-black text-yellow-700 dark:text-yellow-400 text-sm tracking-tight">Descubre quiénes son</h3>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-600/70 dark:text-yellow-200/70 mt-0.5">Hazte Prime para ver fotos.</p>
                         </div>
                     </div>
                     <button 
                         onClick={() => setShowPrime(true)}
-                        className="px-5 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs rounded-full shadow-lg transition-all hover:scale-105 active:scale-95"
+                        className="px-5 py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95"
                     >
                         Ver con Prime
                     </button>
@@ -79,12 +78,10 @@ export default function MyLikes() {
                 {likes.map((user) => (
                 <div 
                     key={user.id} 
-                    className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-gray-900 group cursor-pointer border border-white/5 hover:border-cuadralo-pink/50 transition-all hover:shadow-[0_10px_30px_-10px_rgba(236,72,153,0.3)]"
+                    className="relative aspect-[3/4] rounded-[2rem] overflow-hidden bg-cuadralo-cardLight dark:bg-cuadralo-cardDark group cursor-pointer border border-black/5 dark:border-white/5 hover:border-cuadralo-pink/50 transition-all shadow-glass-light dark:shadow-glass-dark"
                     onClick={() => {
                         if (user.locked) {
-                            setShowPrime(true); // 👑 Trigger Prime
-                        } else {
-                            // Lógica para ver perfil desbloqueado
+                            setShowPrime(true);
                         }
                     }}
                 >
@@ -94,27 +91,27 @@ export default function MyLikes() {
                         className={`w-full h-full object-cover transition-all duration-700 ${user.locked ? "blur-xl scale-110 opacity-60" : "group-hover:scale-105"}`} 
                     />
                     
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
                     {user.locked ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-4 text-center">
                             <motion.div 
                                 animate={{ scale: [1, 1.1, 1] }}
                                 transition={{ repeat: Infinity, duration: 2 }}
-                                className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-black shadow-lg mb-3"
+                                className="w-14 h-14 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-black shadow-xl mb-4"
                             >
-                                <Lock size={20} />
+                                <Lock size={22} />
                             </motion.div>
-                            <span className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-1">Prime</span>
-                            <p className="text-[10px] text-gray-300 leading-tight">Toca para desbloquear</p>
+                            <span className="text-xs font-black text-yellow-500 uppercase tracking-widest mb-1 shadow-black drop-shadow-md">Prime</span>
+                            <p className="text-[10px] text-white font-bold tracking-widest uppercase drop-shadow-md">Toca para desbloquear</p>
                         </div>
                     ) : (
-                        <div className="absolute bottom-4 left-4 z-10">
-                            <h3 className="text-lg font-bold flex items-center gap-1 leading-none mb-1">
+                        <div className="absolute bottom-5 left-5 z-10">
+                            <h3 className="text-lg font-black text-white flex items-center gap-2 leading-none mb-1.5 drop-shadow-md">
                                 {user.name}, {user.age}
-                                <div className="w-2 h-2 bg-green-500 rounded-full inline-block ml-1" />
+                                <div className="w-2.5 h-2.5 bg-green-500 rounded-full inline-block shadow-[0_0_8px_#22c55e]" />
                             </h3>
-                            <div className="flex items-center gap-1 text-xs text-cuadralo-pink font-medium">
+                            <div className="flex items-center gap-1.5 text-[10px] text-cuadralo-pink font-black uppercase tracking-widest drop-shadow-md">
                                 <Heart size={12} fill="currentColor" /> Le gustas
                             </div>
                         </div>
@@ -131,57 +128,56 @@ export default function MyLikes() {
                 <motion.div 
                     animate={{ scale: [1, 1.5, 2], opacity: [0.3, 0.1, 0] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
-                    className="absolute inset-0 rounded-full bg-cuadralo-pink"
+                    className="absolute inset-0 rounded-full bg-cuadralo-pink/50"
                 />
                 <motion.div 
                     animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
-                    className="absolute inset-4 rounded-full bg-cuadralo-pink"
+                    className="absolute inset-4 rounded-full bg-cuadralo-pink/50"
                 />
-                <div className="relative z-10 w-20 h-20 bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(236,72,153,0.5)]">
+                <div className="relative z-10 w-20 h-20 bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-cuadralo-pink/30">
                     <Heart size={32} className="text-white fill-white animate-pulse" />
                 </div>
             </div>
 
-            <h2 className="text-2xl font-bold mb-2">Buscando tu media naranja...</h2>
-            <p className="text-gray-400 text-sm max-w-xs mb-8">
+            <h2 className="text-2xl font-black tracking-tighter mb-2 text-cuadralo-textLight dark:text-white">Buscando tu media naranja...</h2>
+            <p className="text-gray-500 text-sm max-w-xs mb-10 font-medium">
                 Aún no hay likes nuevos, pero tu perfil está activo. ¡No te desanimes!
             </p>
 
-            <div className="w-full max-w-sm bg-gradient-to-b from-[#2a1b3d] to-[#1a0b2e] border border-white/10 rounded-3xl p-6 relative overflow-hidden group">
+            <div className="w-full max-w-sm bg-cuadralo-cardLight dark:bg-[#150a21] border border-black/5 dark:border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden group shadow-glass-light dark:shadow-glass-dark">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 blur-3xl rounded-full -mr-10 -mt-10 pointer-events-none" />
                 
                 <div className="relative z-10 text-left">
-                    <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start justify-between mb-6">
                         <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <Sparkles size={16} className="text-yellow-400" />
-                                <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">Consejo Pro</span>
+                            <div className="flex items-center gap-2 mb-1.5">
+                                <Sparkles size={16} className="text-yellow-600 dark:text-yellow-400" />
+                                <span className="text-[10px] font-black text-yellow-600 dark:text-yellow-400 uppercase tracking-widest">Consejo Pro</span>
                             </div>
-                            <h3 className="text-lg font-bold text-white">Consigue 3x más Likes</h3>
+                            <h3 className="text-lg font-black tracking-tight text-cuadralo-textLight dark:text-white">Consigue 3x más Likes</h3>
                         </div>
-                        <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center text-yellow-400">
+                        <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center text-yellow-600 dark:text-yellow-400 border border-yellow-500/20">
                             <ArrowUpCircle size={24} />
                         </div>
                     </div>
                     
-                    <p className="text-sm text-gray-300 mb-6 leading-relaxed">
-                        Activa un <span className="text-yellow-400 font-bold">Destello</span> para que tu perfil salga al principio. ¡Haz que todos te vean!
+                    <p className="text-sm text-gray-500 mb-8 leading-relaxed font-medium">
+                        Activa un <span className="text-yellow-600 dark:text-yellow-400 font-black">Destello</span> para que tu perfil salga al principio. ¡Haz que todos te vean!
                     </p>
 
                     <button 
-                        onClick={() => setShowBoost(true)} // 🔥 Trigger Boost
-                        className="w-full py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-xl text-black font-extrabold text-sm shadow-lg shadow-yellow-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                        onClick={() => setShowBoost(true)}
+                        className="w-full py-4 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-2xl text-black font-black uppercase tracking-widest text-[10px] shadow-xl shadow-yellow-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
                     >
-                        <Zap size={18} fill="currentColor" />
-                        ACTIVAR DESTELLO
+                        <Zap size={16} fill="currentColor" />
+                        Activar Destello
                     </button>
                 </div>
             </div>
         </div>
       )}
 
-      {/* --- MODALES --- */}
       <AnimatePresence>
         {showPrime && <PrimeModal onClose={() => setShowPrime(false)} />}
         {showBoost && <BoostModal onClose={() => setShowBoost(false)} />}

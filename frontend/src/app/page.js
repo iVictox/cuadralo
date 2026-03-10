@@ -24,10 +24,8 @@ export default function Home() {
   const searchParams = useSearchParams(); 
   
   const [activeTab, setActiveTab] = useState("social");
-  
   const [showFilters, setShowFilters] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
-  
   const [selectedChat, setSelectedChat] = useState(null);
   const [chatBadge, setChatBadge] = useState(0); 
 
@@ -38,40 +36,32 @@ export default function Home() {
       }
   }, [searchParams]);
 
-  // ✅ CORRECCIÓN: Mostrar Navbar en 'home' (Swipe) Y en 'social'
   const showNavbar = !selectedChat && (activeTab === 'home' || activeTab === 'social');
 
   const checkNotifications = async () => {
       try {
           const data = await api.get("/matches");
           if (Array.isArray(data)) {
-              const newMatchesCount = data.filter(u => !u.last_message).length;
-              const unreadMessagesCount = data.reduce((acc, curr) => acc + (Number(curr.unread_count) || 0), 0);
-              setChatBadge(newMatchesCount + unreadMessagesCount);
+              const unreadCount = data.reduce((acc, curr) => acc + (Number(curr.unread_count) || 0), 0);
+              setChatBadge(unreadCount);
           }
-      } catch (e) { 
-          console.error("Error checking notifs", e); 
-      }
+      } catch (e) { console.error(e); }
   };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) {
-        router.push("/login");
-    } else {
+    if (!token) router.push("/login");
+    else {
         checkNotifications();
-        const interval = setInterval(checkNotifications, 3000); 
+        const interval = setInterval(checkNotifications, 5000); 
         return () => clearInterval(interval);
     }
   }, [router]);
 
   const renderView = () => {
-    if (selectedChat) {
-        return <ChatWindow chat={selectedChat} onBack={() => { setSelectedChat(null); checkNotifications(); }} />;
-    }
+    if (selectedChat) return <ChatWindow chat={selectedChat} onBack={() => setSelectedChat(null)} />;
 
     switch(activeTab) {
-        // En SocialFeed pasamos la función para abrir el modal de subida (FAB)
         case "social": return <SocialFeed onUploadClick={() => setShowUpload(true)} />;
         case "home": return <CardStack />; 
         case "likes": return <MyLikes />;
@@ -82,16 +72,12 @@ export default function Home() {
   };
 
   return (
-    <main className="h-screen w-full bg-[#0f0518] relative overflow-hidden flex flex-col md:pl-20">
+    <main className="min-h-screen w-full bg-cuadralo-bgLight dark:bg-cuadralo-bgDark text-cuadralo-textLight dark:text-cuadralo-textDark transition-colors duration-300 relative flex flex-col md:pl-20">
       
       {showNavbar && (
-          <Navbar 
-            // ✅ Solo mostramos el botón de filtros si estamos en la vista de Swipe (home)
-            onFilterClick={activeTab === 'home' ? () => setShowFilters(true) : null} 
-          />
+          <Navbar onFilterClick={activeTab === 'home' ? () => setShowFilters(true) : null} />
       )}
 
-      {/* Contenido principal */}
       <div className={`flex-1 w-full h-full relative ${showNavbar ? "pt-20" : "pt-0"}`}>
         {renderView()}
       </div>
@@ -101,7 +87,7 @@ export default function Home() {
             activeTab={activeTab} 
             onTabChange={(tab) => {
                 setActiveTab(tab);
-                router.replace("/", undefined, { shallow: true });
+                window.history.pushState(null, "", `/?tab=${tab}`);
             }} 
             chatBadge={chatBadge > 0 ? chatBadge : null} 
           />
@@ -109,10 +95,8 @@ export default function Home() {
 
       <AnimatePresence>
         {showFilters && <FilterModal onClose={() => setShowFilters(false)} />}
-        {/* Nota: SearchModal y NotificationModal ahora viven dentro de Navbar.js */}
         {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
       </AnimatePresence>
-
     </main>
   );
 }

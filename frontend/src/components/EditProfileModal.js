@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { X, Save, Loader2, Plus, GripHorizontal, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "@/utils/api";
@@ -24,7 +24,6 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
       return acc;
   }, {});
 
-  // ✅ AQUÍ leemos los intereses que ya tenías guardados.
   const [selectedInterests, setSelectedInterests] = useState(user?.interestsList || []);
   
   const [photos, setPhotos] = useState(() => {
@@ -112,7 +111,7 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
             ...formData, 
             photo: mainPhoto, 
             photos: finalPhotos, 
-            interests: selectedInterests // ✅ Enviamos la lista de Slugs al backend
+            interests: selectedInterests 
         });
         showToast("Perfil actualizado correctamente", "success"); 
         onUpdate();
@@ -125,12 +124,18 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-[#1a0b2e] w-full max-w-xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0 }} 
+        animate={{ scale: 1, opacity: 1 }} 
+        exit={{ scale: 0.95, opacity: 0 }} 
+        className="bg-cuadralo-cardLight dark:bg-cuadralo-cardDark w-full max-w-xl rounded-[2.5rem] border border-black/5 dark:border-white/10 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col transition-colors duration-300"
+      >
         
-        <div className="p-5 border-b border-white/10 flex justify-between items-center bg-[#0f0518]">
-            <h2 className="text-white font-black uppercase tracking-widest text-lg">Ajustar Perfil</h2>
-            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-all"><X size={20} /></button>
+        {/* HEADER */}
+        <div className="p-6 border-b border-black/5 dark:border-white/10 flex justify-between items-center bg-black/5 dark:bg-white/5">
+            <h2 className="text-cuadralo-textLight dark:text-white font-black uppercase tracking-widest text-sm">Ajustar Perfil</h2>
+            <button onClick={onClose} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-cuadralo-textMutedLight dark:text-gray-400 transition-all"><X size={20} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 md:p-8 no-scrollbar space-y-10">
@@ -152,7 +157,7 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                             onDragEnter={(e) => handleDragEnter(e, index)}
                             onDragEnd={handleDragEnd}
                             onDragOver={(e) => e.preventDefault()}
-                            className={`relative aspect-[3/4] rounded-2xl overflow-hidden group cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-white/20 transition-all bg-black/50 ${index === 0 ? "ring-2 ring-cuadralo-pink ring-offset-2 ring-offset-[#1a0b2e]" : ""}`}
+                            className={`relative aspect-[3/4] rounded-2xl overflow-hidden group cursor-grab active:cursor-grabbing border-2 border-transparent hover:border-cuadralo-pink/50 transition-all bg-gray-200 dark:bg-gray-800 ${index === 0 ? "ring-2 ring-cuadralo-pink ring-offset-2 dark:ring-offset-cuadralo-cardDark ring-offset-cuadralo-cardLight" : ""}`}
                         >
                             <img src={photo} className="w-full h-full object-cover pointer-events-none" alt={`Uploaded ${index}`} />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -163,13 +168,13 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                     ))}
 
                     {photos.length < 9 && (
-                        <div onClick={handleAddPhotoClick} className={`aspect-[3/4] rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center transition-all group ${uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-cuadralo-pink/50 hover:bg-white/5'}`}>
+                        <div onClick={handleAddPhotoClick} className={`aspect-[3/4] rounded-2xl border-2 border-dashed border-black/10 dark:border-white/10 flex flex-col items-center justify-center transition-all group ${uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-cuadralo-pink/50 bg-black/5 dark:bg-white/5'}`}>
                             {uploading ? (
                                 <Loader2 className="animate-spin text-cuadralo-pink" size={28} />
                             ) : (
                                 <>
-                                    <div className="p-3 rounded-full bg-white/5 group-hover:bg-cuadralo-pink group-hover:text-white transition-colors mb-2"><Plus size={24} className="text-gray-400 group-hover:text-white" /></div>
-                                    <span className="text-[10px] text-gray-500 group-hover:text-gray-300 font-bold uppercase tracking-widest">Añadir</span>
+                                    <div className="p-3 rounded-full bg-white dark:bg-white/5 group-hover:bg-cuadralo-pink group-hover:text-white transition-colors mb-2 shadow-sm"><Plus size={24} className="text-gray-400 group-hover:text-white" /></div>
+                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Añadir</span>
                                 </>
                             )}
                         </div>
@@ -184,22 +189,22 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                 <div className="space-y-5">
                     <div>
                         <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Nombre Visible</label>
-                        <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-[#0f0518] border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all" placeholder="Ej. Alex" />
+                        <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-2xl px-5 py-4 text-sm text-cuadralo-textLight dark:text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all" placeholder="Ej. Alex" />
                     </div>
                     <div>
                         <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Ubicación</label>
-                        <input type="text" name="location" value={formData.location} onChange={handleChange} className="w-full bg-[#0f0518] border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all" placeholder="Ej. Valencia, VE" />
+                        <input type="text" name="location" value={formData.location} onChange={handleChange} className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-2xl px-5 py-4 text-sm text-cuadralo-textLight dark:text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all" placeholder="Ej. Valencia, VE" />
                     </div>
                     <div>
                         <div className="flex justify-between items-center mb-1">
                             <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2">Biografía</label>
-                            <span className={`text-[10px] font-bold mr-2 ${formData.bio.length >= 1000 ? "text-red-500" : formData.bio.length > 900 ? "text-yellow-500" : "text-gray-600"}`}>{formData.bio.length}/1000</span>
+                            <span className={`text-[10px] font-bold mr-2 ${formData.bio.length >= 1000 ? "text-red-500" : formData.bio.length > 900 ? "text-yellow-500" : "text-gray-500"}`}>{formData.bio.length}/1000</span>
                         </div>
-                        <textarea name="bio" value={formData.bio} onChange={handleChange} rows={4} maxLength={1000} className="w-full bg-[#0f0518] border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all resize-none" placeholder="¿Qué te hace único?" />
+                        <textarea name="bio" value={formData.bio} onChange={handleChange} rows={4} maxLength={1000} className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-2xl px-5 py-4 text-sm text-cuadralo-textLight dark:text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all resize-none" placeholder="¿Qué te hace único?" />
                     </div>
                     <div>
                         <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Género</label>
-                        <select name="gender" value={formData.gender} onChange={handleChange} className="w-full bg-[#0f0518] border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none appearance-none">
+                        <select name="gender" value={formData.gender} onChange={handleChange} className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-2xl px-5 py-4 text-sm text-cuadralo-textLight dark:text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none appearance-none">
                             <option value="male">Hombre</option>
                             <option value="female">Mujer</option>
                             <option value="other">Otro</option>
@@ -212,7 +217,7 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                     <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-4 block">Tus Intereses ({selectedInterests.length}/10)</label>
                     <div className="space-y-6">
                         {Object.entries(groupedInterests).map(([category, items]) => (
-                            <div key={category} className="bg-[#0f0518] p-5 rounded-3xl border border-white/5">
+                            <div key={category} className="bg-cuadralo-bgLight dark:bg-black/20 p-5 rounded-3xl border border-black/5 dark:border-white/5">
                                 <h4 className="text-cuadralo-pink text-[10px] font-black uppercase tracking-[0.2em] mb-4 ml-1">{category}</h4>
                                 <div className="flex flex-wrap gap-2.5">
                                     {items.map((interest) => {
@@ -224,7 +229,7 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                                                 key={slug} 
                                                 type="button" 
                                                 onClick={() => toggleInterest(slug)}
-                                                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${isSelected ? "bg-cuadralo-pink border-cuadralo-pink text-white shadow-[0_5px_15px_rgba(242,19,142,0.3)] scale-105" : "bg-white/5 border-white/10 text-gray-400 hover:border-white/30 hover:text-white hover:bg-white/10"}`}
+                                                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${isSelected ? "bg-cuadralo-pink border-cuadralo-pink text-white shadow-lg shadow-cuadralo-pink/30 scale-105" : "bg-white dark:bg-white/5 border-black/5 dark:border-white/10 text-gray-500 hover:border-cuadralo-pink/50 hover:text-cuadralo-textLight dark:hover:text-white"}`}
                                             >
                                                 <span className="text-sm flex items-center justify-center">{info.icon}</span> 
                                                 <span>{info.name}</span>
@@ -239,9 +244,10 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
             </form>
         </div>
 
-        <div className="p-5 border-t border-white/10 bg-[#0f0518] flex justify-end gap-4">
-            <button onClick={onClose} className="px-6 py-3 rounded-xl text-gray-400 font-bold hover:bg-white/5 hover:text-white transition-colors text-sm">Cancelar</button>
-            <button type="submit" form="editForm" disabled={saving || uploading} className="px-8 py-3 bg-cuadralo-pink rounded-xl text-white font-black uppercase tracking-widest shadow-lg shadow-cuadralo-pink/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 text-xs">
+        {/* FOOTER */}
+        <div className="p-6 border-t border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 flex justify-end gap-4">
+            <button onClick={onClose} className="px-6 py-3 rounded-2xl text-gray-500 font-bold hover:bg-black/5 dark:hover:bg-white/5 hover:text-cuadralo-textLight dark:hover:text-white transition-colors text-sm">Cancelar</button>
+            <button type="submit" form="editForm" disabled={saving || uploading} className="px-8 py-3 bg-cuadralo-pink rounded-2xl text-white font-black uppercase tracking-widest shadow-xl shadow-cuadralo-pink/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 text-xs">
                 {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />} Guardar Cambios
             </button>
         </div>

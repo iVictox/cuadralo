@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, MoreVertical, MessageCircle, UserPlus, Zap, Crown } from "lucide-react";
 import { api } from "@/utils/api";
-import BoostModal from "@/components/BoostModal"; // ✅ NUEVO
-import PrimeModal from "@/components/PrimeModal"; // ✅ NUEVO
+import BoostModal from "@/components/BoostModal";
+import PrimeModal from "@/components/PrimeModal";
 
 export default function ChatList({ onChatSelect }) {
   const [newMatches, setNewMatches] = useState([]);
@@ -13,7 +13,6 @@ export default function ChatList({ onChatSelect }) {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   
-  // ✅ ESTADOS PARA MODALES
   const [showBoost, setShowBoost] = useState(false);
   const [showPrime, setShowPrime] = useState(false);
 
@@ -47,12 +46,12 @@ export default function ChatList({ onChatSelect }) {
   );
 
   return (
-    <div className="flex flex-col h-full bg-[#0f0518] text-white">
+    <div className="flex flex-col h-full bg-cuadralo-bgLight dark:bg-cuadralo-bgDark text-cuadralo-textLight dark:text-cuadralo-textDark transition-colors duration-300">
       {/* Header Fijo */}
-      <div className="px-6 pt-16 pb-4 flex justify-between items-center bg-[#0f0518]/95 backdrop-blur-md sticky top-0 z-10 border-b border-white/5">
-        <h1 className="text-3xl font-bold tracking-tight">Chats</h1>
+      <div className="px-6 pt-16 pb-4 flex justify-between items-center bg-cuadralo-bgLight/95 dark:bg-cuadralo-bgDark/95 backdrop-blur-md sticky top-0 z-10 border-b border-black/5 dark:border-white/5">
+        <h1 className="text-3xl font-black tracking-tighter uppercase italic">Chats</h1>
         <button onClick={() => setShowPrime(true)} className="p-2 bg-yellow-500/10 rounded-full hover:bg-yellow-500/20 transition-colors border border-yellow-500/20">
-            <Crown size={20} className="text-yellow-400" />
+            <Crown size={20} className="text-yellow-500" />
         </button>
       </div>
 
@@ -61,37 +60,37 @@ export default function ChatList({ onChatSelect }) {
         {/* BUSCADOR */}
         <div className="px-6 py-4">
             <div className="relative">
-                <Search className="absolute left-4 top-3.5 text-gray-500" size={18} />
+                <Search className="absolute left-4 top-3.5 text-cuadralo-textMutedLight dark:text-gray-500" size={18} />
                 <input 
                     type="text" 
                     placeholder="Buscar..." 
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-cuadralo-pink/50 transition-all placeholder:text-gray-600"
+                    className="w-full bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:border-cuadralo-pink/50 transition-all placeholder:text-cuadralo-textMutedLight dark:placeholder:text-gray-600 text-cuadralo-textLight dark:text-white"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
         </div>
         
-        {/* 🔥 BANNER PROMO BOOST (SI NO HAY MUCHOS CHATS) */}
+        {/* 🔥 BANNER PROMO BOOST */}
         {conversations.length < 5 && (
             <div 
                 onClick={() => setShowBoost(true)}
-                className="mx-6 mb-6 p-3 rounded-xl bg-gradient-to-r from-cuadralo-pink/10 to-purple-600/10 border border-cuadralo-pink/20 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors"
+                className="mx-6 mb-6 p-4 rounded-2xl bg-gradient-to-r from-cuadralo-pink/10 to-purple-600/10 border border-cuadralo-pink/20 flex items-center gap-4 cursor-pointer hover:scale-[1.01] transition-all"
             >
-                <div className="p-2 bg-cuadralo-pink rounded-lg text-white">
-                    <Zap size={16} fill="currentColor" />
+                <div className="p-2.5 bg-cuadralo-pink rounded-xl text-white shadow-lg shadow-cuadralo-pink/20">
+                    <Zap size={18} fill="currentColor" />
                 </div>
                 <div className="flex-1">
-                    <h4 className="text-sm font-bold text-white">¿Pocos matches?</h4>
-                    <p className="text-[10px] text-gray-400">Usa un destello y consigue chats más rápido.</p>
+                    <h4 className="text-sm font-bold">¿Pocos matches?</h4>
+                    <p className="text-[10px] uppercase font-black tracking-widest opacity-60">Usa un destello ahora</p>
                 </div>
             </div>
         )}
 
         {/* SECCIÓN: NUEVOS MATCHES */}
         {filteredNewMatches.length > 0 && (
-            <div className="px-6 mb-6">
-                <h2 className="text-xs font-bold text-cuadralo-pink uppercase tracking-widest mb-4 flex items-center gap-2">
+            <div className="px-6 mb-8">
+                <h2 className="text-[10px] font-black text-cuadralo-pink uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                     Nuevos Matches 🔥
                 </h2>
                 <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
@@ -99,18 +98,15 @@ export default function ChatList({ onChatSelect }) {
                         <motion.div 
                             key={match.id}
                             initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: i * 0.05 }}
-                            className="flex flex-col items-center gap-2 cursor-pointer group min-w-[70px]"
+                            className="flex flex-col items-center gap-2 cursor-pointer group min-w-[75px]"
                             onClick={() => onChatSelect(match)}
                         >
-                            <div className="relative w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600">
-                                <div className="w-full h-full rounded-full border-2 border-[#0f0518] overflow-hidden bg-gray-800 relative">
-                                    <img src={match.photo || "https://via.placeholder.com/150"} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                                </div>
-                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-cuadralo-pink rounded-full border-2 border-[#0f0518] flex items-center justify-center shadow-md">
-                                    <UserPlus size={10} className="text-white" />
+                            <div className="relative w-16 h-16 rounded-2xl p-[2px] bg-gradient-to-tr from-cuadralo-pink to-purple-600 shadow-lg">
+                                <div className="w-full h-full rounded-[14px] border-2 border-cuadralo-bgLight dark:border-cuadralo-bgDark overflow-hidden bg-gray-200 dark:bg-gray-800 relative">
+                                    <img src={match.photo || "https://via.placeholder.com/150"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                 </div>
                             </div>
-                            <span className="text-xs font-medium truncate w-full text-center text-gray-300 group-hover:text-white">{match.name.split(" ")[0]}</span>
+                            <span className="text-[11px] font-bold truncate w-full text-center opacity-80">{match.name.split(" ")[0]}</span>
                         </motion.div>
                     ))}
                 </div>
@@ -119,24 +115,16 @@ export default function ChatList({ onChatSelect }) {
 
         {/* SECCIÓN: MENSAJES */}
         <div className="px-2">
-            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 px-4">Conversaciones</h2>
+            <h2 className="text-[10px] font-black text-cuadralo-textMutedLight dark:text-gray-500 uppercase tracking-[0.2em] mb-3 px-4">Conversaciones</h2>
             
-            {loading && <p className="text-center text-xs text-gray-600 py-4">Cargando chats...</p>}
+            {loading && <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-cuadralo-pink border-t-transparent animate-spin rounded-full"/></div>}
             
             {!loading && filteredConversations.length === 0 && (
-                <div className="text-center py-12 opacity-50 flex flex-col items-center">
-                    <MessageCircle size={24} className="text-gray-500 mb-2" />
-                    <p className="text-sm text-gray-300">
-                        {searchQuery ? "No se encontraron resultados" : "No hay mensajes recientes"}
+                <div className="text-center py-12 flex flex-col items-center opacity-40">
+                    <MessageCircle size={32} className="mb-2" />
+                    <p className="text-sm font-bold uppercase tracking-widest">
+                        {searchQuery ? "Sin resultados" : "Sin mensajes"}
                     </p>
-                    {!searchQuery && (
-                        <button 
-                            onClick={() => setShowBoost(true)} 
-                            className="mt-4 text-xs font-bold text-cuadralo-pink hover:underline"
-                        >
-                            ¡Consigue tu primer match hoy! 🚀
-                        </button>
-                    )}
                 </div>
             )}
 
@@ -148,34 +136,33 @@ export default function ChatList({ onChatSelect }) {
                             key={chat.id}
                             layout
                             onClick={() => onChatSelect(chat)}
-                            className={`flex items-center gap-3 p-3 mx-2 rounded-2xl cursor-pointer transition-all group ${hasUnread ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                            className={`flex items-center gap-4 p-4 mx-2 rounded-2xl cursor-pointer transition-all group ${hasUnread ? 'bg-cuadralo-pink/5 border border-cuadralo-pink/10' : 'hover:bg-black/5 dark:hover:bg-white/5'}`}
                         >
                             <div className="relative flex-shrink-0">
-                                <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-800 border border-white/5">
+                                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-gray-200 dark:bg-gray-800 border border-black/5 dark:border-white/5 shadow-sm">
                                     <img src={chat.photo || "https://via.placeholder.com/150"} className="w-full h-full object-cover" />
                                 </div>
+                                {hasUnread && <div className="absolute -top-1 -right-1 w-4 h-4 bg-cuadralo-pink rounded-full border-2 border-cuadralo-bgLight dark:border-cuadralo-bgDark" />}
                             </div>
 
-                            <div className="flex-1 min-w-0 flex flex-col justify-center h-full">
+                            <div className="flex-1 min-w-0 flex flex-col justify-center">
                                 <div className="flex justify-between items-center mb-0.5">
-                                    <h3 className={`text-[15px] truncate pr-2 ${hasUnread ? "font-bold text-white" : "font-medium text-gray-200"}`}>
+                                    <h3 className={`text-sm truncate pr-2 ${hasUnread ? "font-black text-cuadralo-textLight dark:text-white" : "font-bold"}`}>
                                         {chat.name}
                                     </h3>
-                                    <span className={`text-[10px] flex-shrink-0 ${hasUnread ? "text-cuadralo-pink font-bold" : "text-gray-500"}`}>
+                                    <span className={`text-[9px] font-black uppercase flex-shrink-0 ${hasUnread ? "text-cuadralo-pink" : "opacity-40"}`}>
                                         {new Date(chat.last_message_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                     </span>
                                 </div>
 
                                 <div className="flex justify-between items-center">
-                                    <p className={`text-sm truncate pr-4 ${hasUnread ? "text-white font-medium" : "text-gray-400 font-normal"}`}>
+                                    <p className={`text-xs truncate pr-4 ${hasUnread ? "font-bold opacity-100" : "opacity-50"}`}>
                                         {chat.last_message}
                                     </p>
                                     {hasUnread && (
-                                        <div className="flex-shrink-0">
-                                            <span className="min-w-[20px] h-5 px-1.5 bg-cuadralo-pink rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
-                                                {chat.unread_count}
-                                            </span>
-                                        </div>
+                                        <span className="min-w-[18px] h-4.5 px-1.5 bg-cuadralo-pink rounded-lg flex items-center justify-center text-[9px] font-black text-white shadow-lg shadow-cuadralo-pink/20">
+                                            {chat.unread_count}
+                                        </span>
                                     )}
                                 </div>
                             </div>

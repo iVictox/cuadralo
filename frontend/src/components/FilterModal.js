@@ -31,40 +31,35 @@ export default function FilterModal({ onClose }) {
     try {
       const prefsToSend = { ...prefs };
       if (prefsToSend.ageRange[1] >= 60) prefsToSend.ageRange[1] = 100;
-
       await api.put("/me", { preferences: prefsToSend });
       window.location.reload(); 
       onClose();
-    } catch (error) { alert("Error al guardar"); } 
+    } catch (error) { alert("Error"); } 
     finally { setLoading(false); }
   };
 
-  // CORRECCIÓN: z-[200]
   return (
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <motion.div 
         initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-        className="w-full max-w-md bg-[#1a0b2e] rounded-3xl p-6 border border-white/10 shadow-2xl"
+        className="w-full max-w-md bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-[2.5rem] p-8 border border-black/5 dark:border-white/10 shadow-2xl transition-colors duration-300"
       >
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-white">Filtros</h2>
-          <button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 text-gray-400">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-xl font-black uppercase italic tracking-tighter">Filtros de Búsqueda</h2>
+          <button onClick={onClose} className="p-2 bg-black/5 dark:bg-white/5 rounded-full hover:scale-110 transition-all">
             <X size={20} />
           </button>
         </div>
 
-        {/* Contenido */}
-        <div className="space-y-8">
-            {/* GÉNERO */}
+        <div className="space-y-10">
             <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 block">Mostrarme</label>
-                <div className="flex bg-white/5 p-1 rounded-xl">
+                <label className="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-4 block">Mostrarme</label>
+                <div className="flex bg-black/5 dark:bg-white/5 p-1.5 rounded-2xl border border-black/5 dark:border-white/5">
                     {['Hombres', 'Mujeres', 'Todos'].map((opt) => (
                         <button 
                             key={opt} 
                             onClick={() => setPrefs({...prefs, show: opt})} 
-                            className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${prefs.show === opt ? 'bg-cuadralo-pink text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                            className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${prefs.show === opt ? 'bg-cuadralo-pink text-white shadow-lg shadow-cuadralo-pink/20 scale-105' : 'opacity-40 hover:opacity-100'}`}
                         >
                             {opt}
                         </button>
@@ -72,47 +67,29 @@ export default function FilterModal({ onClose }) {
                 </div>
             </div>
 
-            {/* EDAD MÁXIMA */}
             <div>
-                <div className="flex justify-between mb-3 items-end">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Edad Máxima</label>
-                    <span className="text-2xl font-extrabold text-white">
+                <div className="flex justify-between mb-4 items-end">
+                    <label className="text-[10px] font-black uppercase tracking-[0.3em] opacity-50">Edad Máxima</label>
+                    <span className="text-3xl font-black italic text-cuadralo-pink">
                         {prefs.ageRange[1] >= 60 ? "60+" : prefs.ageRange[1]} 
-                        <span className="text-sm font-medium text-gray-500"> años</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-cuadralo-textLight dark:text-white ml-1">años</span>
                     </span>
                 </div>
-                
-                <input 
-                    type="range" min="18" max="60" 
-                    value={Math.min(prefs.ageRange[1], 60)} 
-                    onChange={(e) => setPrefs({...prefs, ageRange: [18, parseInt(e.target.value)]})}
-                    className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cuadralo-pink hover:accent-purple-500 transition-all"
-                />
+                <input type="range" min="18" max="60" value={Math.min(prefs.ageRange[1], 60)} onChange={(e) => setPrefs({...prefs, ageRange: [18, parseInt(e.target.value)]})} className="w-full h-2 bg-black/5 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cuadralo-pink" />
             </div>
 
-            {/* DISTANCIA */}
             <div>
-                <div className="flex justify-between mb-3 items-end">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Distancia</label>
-                    <span className="text-sm font-bold text-cuadralo-pink">{prefs.distance} km</span>
+                <div className="flex justify-between mb-4 items-end">
+                    <label className="text-[10px] font-black uppercase tracking-[0.3em] opacity-50">Distancia</label>
+                    <span className="text-sm font-black italic text-cuadralo-pink">{prefs.distance} <span className="text-[10px] font-black uppercase tracking-widest text-cuadralo-textLight dark:text-white ml-1">km</span></span>
                 </div>
-                <input 
-                    type="range" min="1" max="100" 
-                    value={prefs.distance} 
-                    onChange={(e) => setPrefs({...prefs, distance: parseInt(e.target.value)})} 
-                    className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cuadralo-pink"
-                />
+                <input type="range" min="1" max="100" value={prefs.distance} onChange={(e) => setPrefs({...prefs, distance: parseInt(e.target.value)})} className="w-full h-2 bg-black/5 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cuadralo-pink" />
             </div>
         </div>
 
-        <button 
-            onClick={handleSave} 
-            disabled={loading}
-            className="w-full mt-8 py-4 rounded-xl bg-gradient-to-r from-cuadralo-pink to-purple-600 text-white font-bold text-sm shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
-        >
-            {loading ? <Loader2 className="animate-spin" /> : <><Save size={18} /> Aplicar Filtros</>}
+        <button onClick={handleSave} disabled={loading} className="w-full mt-10 py-5 rounded-2xl bg-cuadralo-pink text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-cuadralo-pink/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+            {loading ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /> Guardar Cambios</>}
         </button>
-
       </motion.div>
     </div>
   );

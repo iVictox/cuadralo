@@ -124,19 +124,41 @@ func GetUser(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-func DeleteAccount(c *fiber.Ctx) error {
-	userId := uint(c.Locals("userId").(float64))
-	database.DB.Delete(&models.User{}, userId)
-	return c.JSON(fiber.Map{"message": "Cuenta eliminada"})
-}
-
 func ChangePassword(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
-	var data map[string]string
-	c.BodyParser(&data)
-	newPassword, _ := bcrypt.GenerateFromPassword([]byte(data["password"]), 14)
-	database.DB.Model(&models.User{}).Where("id = ?", userId).Update("password", string(newPassword))
-	return c.JSON(fiber.Map{"message": "Contraseña actualizada"})
+	var data struct {
+		OldPassword string `json:"old_password"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := c.BodyParser(&data); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	var user models.User
+	database.DB.First(&user, userId)
+
+	// Verificar vieja
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data.OldPassword)); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Contraseña actual incorrecta"})
+	}
+
+	// Encriptar nueva con costo 14 (idéntico al registro)
+	hashed, _ := bcrypt.GenerateFromPassword([]byte(data.NewPassword), 14)
+
+	database.DB.Model(&user).Update("password", string(hashed))
+	return c.JSON(fiber.Map{"message": "Contraseña cambiada"})
+}
+
+func DeleteAccount(c *fiber.Ctx) error {
+	userId := uint(c.Locals("userId").(float64))
+	tx := database.DB.Begin()
+	// Limpieza total
+	tx.Where("user_id = ?", userId).Delete(&models.Post{})
+	tx.Where("follower_id = ? OR following_id = ?", userId, userId).Delete(&models.Follow{})
+	tx.Where("from_user_id = ? OR to_user_id = ?", userId, userId).Delete(&models.Like{})
+	tx.Delete(&models.User{}, userId)
+	tx.Commit()
+	return c.JSON(fiber.Map{"message": "Adiós"})
 }
 
 func SearchUsers(c *fiber.Ctx) error {

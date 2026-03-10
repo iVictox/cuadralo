@@ -3,77 +3,63 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 15, 5, 24; /* #0f0518 */
-  --background-end-rgb: 5, 2, 10;    /* #05020a */
+  --bg-app: #F8FAFC;
+  --text-main: #0F172A;
+}
+
+.dark {
+  --bg-app: #0B0410;
+  --text-main: #F8FAFC;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-  font-family: 'Inter', sans-serif; /* O la fuente que uses */
-  overflow-x: hidden; /* Evita scroll horizontal indeseado */
+  color: var(--text-main);
+  background-color: var(--bg-app);
+  font-family: 'Inter', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  min-height: 100vh;
 }
 
-/* Ocultar scrollbar en elementos con clase .no-scrollbar */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+/* ========================================================
+   🚀 SMART CONTRAST (MAGIA PARA EL MODO CLARO)
+   Convierte los grises "fantasma" en grises de alta legibilidad
+   automáticamente cuando el modo oscuro está apagado.
+   ======================================================== */
+
+html:not(.dark) .text-gray-500,
+html:not(.dark) .text-gray-400 {
+  color: #475569 !important; /* Slate 600 - Letras secundarias 100% legibles */
 }
 
-/* Animación de spin lento para historias */
-@keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-.animate-spin-slow {
-  animation: spin-slow 8s linear infinite;
+html:not(.dark) .text-gray-300,
+html:not(.dark) .text-gray-200 {
+  color: #334155 !important; /* Slate 700 - Convierte textos casi blancos a oscuros */
 }
 
-/* =========================================
-   ✅ SCROLLBAR PERSONALIZADO (GLOBAL)
-   ========================================= */
-
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #f2138e #1a0b2e; /* Thumb Track */
+html:not(.dark) .bg-white\/5,
+html:not(.dark) .bg-black\/5 {
+  background-color: #E2E8F0 !important; /* Slate 200 - Botones inactivos y fondos tenues */
 }
 
-/* Chrome, Edge, Safari */
-::-webkit-scrollbar {
-  width: 8px; /* Ancho vertical */
-  height: 8px; /* Alto horizontal */
+html:not(.dark) .border-white\/5,
+html:not(.dark) .border-white\/10 {
+  border-color: #CBD5E1 !important; /* Slate 300 - Bordes definidos pero sutiles */
 }
 
-::-webkit-scrollbar-track {
-  background: #0f0518; /* Color de fondo del carril (mismo que la app) */
-  border-radius: 4px;
+/* Protege el texto dentro de los botones rosas o morados para que siempre sea blanco */
+html:not(.dark) .bg-cuadralo-pink .text-gray-300,
+html:not(.dark) .bg-cuadralo-pink .text-gray-400 {
+  color: #FFFFFF !important; 
 }
 
-::-webkit-scrollbar-thumb {
-  background-color: #3f1e56; /* Color base (morado oscuro) */
-  border-radius: 10px;        /* Bordes redondos */
-  border: 2px solid #0f0518;  /* Borde para efecto "flotante" */
-}
 
-::-webkit-scrollbar-thumb:hover {
-  background-color: #f2138e; /* Al pasar el mouse: ¡ROSA NEÓN! */
-}
+/* ========================================================
+   SCROLLBAR & UTILIDADES
+   ======================================================== */
 
-/* Scrollbar específico para modales o contenedores oscuros */
-.modal-content::-webkit-scrollbar-track {
-  background: transparent;
-}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #F2138E; border-radius: 10px; }
