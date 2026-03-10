@@ -14,13 +14,11 @@ export default function SocialFeed({ onUploadClick }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // LÓGICA HISTORIAS
   const [stories, setStories] = useState([]); 
   const [myStories, setMyStories] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [viewingUserStories, setViewingUserStories] = useState(null);
 
-  // ESTADOS DE SUSCRIPCIÓN
   const [showPrime, setShowPrime] = useState(false);
   const [isPrime, setIsPrime] = useState(false);
 
@@ -57,21 +55,6 @@ export default function SocialFeed({ onUploadClick }) {
 
   useEffect(() => { fetchData(); }, []);
 
-  useEffect(() => {
-    const handleSocketEvent = (event) => {
-        const { type, payload } = event.detail;
-        if (type === "new_story") {
-             if (currentUser && payload.user_id === currentUser.id) {
-                setMyStories(prev => [...prev, payload]);
-             } else {
-                fetchData(); 
-             }
-        }
-    };
-    window.addEventListener("socket_event", handleSocketEvent);
-    return () => window.removeEventListener("socket_event", handleSocketEvent);
-  }, [currentUser]);
-
   const handleRefresh = () => {
     setRefreshing(true);
     fetchData();
@@ -81,84 +64,82 @@ export default function SocialFeed({ onUploadClick }) {
       setPosts(prev => prev.filter(p => p.id !== deletedPostId));
   };
 
-  const handleViewStory = (userId) => {
-      if (currentUser && userId === currentUser.id) {
-          if (myStories.length > 0) {
-              setViewingUserStories({ list: myStories.map(s => ({...s, user: currentUser})), isOwner: true });
-          }
-          return;
-      }
-      const group = stories.find(g => g.user.id === userId);
-      if (group) {
-          const formattedStories = group.stories.map(s => ({ ...s, user: group.user }));
-          setViewingUserStories({ list: formattedStories, isOwner: false });
-      }
-  };
-
   return (
-    <div className="w-full h-full bg-[#0f0518] relative">
+    <div className="w-full h-full relative overflow-y-auto pb-28 no-scrollbar scroll-smooth">
       
-      <div className="w-full h-full overflow-y-auto pb-28 no-scrollbar scroll-smooth">
-        
-        <div className="mb-2 pt-20 px-2 md:px-6">
-            <StoriesBar 
-                stories={stories} 
-                myStories={myStories} 
-                currentUser={currentUser}
-                onViewStory={handleViewStory}
-                onRefresh={fetchData} 
-            />
-        </div>
-
-        {/* 🔥 NUEVA UBICACIÓN: Separador elegante entre Historias y Feed */}
-        {!isPrime && !loading && (
-            <div className="flex justify-center mb-6">
-                <motion.button
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    onClick={() => setShowPrime(true)}
-                    className="group flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-yellow-500/20 hover:border-yellow-500/50 hover:bg-yellow-500/10 transition-all backdrop-blur-md cursor-pointer"
-                >
-                    <Crown size={14} className="text-yellow-500 group-hover:scale-110 transition-transform" fill="currentColor" />
-                    <span className="text-xs font-medium text-yellow-200/80 group-hover:text-yellow-100 transition-colors">
-                        Activar calidad <b className="text-yellow-400">Ultra HD</b> en tus posts
-                    </span>
-                    <Sparkles size={12} className="text-yellow-400 opacity-50 group-hover:opacity-100 animate-pulse" />
-                </motion.button>
-            </div>
-        )}
-
-        {loading ? (
-           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-cuadralo-pink" size={40} /></div>
-        ) : (
-           <div className="w-full max-w-[1800px] mx-auto px-2 md:px-4">
-              
-              <div className="columns-1 md:columns-2 xl:columns-3 gap-4 md:gap-6 space-y-4 md:space-y-6">
-                  {posts.map(post => (
-                    <div key={post.id} className="break-inside-avoid">
-                        <FeedPost 
-                            post={post} 
-                            onDelete={() => handlePostDeleted(post.id)}
-                            onViewStory={() => handleViewStory(post.user.id)}
-                        />
-                    </div>
-                  ))}
-              </div>
-
-              {posts.length === 0 && (
-                 <div className="text-center text-gray-500 py-20">No hay publicaciones aún. ¡Sé el primero!</div>
-              )}
-              
-              <button onClick={handleRefresh} className="mx-auto flex items-center gap-2 text-xs text-gray-500 uppercase tracking-widest hover:text-cuadralo-pink transition-colors py-10">
-                  {refreshing ? <Loader2 className="animate-spin" size={14}/> : <RefreshCw size={14}/>}
-                  ACTUALIZAR FEED
-              </button>
-           </div>
-        )}
+      {/* SECCIÓN DE HISTORIAS */}
+      <div className="mb-4 pt-20 px-2 md:px-6">
+          <StoriesBar 
+              stories={stories} 
+              myStories={myStories} 
+              currentUser={currentUser}
+              onViewStory={(list, isOwner) => setViewingUserStories({list, isOwner})}
+              onRefresh={fetchData} 
+          />
       </div>
 
-      <button onClick={onUploadClick} className="absolute bottom-24 right-5 md:bottom-10 md:right-10 w-14 h-14 bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all z-40 border border-white/20 group">
-        <Plus size={28} className="text-white group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
+      {/* BANNER PREMIUM (Minimalista) */}
+      {!isPrime && !loading && (
+          <div className="flex justify-center mb-8 px-4">
+              <motion.button
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  onClick={() => setShowPrime(true)}
+                  className="group w-full max-w-md flex items-center justify-center gap-3 px-6 py-3 rounded-2xl bg-white/40 dark:bg-black/40 border border-yellow-500/30 hover:border-yellow-400 shadow-glass-light dark:shadow-glass-dark backdrop-blur-lg transition-all"
+              >
+                  <Crown size={18} className="text-yellow-500 group-hover:scale-110 transition-transform" fill="currentColor" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-yellow-100/90">
+                      Sube tus fotos en <b className="text-yellow-600 dark:text-yellow-400">Ultra HD</b>
+                  </span>
+                  <Sparkles size={16} className="text-yellow-400 opacity-50 group-hover:opacity-100 animate-pulse" />
+              </motion.button>
+          </div>
+      )}
+
+      {/* FEED DE POSTS */}
+      {loading ? (
+         <div className="flex justify-center py-20">
+            <Loader2 className="animate-spin text-cuadralo-pink" size={40} />
+         </div>
+      ) : (
+         <div className="w-full max-w-[600px] mx-auto px-4 flex flex-col gap-8 pb-20">
+            <AnimatePresence>
+                {posts.map((post, i) => (
+                  <motion.div 
+                      key={post.id}
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ delay: i * 0.1, duration: 0.4, ease: "easeOut" }}
+                  >
+                      <FeedPost 
+                          post={post} 
+                          onDelete={() => handlePostDeleted(post.id)}
+                          onViewStory={(list, isOwner) => setViewingUserStories({list, isOwner})}
+                      />
+                  </motion.div>
+                ))}
+            </AnimatePresence>
+
+            {posts.length === 0 && (
+               <div className="text-center text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark py-20 font-medium">
+                  No hay publicaciones aún.<br/>¡Sé el primero en romper el hielo!
+               </div>
+            )}
+            
+            <button onClick={handleRefresh} className="mx-auto flex items-center gap-2 text-xs text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark hover:text-cuadralo-pink transition-colors py-6 mb-10 bg-white/5 dark:bg-black/20 px-6 rounded-full backdrop-blur-md">
+                {refreshing ? <Loader2 className="animate-spin" size={16}/> : <RefreshCw size={16}/>}
+                Actualizar Feed
+            </button>
+         </div>
+      )}
+
+      {/* BOTÓN FLOTANTE PARA SUBIR POST (Estilo Apple/Minimalista) */}
+      <button 
+          onClick={onUploadClick} 
+          className="fixed bottom-24 right-6 md:bottom-10 md:right-10 w-14 h-14 bg-cuadralo-pink text-white rounded-2xl flex items-center justify-center shadow-[0_8px_30px_rgb(242,19,142,0.4)] hover:shadow-[0_8px_30px_rgb(242,19,142,0.6)] hover:-translate-y-1 active:scale-95 transition-all z-40 group"
+      >
+        <Plus size={28} className="group-hover:rotate-90 transition-transform duration-300" strokeWidth={2.5} />
       </button>
 
       <AnimatePresence>
