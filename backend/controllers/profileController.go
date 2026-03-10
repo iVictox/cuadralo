@@ -25,8 +25,9 @@ func GetProfileByUsername(c *fiber.Ctx) error {
 	database.DB.Model(&models.Follow{}).Where("following_id = ?", user.ID).Count(&followersCount)
 	database.DB.Model(&models.Follow{}).Where("follower_id = ?", user.ID).Count(&followingCount)
 
-	user.Followers = followersCount
-	user.Following = followingCount
+	// Asignar los valores convertidos a int
+	user.FollowersCount = int(followersCount)
+	user.FollowingCount = int(followingCount)
 
 	// Verificar si YO lo sigo
 	var followCheck models.Follow
@@ -40,7 +41,7 @@ func GetProfileByUsername(c *fiber.Ctx) error {
 		user.HasStory = true
 	}
 
-	// --- CORRECCIÓN IMPORTANTE: Traer Posts con Usuario y Likes ---
+	// --- Traer Posts con Usuario y Likes ---
 	var posts []models.Post
 	database.DB.Preload("User").Where("user_id = ?", user.ID).Order("created_at desc").Find(&posts)
 

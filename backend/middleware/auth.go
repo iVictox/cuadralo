@@ -58,8 +58,23 @@ func IsAuthenticated(c *fiber.Ctx) error {
 	}
 	// ------------------------------------------------------------------
 
-	// 4. Guardar ID en el contexto para usarlo en los controladores
+	// 4. Guardar ID y Rol en el contexto para usarlos en los controladores
 	c.Locals("userId", userIdFloat) // Mantenemos float64 para compatibilidad con tus controladores actuales
+	c.Locals("userRole", user.Role) // ✅ NUEVO: Guardamos el rol para validarlo en rutas de administrador
+
+	return c.Next()
+}
+
+// ✅ NUEVO: Middleware exclusivo para el panel de control
+func IsAdmin(c *fiber.Ctx) error {
+	role := c.Locals("userRole")
+
+	// Si no hay rol o no es admin, bloqueamos con un 403 Forbidden
+	if role == nil || role.(string) != "admin" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Acceso denegado. Privilegios de administrador requeridos.",
+		})
+	}
 
 	return c.Next()
 }

@@ -3,7 +3,6 @@ package controllers
 import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -39,8 +38,12 @@ func Register(c *fiber.Ctx) error {
 	// 1. Encriptar Password
 	password, _ := bcrypt.GenerateFromPassword([]byte(data.Password), 14)
 
-	// 2. Serializar Preferencias
-	prefsJSON, _ := json.Marshal(data.Preferences)
+	// 2. Parsear Fecha de Nacimiento (String a time.Time)
+	birthTime, err := time.Parse("2006-01-02", data.BirthDate)
+	if err != nil {
+		// Si la fecha viene con mal formato, asignamos una por defecto (ej. hace 18 años)
+		birthTime = time.Now().AddDate(-18, 0, 0)
+	}
 
 	// 3. Buscar intereses
 	var selectedInterests []models.Interest
@@ -48,24 +51,22 @@ func Register(c *fiber.Ctx) error {
 		database.DB.Where("slug IN ?", data.Interests).Find(&selectedInterests)
 	}
 
-	// 4. GENERAR USERNAME ÚNICO (✅ NUEVO)
+	// 4. GENERAR USERNAME ÚNICO
 	// Ejemplo: Juan Perez -> juanperez1704567890
 	cleanName := strings.ToLower(strings.ReplaceAll(data.Name, " ", ""))
 	username := fmt.Sprintf("%s%d", cleanName, time.Now().Unix()%10000)
 
-	// 5. Crear Usuario
+	// 5. Crear Usuario (Asignamos birthTime y quitamos Age/Preferences)
 	user := models.User{
-		Name:        data.Name,
-		Username:    username, // ✅ Asignamos el username generado
-		Email:       data.Email,
-		Password:    string(password),
-		BirthDate:   data.BirthDate,
-		Gender:      data.Gender,
-		Age:         calculateAge(data.BirthDate),
-		Photo:       data.Photo,
-		Bio:         data.Bio,
-		Preferences: string(prefsJSON),
-		Interests:   selectedInterests,
+		Name:      data.Name,
+		Username:  username,
+		Email:     data.Email,
+		Password:  string(password),
+		BirthDate: birthTime,
+		Gender:    data.Gender,
+		Photo:     data.Photo,
+		Bio:       data.Bio,
+		Interests: selectedInterests,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
@@ -78,7 +79,7 @@ func Register(c *fiber.Ctx) error {
 	})
 }
 
-// LOGIN (Igual que antes, solo asegúrate de mantenerlo)
+// LOGIN
 func Login(c *fiber.Ctx) error {
 	var data map[string]string
 	if err := c.BodyParser(&data); err != nil {
@@ -99,7 +100,7 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": user.ID,
+		"sub": float64(user.ID), // Parseado como float64 para coincidir con el Middleware
 		"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
 	})
 
@@ -124,20 +125,7 @@ func Login(c *fiber.Ctx) error {
 			"username": user.Username, // ✅ Enviamos username al frontend
 			"email":    user.Email,
 			"photo":    user.Photo,
+			"role":     user.Role, // ✅ Enviamos el rol (user o admin)
 		},
 	})
-}
-
-func calculateAge(birthDate string) int {
-	layout := "2006-01-02"
-	dob, err := time.Parse(layout, birthDate)
-	if err != nil {
-		return 18
-	}
-	now := time.Now()
-	age := now.Year() - dob.Year()
-	if now.YearDay() < dob.YearDay() {
-		age--
-	}
-	return age
 }

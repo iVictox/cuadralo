@@ -47,7 +47,7 @@ func Swipe(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Swipe registrado", "match": isMatch})
 }
 
-// 2. Obtener Feed de Swipe (Candidatos) - ✅ NUEVA FUNCIÓN
+// 2. Obtener Feed de Swipe (Candidatos)
 func GetSwipeFeed(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
@@ -125,14 +125,23 @@ func GetReceivedLikes(c *fiber.Ctx) error {
 	database.DB.Where("id IN ?", pendingIDs).Find(&users)
 
 	response := []fiber.Map{}
+	now := time.Now() // Fecha actual para calcular la edad
+
 	for _, u := range users {
 		locked := !isGoldOrBetter
+
+		// ✅ CORRECCIÓN: Calcular la edad dinámicamente basada en BirthDate
+		age := now.Year() - u.BirthDate.Year()
+		if now.Month() < u.BirthDate.Month() || (now.Month() == u.BirthDate.Month() && now.Day() < u.BirthDate.Day()) {
+			age--
+		}
+
 		item := fiber.Map{
 			"id":     u.ID,
-			"age":    u.Age,
+			"age":    age, // Usamos la edad calculada
 			"img":    u.Photo,
 			"locked": locked,
-			"name":   u.Name, // Enviamos nombre, el frontend decide si mostrar borroso
+			"name":   u.Name,
 		}
 		if locked {
 			item["name"] = "???"

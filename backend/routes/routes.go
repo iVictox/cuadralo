@@ -74,4 +74,12 @@ func Setup(app *fiber.App) {
 	api.Get("/premium/status", controllers.GetMyPlan) // Ver estado actual (Prime/Boost)
 	api.Post("/premium/buy", controllers.BuyPrime)    // Comprar Prime
 	api.Post("/premium/boost", controllers.BuyBoost)  // Comprar Destello
+
+	// 🚨 ✅ NUEVO: RUTAS DE ADMINISTRACIÓN
+	// Al usar api.Group("/admin"), automáticamente hereda el middleware IsAuthenticated de arriba.
+	// Solo necesitamos agregarle el middleware IsAdmin para asegurarnos de que sea administrador.
+	admin := api.Group("/admin", middleware.IsAdmin)
+	admin.Get("/stats", controllers.GetDashboardStats)
+	admin.Get("/users", controllers.GetAllUsersAdmin)
+	admin.Put("/users/:id/role", controllers.UpdateUserRole)
 }
