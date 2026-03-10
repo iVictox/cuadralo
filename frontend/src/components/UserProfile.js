@@ -5,8 +5,8 @@ import { MapPin, Crown, FileText, UserCircle, UserPlus, UserCheck, MessageCircle
 import { api } from "@/utils/api";
 import { motion, AnimatePresence } from "framer-motion";
 import PostModal from "./PostModal";
-import EditProfileModal from "./EditProfileModal"; // Necesario para editar
-import SettingsModal from "./SettingsModal";       // Necesario para los ajustes
+import EditProfileModal from "./EditProfileModal"; 
+import SettingsModal from "./SettingsModal";       
 import { getInterestInfo } from "@/utils/interests";
 import { useRouter } from "next/navigation";
 
@@ -17,22 +17,17 @@ export default function UserProfile({ username }) {
   const [loading, setLoading] = useState(true);
   const [activePhoto, setActivePhoto] = useState(0);
   
-  // Estado para saber si el perfil visitado es EL MÍO
   const [isMe, setIsMe] = useState(false);
-
   const [selectedPost, setSelectedPost] = useState(null);
   
-  // Modales si resulta que es mi propio perfil
   const [showEdit, setShowEdit] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   const fetchProfileAndPosts = async () => {
     try {
-      // 1. Obtener Perfil del usuario que estamos visitando
       const data = await api.get(`/u/${username}`);
       setUser(data);
       
-      // 2. Verificar si este usuario soy YO mismo (leyendo el LocalStorage)
       const userStr = localStorage.getItem("user");
       if (userStr && data && data.id) {
           const myUser = JSON.parse(userStr);
@@ -41,7 +36,6 @@ export default function UserProfile({ username }) {
           }
       }
       
-      // 3. Obtener Posts de esa persona
       if (data && data.id) {
          const userPosts = await api.get(`/users/${data.id}/posts`);
          setPosts(userPosts || []);
@@ -56,7 +50,7 @@ export default function UserProfile({ username }) {
   useEffect(() => { fetchProfileAndPosts(); }, [username]);
 
   const handleFollow = async () => {
-    if (isMe) return; // Por seguridad
+    if (isMe) return; 
     try {
       const res = await api.post(`/users/${user.id}/follow`);
       setUser({ 
@@ -67,8 +61,26 @@ export default function UserProfile({ username }) {
     } catch (error) { console.error(error); }
   };
 
+  // ✅ FILTRADO ESTRICTO DE FOTOS
+  const getValidPhotos = () => {
+      if (!user) return ["https://via.placeholder.com/600x800"];
+      let valid = [];
+      if (user.photos && Array.isArray(user.photos)) {
+          valid = user.photos.filter(p => typeof p === 'string' && p.trim() !== "");
+      }
+      if (valid.length === 0 && user.photo && typeof user.photo === 'string' && user.photo.trim() !== "") {
+          valid = [user.photo];
+      }
+      if (valid.length === 0) {
+          valid = ["https://via.placeholder.com/600x800"];
+      }
+      return valid;
+  };
+
+  const photos = getValidPhotos();
+
   const nextPhoto = () => {
-    if (user?.photos && activePhoto < user.photos.length - 1) setActivePhoto(activePhoto + 1);
+    if (activePhoto < photos.length - 1) setActivePhoto(activePhoto + 1);
   };
 
   const prevPhoto = () => {
@@ -88,7 +100,6 @@ export default function UserProfile({ username }) {
       </div>
   );
 
-  const photos = user?.photos?.length > 0 ? user.photos : [user?.photo || "https://via.placeholder.com/600x800"];
   const isPrime = user?.is_prime;
 
   return (
@@ -118,14 +129,17 @@ export default function UserProfile({ username }) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
                 className="w-full h-full object-cover"
+                alt="User Profile"
               />
             </AnimatePresence>
 
-            <div className="absolute top-4 inset-x-16 flex gap-1.5 z-20">
-              {photos.map((_, i) => (
-                <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${i === activePhoto ? 'bg-white shadow-md' : 'bg-white/30 backdrop-blur-md'}`} />
-              ))}
-            </div>
+            {photos.length > 1 && (
+                <div className="absolute top-4 inset-x-16 flex gap-1.5 z-20">
+                {photos.map((_, i) => (
+                    <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${i === activePhoto ? 'bg-white shadow-md' : 'bg-white/30 backdrop-blur-md'}`} />
+                ))}
+                </div>
+            )}
 
             <div className="absolute inset-0 flex z-10">
               <div className="w-1/2 cursor-pointer" onClick={prevPhoto} />
@@ -136,7 +150,7 @@ export default function UserProfile({ username }) {
               <h1 className="text-4xl font-black uppercase tracking-tighter flex items-end gap-2 drop-shadow-md">
                 {user?.name}
                 <span className="text-3xl font-light text-cuadralo-pink">
-                  {user?.birth_date ? new Date().getFullYear() - new Date(user.birth_date).getFullYear() : ""}
+                  {user?.birth_date ? new Date().getFullYear() - new Date(user?.birth_date).getFullYear() : ""}
                 </span>
               </h1>
               <div className="flex items-center gap-2 mt-1 text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">
@@ -156,7 +170,7 @@ export default function UserProfile({ username }) {
             <h1 className="text-6xl lg:text-7xl font-black uppercase tracking-tighter flex items-end gap-3 drop-shadow-md">
               {user?.name}
               <span className="text-5xl font-light text-cuadralo-pink mb-1">
-                {user?.birth_date ? new Date().getFullYear() - new Date(user.birth_date).getFullYear() : ""}
+                {user?.birth_date ? new Date().getFullYear() - new Date(user?.birth_date).getFullYear() : ""}
               </span>
             </h1>
             <div className="flex items-center gap-2 mt-3 text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
@@ -167,16 +181,15 @@ export default function UserProfile({ username }) {
           <div className="flex flex-col xl:flex-row gap-6 max-w-2xl">
             <div className="flex flex-1 justify-around bg-white dark:bg-[#150a21] p-4 md:p-5 rounded-3xl border border-gray-100 dark:border-white/5 shadow-sm">
                 <div className="text-center">
-                    <span className="block text-2xl font-black text-cuadralo-textLight dark:text-white">{user.followers_count}</span>
+                    <span className="block text-2xl font-black text-cuadralo-textLight dark:text-white">{user?.followers_count || 0}</span>
                     <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Seguidores</span>
                 </div>
                 <div className="text-center">
-                    <span className="block text-2xl font-black text-cuadralo-textLight dark:text-white">{user.following_count}</span>
+                    <span className="block text-2xl font-black text-cuadralo-textLight dark:text-white">{user?.following_count || 0}</span>
                     <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">Seguidos</span>
                 </div>
             </div>
 
-            {/* ✅ LÓGICA CONDICIONAL: SI SOY YO, MUESTRO EDITAR/AJUSTES. SI NO, SEGUIR/MENSAJE */}
             <div className="flex flex-1 gap-3">
               {isMe ? (
                   <>
@@ -281,7 +294,6 @@ export default function UserProfile({ username }) {
                 onClose={() => setSelectedPost(null)} 
             />
         )}
-        {/* Renderizamos los modales de edición si el usuario soy YO */}
         {showEdit && <EditProfileModal user={user} onClose={() => setShowEdit(false)} onUpdate={fetchProfileAndPosts} />}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </AnimatePresence>

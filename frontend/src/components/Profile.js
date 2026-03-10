@@ -54,8 +54,26 @@ export default function Profile() {
       }
   };
 
+  // ✅ FILTRADO ESTRICTO DE FOTOS PARA EVITAR EL ERROR DE NEXT.JS
+  const getValidPhotos = () => {
+      if (!user) return ["https://via.placeholder.com/600x800"];
+      let valid = [];
+      if (user.photos && Array.isArray(user.photos)) {
+          valid = user.photos.filter(p => typeof p === 'string' && p.trim() !== "");
+      }
+      if (valid.length === 0 && user.photo && typeof user.photo === 'string' && user.photo.trim() !== "") {
+          valid = [user.photo];
+      }
+      if (valid.length === 0) {
+          valid = ["https://via.placeholder.com/600x800"];
+      }
+      return valid;
+  };
+
+  const photos = getValidPhotos();
+
   const nextPhoto = () => {
-    if (user?.photos && activePhoto < user.photos.length - 1) setActivePhoto(activePhoto + 1);
+    if (activePhoto < photos.length - 1) setActivePhoto(activePhoto + 1);
   };
 
   const prevPhoto = () => {
@@ -70,7 +88,6 @@ export default function Profile() {
     );
   }
 
-  const photos = user?.photos?.length > 0 ? user.photos : [user?.photo || "https://via.placeholder.com/600x800"];
   const isPrime = user?.is_prime;
 
   return (
@@ -97,14 +114,17 @@ export default function Profile() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
                 className="w-full h-full object-cover"
+                alt="Profile"
               />
             </AnimatePresence>
 
-            <div className="absolute top-4 inset-x-4 flex gap-1.5 z-20">
-              {photos.map((_, i) => (
-                <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${i === activePhoto ? 'bg-white shadow-[0_0_5px_rgba(255,255,255,0.8)]' : 'bg-white/30 backdrop-blur-md'}`} />
-              ))}
-            </div>
+            {photos.length > 1 && (
+                <div className="absolute top-4 inset-x-4 flex gap-1.5 z-20">
+                {photos.map((_, i) => (
+                    <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${i === activePhoto ? 'bg-white shadow-[0_0_5px_rgba(255,255,255,0.8)]' : 'bg-white/30 backdrop-blur-md'}`} />
+                ))}
+                </div>
+            )}
 
             <div className="absolute inset-0 flex z-10">
               <div className="w-1/2 cursor-pointer" onClick={prevPhoto} />
@@ -115,7 +135,7 @@ export default function Profile() {
               <h1 className="text-4xl font-black uppercase tracking-tighter flex items-end gap-2 drop-shadow-md">
                 {user?.name}
                 <span className="text-3xl font-light text-cuadralo-pink">
-                  {user?.birth_date ? new Date().getFullYear() - new Date(user.birth_date).getFullYear() : ""}
+                  {user?.birth_date ? new Date().getFullYear() - new Date(user?.birth_date).getFullYear() : ""}
                 </span>
               </h1>
               <div className="flex items-center gap-2 mt-1 text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">
@@ -125,14 +145,14 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: INFO Y CUADRÍCULA DE POSTS */}
+        {/* COLUMNA DERECHA */}
         <div className="flex-1 px-6 md:px-0 mt-8 md:mt-0 space-y-8 md:space-y-10 pb-10">
           
           <div className="hidden md:block">
             <h1 className="text-5xl lg:text-7xl font-black uppercase tracking-tighter flex items-end gap-3 drop-shadow-md">
               {user?.name}
               <span className="text-4xl lg:text-5xl font-light text-cuadralo-pink mb-1">
-                {user?.birth_date ? new Date().getFullYear() - new Date(user.birth_date).getFullYear() : ""}
+                {user?.birth_date ? new Date().getFullYear() - new Date(user?.birth_date).getFullYear() : ""}
               </span>
             </h1>
             <div className="flex items-center gap-2 mt-3 text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
@@ -140,10 +160,7 @@ export default function Profile() {
             </div>
           </div>
           
-          {/* ✅ NUEVO: STATS DE SEGUIDORES JUNTO A LOS BOTONES */}
           <div className="flex flex-col xl:flex-row gap-6 max-w-2xl">
-              
-              {/* Estadísticas */}
               <div className="flex flex-1 justify-around bg-white dark:bg-[#150a21] p-4 md:p-5 rounded-3xl border border-gray-100 dark:border-white/5 shadow-sm">
                   <div className="text-center">
                       <span className="block text-2xl font-black text-cuadralo-textLight dark:text-white">{user?.followers_count || 0}</span>
@@ -155,7 +172,6 @@ export default function Profile() {
                   </div>
               </div>
 
-              {/* Botones de Acción */}
               <div className="flex flex-1 gap-3">
                 <button onClick={() => setShowEdit(true)} className="flex-1 py-4 md:py-5 bg-cuadralo-pink hover:bg-cuadralo-pinkLight text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-xl shadow-cuadralo-pink/20 transition-all active:scale-95">
                   <Edit3 size={18} /> Editar Perfil
@@ -236,14 +252,8 @@ export default function Profile() {
       <AnimatePresence>
         {showEdit && <EditProfileModal user={user} onClose={() => setShowEdit(false)} onUpdate={fetchUserAndPosts} />}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-        
-        {/* Modal de la publicación */}
         {selectedPost && (
-            <PostModal 
-                post={selectedPost} 
-                onClose={() => setSelectedPost(null)} 
-                onDelete={() => handleDeletePost(selectedPost.id)} 
-            />
+            <PostModal post={selectedPost} onClose={() => setSelectedPost(null)} onDelete={() => handleDeletePost(selectedPost.id)} />
         )}
       </AnimatePresence>
     </div>
