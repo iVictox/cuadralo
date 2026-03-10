@@ -32,6 +32,9 @@ func Setup(app *fiber.App) {
 	api.Post("/social/posts/:id/report", controllers.ReportPost)
 	api.Post("/social/posts/:id/like", controllers.TogglePostLike)
 
+	// ✅ NUEVO: Obtener posts de un usuario específico
+	api.Get("/users/:id/posts", controllers.GetUserPosts)
+
 	api.Get("/social/posts/:id/comments", controllers.GetPostComments)
 	api.Post("/social/posts/:id/comments", controllers.CreateComment)
 	api.Delete("/social/comments/:id", controllers.DeleteComment)
@@ -70,14 +73,12 @@ func Setup(app *fiber.App) {
 	api.Delete("/messages/:id", controllers.DeleteMessage)
 	api.Post("/messages/:id/view", controllers.MarkMessageViewed)
 
-	// ✅ NUEVAS RUTAS PREMIUM & DESTELLOS
-	api.Get("/premium/status", controllers.GetMyPlan) // Ver estado actual (Prime/Boost)
-	api.Post("/premium/buy", controllers.BuyPrime)    // Comprar Prime
-	api.Post("/premium/boost", controllers.BuyBoost)  // Comprar Destello
+	// PREMIUM & DESTELLOS
+	api.Get("/premium/status", controllers.GetMyPlan)
+	api.Post("/premium/buy", controllers.BuyPrime)
+	api.Post("/premium/boost", controllers.BuyBoost)
 
-	// 🚨 ✅ NUEVO: RUTAS DE ADMINISTRACIÓN
-	// Al usar api.Group("/admin"), automáticamente hereda el middleware IsAuthenticated de arriba.
-	// Solo necesitamos agregarle el middleware IsAdmin para asegurarnos de que sea administrador.
+	// ADMINISTRACIÓN
 	admin := api.Group("/admin", middleware.IsAdmin)
 	admin.Get("/stats", controllers.GetDashboardStats)
 	admin.Get("/users", controllers.GetAllUsersAdmin)

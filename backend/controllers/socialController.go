@@ -60,7 +60,6 @@ func GetSocialFeed(c *fiber.Ctx) error {
 		database.DB.Where("user_id = ? AND story_id IN ?", myId, storyIDs).Find(&myViews)
 	}
 
-	// Mapa: storyID -> true (si ya la vi)
 	seenMap := make(map[uint]bool)
 	for _, v := range myViews {
 		seenMap[v.StoryID] = true
@@ -77,7 +76,6 @@ func GetSocialFeed(c *fiber.Ctx) error {
 		if _, exists := userStatusMap[s.UserID]; !exists {
 			userStatusMap[s.UserID] = &UserStatus{HasStory: true, HasUnseenStory: false}
 		}
-		// Si encuentro UNA historia que no está en seenMap, entonces el usuario tiene historias nuevas
 		if !seenMap[s.ID] {
 			userStatusMap[s.UserID].HasUnseenStory = true
 		}
@@ -94,7 +92,6 @@ func GetSocialFeed(c *fiber.Ctx) error {
 			posts[i].IsLiked = true
 		}
 
-		// Asignar estado de historia
 		if status, ok := userStatusMap[posts[i].UserID]; ok {
 			posts[i].User.HasStory = true
 			posts[i].User.HasUnseenStory = status.HasUnseenStory
@@ -162,6 +159,28 @@ func TogglePostLike(c *fiber.Ctx) error {
 }
 
 func ReportPost(c *fiber.Ctx) error { return c.JSON(fiber.Map{"ok": true}) }
+
+// ✅ NUEVO: Obtener los posts específicos de un usuario para su perfil
+func GetUserPosts(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
+	targetUserId := c.Params("id")
+
+	var posts []models.Post
+	database.DB.Preload("User").Where("user_id = ?", targetUserId).Order("created_at desc").Find(&posts)
+
+	for i := range posts {
+		var count int64
+		database.DB.Model(&models.PostLike{}).Where("post_id = ?", posts[i].ID).Count(&count)
+		posts[i].LikesCount = count
+
+		var like models.PostLike
+		if database.DB.Where("user_id = ? AND post_id = ?", myId, posts[i].ID).First(&like).RowsAffected > 0 {
+			posts[i].IsLiked = true
+		}
+	}
+
+	return c.JSON(posts)
+}
 
 // --- COMENTARIOS ---
 
@@ -259,9 +278,7 @@ func MarkNotificationRead(c *fiber.Ctx) error {
 	return c.JSON(notif)
 }
 
-// ==========================================
-// ✅ SECCIÓN HISTORIAS (COMPLETA)
-// ==========================================
+// --- HISTORIAS ---
 
 type StoryFeedItem struct {
 	User    models.User    `json:"user"`
@@ -272,11 +289,9 @@ type StoryFeedItem struct {
 func GetActiveStories(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
-	// 1. Historias activas
 	var activeStories []models.Story
 	database.DB.Preload("User").Where("expires_at > ?", time.Now()).Order("created_at asc").Find(&activeStories)
 
-	// 2. Vistas mías
 	var myViews []models.StoryView
 	database.DB.Where("user_id = ?", myId).Find(&myViews)
 	seenMap := make(map[uint]bool)
@@ -284,7 +299,6 @@ func GetActiveStories(c *fiber.Ctx) error {
 		seenMap[v.StoryID] = true
 	}
 
-	// 3. Agrupar
 	grouped := make(map[uint]*StoryFeedItem)
 	var userOrder []uint
 
@@ -329,7 +343,6 @@ func GetActiveStories(c *fiber.Ctx) error {
 	if myItem, ok := grouped[myId]; ok {
 		myStories = myItem.Stories
 
-		// ✅ NUEVO: Contar vistas para mis historias
 		for i := range myStories {
 			var count int64
 			database.DB.Model(&models.StoryView{}).Where("story_id = ?", myStories[i].ID).Count(&count)
@@ -360,10 +373,7 @@ func CreateStory(c *fiber.Ctx) error {
 	}
 
 	database.DB.Create(&story)
-
-	// Preload User para enviar en el socket
 	database.DB.Preload("User").First(&story, story.ID)
-
 	websockets.BroadcastEvent("new_story", story)
 
 	return c.JSON(story)
@@ -411,12 +421,10 @@ func ViewStory(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"ok": true})
 }
 
-// ✅ NUEVO: Obtener lista de quién vio la historia
 func GetStoryViewers(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	storyId := c.Params("id")
 
-	// 1. Verificar que la historia es mía
 	var story models.Story
 	if err := database.DB.First(&story, storyId).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Historia no encontrada"})
@@ -426,7 +434,6 @@ func GetStoryViewers(c *fiber.Ctx) error {
 		return c.Status(403).JSON(fiber.Map{"error": "No tienes permiso"})
 	}
 
-	// 2. Obtener las vistas con los usuarios precargados
 	var views []models.StoryView
 	database.DB.Preload("User").Where("story_id = ?", storyId).Order("created_at desc").Find(&views)
 

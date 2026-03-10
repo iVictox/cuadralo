@@ -1,55 +1,36 @@
-import { 
-    Dumbbell, Trophy, Bike, Waves, Activity, 
-    Palette, PenTool, Camera, Music, Scissors, 
-    Cpu, Gamepad2, Code, Bitcoin, Rocket, 
-    Plane, Utensils, Coffee, Wine, Flower2, 
-    PartyPopper, Globe, MessageCircle, Clapperboard, 
-    Mountain, Tent, Sun, PawPrint, Leaf
-} from "lucide-react";
+export const INTERESTS_LIST = [
+    { id: "music", label: "Música", icon: "🎵" },
+    { id: "movies", label: "Cine", icon: "🎬" },
+    { id: "sports", label: "Deportes", icon: "⚽" },
+    { id: "travel", label: "Viajes", icon: "✈️" },
+    { id: "gaming", label: "Gaming", icon: "🎮" },
+    { id: "reading", label: "Lectura", icon: "📚" },
+    { id: "photography", label: "Fotografía", icon: "📷" },
+    { id: "art", label: "Arte", icon: "🎨" },
+    { id: "food", label: "Cocina", icon: "🍳" },
+    { id: "fitness", label: "Fitness", icon: "💪" },
+    { id: "gym", label: "Gym", icon: "🏋️" },
+    { id: "pets", label: "Mascotas", icon: "🐶" },
+    { id: "dogs", label: "Perros", icon: "🐕" },
+    { id: "tech", label: "Tecnología", icon: "💻" },
+    { id: "coffee", label: "Café", icon: "☕" },
+    { id: "wine", label: "Vino", icon: "🍷" },
+    { id: "party", label: "Fiesta", icon: "🎉" },
+    { id: "guitar", label: "Guitarra", icon: "🎸" },
+    { id: "hiking", label: "Senderismo", icon: "⛰️" },
+    { id: "crypto", label: "Crypto", icon: "🪙" }
+];
 
-// Mapeo de Iconos por Nombre (Exacto como está en la DB del Backend)
-const ICON_MAP = {
-    // Deportes
-    "Fútbol": Trophy, "Gym": Dumbbell, "Baloncesto": Activity, 
-    "Tenis": Activity, "Natación": Waves, "Ciclismo": Bike, 
-    "Yoga": Flower2, "Running": Activity, "Crossfit": Dumbbell,
-
-    // Creatividad
-    "Arte": Palette, "Diseño": PenTool, "Fotografía": Camera, 
-    "Escritura": PenTool, "Música": Music, "Baile": Music, 
-    "Moda": Scissors, "Maquillaje": Palette, "Arquitectura": PenTool,
-
-    // Tecnología
-    "Programación": Code, "Gaming": Gamepad2, "IA": Cpu, 
-    "Cripto": Bitcoin, "Startups": Rocket, "Diseño Web": Code, 
-    "Robótica": Cpu, "Gadgets": Cpu,
-
-    // Estilo de Vida
-    "Viajes": Plane, "Cocina": Utensils, "Café": Coffee, 
-    "Vino": Wine, "Jardinería": Leaf, "Minimalismo": Leaf, 
-    "Tatuajes": PenTool, "Astrología": Sun,
-
-    // Social
-    "Fiesta": PartyPopper, "Voluntariado": Globe, "Política": MessageCircle, 
-    "Debate": MessageCircle, "Idiomas": Globe, "Juegos de Mesa": Gamepad2, 
-    "Cine": Clapperboard, "Series": Clapperboard,
-
-    // Naturaleza
-    "Senderismo": Mountain, "Camping": Tent, "Playa": Sun, 
-    "Animales": PawPrint, "Ecología": Leaf, "Surf": Waves, "Pesca": Waves
-};
-
-/**
- * Obtiene el icono y etiqueta para un interés.
- * Acepta el objeto completo de la base de datos o un string.
- */
-export const getInterestInfo = (interest) => {
-    // Si viene del backend como objeto, usamos interest.name
-    // Si viene como string (legacy), usamos el string directo
-    const name = typeof interest === 'object' ? interest.name : interest;
+// Esta es la función que faltaba y causaba el error
+export const getInterestInfo = (slug) => {
+    const found = INTERESTS_LIST.find((i) => i.id === slug);
+    if (found) return found;
     
-    // Icono por defecto si no encuentra match
-    const Icon = ICON_MAP[name] || Activity; 
-
-    return { label: name, Icon };
+    // Si el usuario tiene un interés viejo que no está en la lista, lo formatea bonito por defecto
+    const formattedLabel = slug.replace(/-/g, ' ');
+    return { 
+        id: slug, 
+        label: formattedLabel.charAt(0).toUpperCase() + formattedLabel.slice(1), 
+        icon: "✨" 
+    };
 };

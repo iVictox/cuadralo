@@ -15,6 +15,13 @@ func GetMe(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
+	// ✅ NUEVO: Calcular Estadísticas para mi propio perfil
+	var followersCount, followingCount int64
+	database.DB.Model(&models.Follow{}).Where("following_id = ?", user.ID).Count(&followersCount)
+	database.DB.Model(&models.Follow{}).Where("follower_id = ?", user.ID).Count(&followingCount)
+	user.FollowersCount = int(followersCount)
+	user.FollowingCount = int(followingCount)
+
 	user.InterestsList = []string{}
 	for _, i := range user.Interests {
 		user.InterestsList = append(user.InterestsList, i.Slug)
@@ -58,6 +65,23 @@ func UpdateMe(c *fiber.Ctx) error {
 	}
 
 	database.DB.Save(&user)
+
+	// Volver a cargar el usuario con sus relaciones para devolverlo al frontend
+	database.DB.Preload("Interests").First(&user, userId)
+
+	// ✅ NUEVO: Calcular Estadísticas también al actualizar para que no desaparezcan
+	var followersCount, followingCount int64
+	database.DB.Model(&models.Follow{}).Where("following_id = ?", user.ID).Count(&followersCount)
+	database.DB.Model(&models.Follow{}).Where("follower_id = ?", user.ID).Count(&followingCount)
+	user.FollowersCount = int(followersCount)
+	user.FollowingCount = int(followingCount)
+
+	var interestsList []string
+	for _, i := range user.Interests {
+		interestsList = append(interestsList, i.Slug)
+	}
+	user.InterestsList = interestsList
+
 	return c.JSON(user)
 }
 
