@@ -17,6 +17,8 @@ export default function SocialFeed({ onUploadClick }) {
   const [stories, setStories] = useState([]); 
   const [myStories, setMyStories] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  
+  // Esto guardará la lista de historias a reproducir
   const [viewingUserStories, setViewingUserStories] = useState(null);
 
   const [showPrime, setShowPrime] = useState(false);
@@ -34,15 +36,13 @@ export default function SocialFeed({ onUploadClick }) {
       const feedData = await api.get("/social/feed");
       setPosts(Array.isArray(feedData) ? feedData : []);
 
-      let storiesData = await api.get("/social/stories");
-      if (!Array.isArray(storiesData)) storiesData = [];
-
-      if (me) {
-          const mine = storiesData.find(g => g.user.id === me.id);
-          setMyStories(mine ? mine.stories : []);
-          setStories(storiesData.filter(g => g.user.id !== me.id));
-      } else {
-          setStories(storiesData);
+      // Obtenemos del nuevo endpoint unificado
+      const storiesResponse = await api.get("/social/stories");
+      
+      // Asignamos las listas
+      if (storiesResponse) {
+          setStories(storiesResponse.feed || []);
+          setMyStories(storiesResponse.my_stories || []);
       }
 
     } catch (error) {
@@ -64,6 +64,23 @@ export default function SocialFeed({ onUploadClick }) {
       setPosts(prev => prev.filter(p => p.id !== deletedPostId));
   };
 
+  // ✅ CORRECCIÓN DE COMUNICACIÓN:
+  // Esta función recibe el ID de la persona de la que queremos ver la historia
+  const handleViewStory = (targetUserId) => {
+      if (currentUser && targetUserId === currentUser.id) {
+          // Son mis historias
+          if (myStories.length > 0) {
+              setViewingUserStories({ list: myStories, isOwner: true });
+          }
+      } else {
+          // Son historias de otro usuario
+          const targetGroup = stories.find(g => g.user.id === targetUserId);
+          if (targetGroup && targetGroup.stories.length > 0) {
+              setViewingUserStories({ list: targetGroup.stories, isOwner: false });
+          }
+      }
+  };
+
   return (
     <div className="w-full h-full relative overflow-y-auto pb-28 no-scrollbar scroll-smooth">
       
@@ -73,7 +90,7 @@ export default function SocialFeed({ onUploadClick }) {
               stories={stories} 
               myStories={myStories} 
               currentUser={currentUser}
-              onViewStory={(list, isOwner) => setViewingUserStories({list, isOwner})}
+              onViewStory={handleViewStory} // Pasamos la función corregida
               onRefresh={fetchData} 
           />
       </div>
@@ -115,7 +132,7 @@ export default function SocialFeed({ onUploadClick }) {
                       <FeedPost 
                           post={post} 
                           onDelete={() => handlePostDeleted(post.id)}
-                          onViewStory={(list, isOwner) => setViewingUserStories({list, isOwner})}
+                          onViewStory={() => handleViewStory(post.user.id)} // También corregimos esto
                       />
                   </motion.div>
                 ))}
@@ -134,7 +151,7 @@ export default function SocialFeed({ onUploadClick }) {
          </div>
       )}
 
-      {/* BOTÓN FLOTANTE PARA SUBIR POST (Estilo Apple/Minimalista) */}
+      {/* BOTÓN FLOTANTE PARA SUBIR POST */}
       <button 
           onClick={onUploadClick} 
           className="fixed bottom-24 right-6 md:bottom-10 md:right-10 w-14 h-14 bg-cuadralo-pink text-white rounded-2xl flex items-center justify-center shadow-[0_8px_30px_rgb(242,19,142,0.4)] hover:shadow-[0_8px_30px_rgb(242,19,142,0.6)] hover:-translate-y-1 active:scale-95 transition-all z-40 group"

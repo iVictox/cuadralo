@@ -5,7 +5,8 @@ import { X, Type, Smile, Sparkles, ChevronRight, Loader2, Trash2 } from "lucide-
 import { motion, AnimatePresence } from "framer-motion";
 import Draggable from "react-draggable";
 import EmojiPicker from 'emoji-picker-react';
-import { toPng } from 'html-to-image'; // <--- USAMOS toPng ES MÁS ESTABLE
+// ✅ CAMBIO CLAVE: Usamos toJpeg en lugar de toPng para comprimir la imagen
+import { toJpeg } from 'html-to-image'; 
 
 export default function StoryPreview({ file, onClose, onUpload, isUploading }) {
     const [previewUrl, setPreviewUrl] = useState(URL.createObjectURL(file));
@@ -55,23 +56,24 @@ export default function StoryPreview({ file, onClose, onUpload, isUploading }) {
     const handleFinalUpload = async () => {
         if (!containerRef.current) return;
         try {
-            // 1. Usamos toPng con cacheBust: FALSE (Crucial para blobs locales)
-            const dataUrl = await toPng(containerRef.current, { 
+            // ✅ AHORA COMPRIMIMOS LA IMAGEN
+            // Usamos quality: 0.8 (80%) para reducir el peso de 15MB a unos ~800KB
+            const dataUrl = await toJpeg(containerRef.current, { 
+                quality: 0.8,
                 cacheBust: false, 
                 pixelRatio: 2,
                 skipAutoScale: true
             });
             
-            // 2. Convertir DataURL (Base64) a File
             const res = await fetch(dataUrl);
             const blob = await res.blob();
-            const processedFile = new File([blob], "story_edited.png", { type: "image/png" });
+            // Guardamos como JPEG
+            const processedFile = new File([blob], `story_${Date.now()}.jpg`, { type: "image/jpeg" });
             
-            // 3. Subir
             onUpload(processedFile);
         } catch (err) {
             console.error("Error generando imagen", err);
-            // Fallback: Si falla la edición, subimos la original sin editar
+            // Fallback
             onUpload(file);
         }
     };
@@ -81,7 +83,7 @@ export default function StoryPreview({ file, onClose, onUpload, isUploading }) {
             initial={{ opacity: 0, scale: 0.95 }} 
             animate={{ opacity: 1, scale: 1 }} 
             exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-[80] bg-black flex flex-col"
+            className="fixed inset-0 z-[120] bg-black flex flex-col"
         >
             {/* HEADER */}
             {!isDragging && (
@@ -161,7 +163,7 @@ export default function StoryPreview({ file, onClose, onUpload, isUploading }) {
 
             {/* POPUP EMOJIS */}
             {showEmojiPicker && (
-                <div className="absolute top-24 right-4 z-[60]">
+                <div className="absolute top-24 right-4 z-[150]">
                     <EmojiPicker theme="dark" onEmojiClick={addSticker} width={300} height={400} searchDisabled />
                 </div>
             )}
@@ -169,13 +171,11 @@ export default function StoryPreview({ file, onClose, onUpload, isUploading }) {
     );
 }
 
-// --- DRAGGABLE ITEM CON NODEREF ---
 const DraggableItem = ({ s, onDragStart, onDragStop }) => {
     const nodeRef = useRef(null);
 
     const handleStop = (e, data) => {
         const screenHeight = window.innerHeight;
-        // Soporte touch y mouse
         const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
         const isOverTrash = clientY > screenHeight - 150;
         onDragStop(isOverTrash);

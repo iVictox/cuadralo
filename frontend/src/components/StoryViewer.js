@@ -162,7 +162,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
             </div>
         </div>
 
-        {/* IMAGEN HISTORIA */}
+{/* IMAGEN HISTORIA */}
         <div 
             className="w-full h-full relative"
             onMouseDown={() => setIsPaused(true)}
@@ -170,17 +170,25 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
             onTouchStart={() => setIsPaused(true)}
             onTouchEnd={() => setIsPaused(false)}
         >
-            <img 
-                src={currentStory.image_url} 
-                className="w-full h-full object-contain bg-black" 
-                alt="Story"
-            />
+            <AnimatePresence mode="wait">
+                <motion.img 
+                    key={currentStory.id} // ✅ ESTO OBLIGA A REACT A MOSTRAR LA NUEVA IMAGEN
+                    initial={{ opacity: 0.8, scale: 1.02 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0.8 }}
+                    transition={{ duration: 0.2 }}
+                    src={currentStory.image_url} 
+                    className="absolute inset-0 w-full h-full object-contain bg-black" 
+                    alt="Story"
+                />
+            </AnimatePresence>
             
             {/* ÁREAS DE NAVEGACIÓN */}
             <div className="absolute inset-y-0 left-0 w-1/3 z-10" onClick={(e) => { e.stopPropagation(); handlePrev(); }} />
             <div className="absolute inset-y-0 right-0 w-1/3 z-10" onClick={(e) => { e.stopPropagation(); handleNext(); }} />
         </div>
 
+        
         {/* ✅ FOOTER: CONTADOR DE VISTAS (SOLO SI ES DUEÑO) */}
         {isOwner && (
             <div className="absolute bottom-6 left-4 z-30">

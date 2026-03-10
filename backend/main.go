@@ -54,7 +54,9 @@ func main() {
 	}()
 
 	// 5. Configurar Servidor Fiber
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		BodyLimit: 15 * 1024 * 1024, // 15 MB
+	})
 
 	// Configuración CORS
 	app.Use(cors.New(cors.Config{

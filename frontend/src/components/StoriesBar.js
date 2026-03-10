@@ -15,14 +15,12 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
   const [uploading, setUploading] = useState(false);
   const [previewFile, setPreviewFile] = useState(null); 
   
-  // 1. Selección (Abre Editor)
   const handleFileSelect = (e) => {
       const file = e.target.files[0];
       if (file) setPreviewFile(file);
-      e.target.value = "";
+      if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // 2. Subida Final
   const handleConfirmUpload = async (fileToUpload) => {
       const finalFile = fileToUpload || previewFile;
       if (!finalFile) return;
@@ -31,62 +29,57 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
       try {
           const imageUrl = await api.upload(finalFile);
           await api.post("/social/stories", { image_url: imageUrl });
-          showToast("Historia subida 🎉");
+          showToast("¡Historia subida con éxito! 🎉", "success");
           setPreviewFile(null); 
-          onRefresh(); // Avisar al padre para recargar
+          if(onRefresh) onRefresh(); 
       } catch (error) {
-          showToast("Error al subir historia", "error");
+          showToast(error.message || "Error al subir historia", "error");
       } finally {
           setUploading(false);
       }
   };
 
-  // Scroll Drag Logic
   const [isDown, setIsDown] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
-  
-  const handleMouseDown = (e) => { 
-      setIsDown(true); 
-      setStartX(e.pageX - sliderRef.current.offsetLeft); 
-      setScrollLeft(sliderRef.current.scrollLeft); 
-  };
-  
-  const handleMouseMove = (e) => { 
-      if (!isDown) return; 
-      e.preventDefault(); 
-      const x = e.pageX - sliderRef.current.offsetLeft; 
-      const walk = (x - startX) * 1.5; 
-      sliderRef.current.scrollLeft = scrollLeft - walk; 
-  };
+  const handleMouseDown = (e) => { setIsDown(true); setStartX(e.pageX - sliderRef.current.offsetLeft); setScrollLeft(sliderRef.current.scrollLeft); };
+  const handleMouseMove = (e) => { if (!isDown) return; e.preventDefault(); const x = e.pageX - sliderRef.current.offsetLeft; sliderRef.current.scrollLeft = scrollLeft - (x - startX) * 1.5; };
 
   return (
     <>
         <div 
           ref={sliderRef}
-          className={`w-full flex gap-4 px-4 overflow-x-auto overflow-y-hidden pb-4 pt-2 no-scrollbar scroll-pl-4 ${isDown ? 'cursor-grabbing' : 'cursor-grab'}`}
-          onMouseDown={handleMouseDown}
-          onMouseLeave={() => setIsDown(false)}
-          onMouseUp={() => setIsDown(false)}
-          onMouseMove={handleMouseMove}
+          className={`w-full flex gap-4 px-4 overflow-x-auto overflow-y-hidden pb-4 pt-2 no-scrollbar scroll-pl-4 transition-colors duration-300 ${isDown ? 'cursor-grabbing' : 'cursor-grab'}`}
+          onMouseDown={handleMouseDown} onMouseLeave={() => setIsDown(false)} onMouseUp={() => setIsDown(false)} onMouseMove={handleMouseMove}
         >
           {/* MI HISTORIA */}
-          <div className="flex flex-col items-center min-w-[70px] cursor-pointer group select-none relative">
+          <div className="flex flex-col items-center min-w-[70px] cursor-pointer group select-none relative mt-2">
+              
+              {/* ✅ BADGE NUMÉRICO: Si hay más de 1 historia, lo mostramos */}
+              {myStories && myStories.length > 1 && (
+                  <span className="absolute -top-1 -right-1 bg-cuadralo-pink text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-cuadralo-bgLight dark:border-cuadralo-bgDark z-20 shadow-md">
+                      {myStories.length}
+                  </span>
+              )}
+
               <div 
-                className={`w-[74px] h-[74px] rounded-full flex items-center justify-center p-[2px] ${
-                    myStories.length > 0 
-                    ? "bg-gray-500" // Mis historias en gris
-                    : "bg-transparent border-2 border-white/20 border-dashed"
+                className={`w-[74px] h-[74px] rounded-full flex items-center justify-center p-[2.5px] transition-all duration-300 ${
+                    myStories && myStories.length > 0 
+                    ? "bg-gradient-to-tr from-yellow-400 via-cuadralo-pink to-purple-600 shadow-sm" // ✅ Anillo de color para ti también
+                    : "bg-transparent border-2 border-black/10 dark:border-white/20 border-dashed"
                 }`}
                 onClick={() => {
-                    if (myStories.length > 0) onViewStory(currentUser.id);
-                    else fileInputRef.current.click();
+                    if (myStories && myStories.length > 0) {
+                        onViewStory(currentUser.id);
+                    } else {
+                        fileInputRef.current.click();
+                    }
                 }}
               >
-                  <div className="w-full h-full rounded-full bg-black border-2 border-black overflow-hidden relative">
+                  <div className="w-full h-full rounded-full bg-cuadralo-bgLight dark:bg-black border-2 border-cuadralo-bgLight dark:border-black overflow-hidden relative shadow-sm">
                       <img 
                         src={currentUser?.photo || "https://via.placeholder.com/150"} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80 group-hover:opacity-100" 
+                        className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${myStories && myStories.length > 0 ? "opacity-100" : "opacity-80 group-hover:opacity-100"}`} 
                         alt="Mi historia" 
                       />
                   </div>
@@ -94,54 +87,50 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
               
               <button 
                 onClick={(e) => { e.stopPropagation(); fileInputRef.current.click(); }} 
-                className="absolute bottom-5 right-0 bg-cuadralo-pink rounded-full p-1 border-2 border-black hover:scale-110 transition-transform z-10"
+                className="absolute bottom-6 right-0 bg-cuadralo-pink rounded-full p-1.5 border-2 border-cuadralo-bgLight dark:border-cuadralo-bgDark hover:scale-110 transition-transform z-10 shadow-sm"
               >
-                 <Plus size={12} className="text-white" />
+                 <Plus size={14} className="text-white stroke-[3]" />
               </button>
               
-              <span className="text-xs text-white mt-2 font-medium truncate w-16 text-center">Tu historia</span>
-              <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleFileSelect} />
+              <span className="text-xs text-cuadralo-textLight dark:text-white mt-2 font-medium truncate w-16 text-center">Tu historia</span>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} />
           </div>
 
           {/* OTRAS HISTORIAS */}
-          {stories.map((group) => {
-            // ✅ LÓGICA DE COLOR: all_seen ? Gris : Gradiente
+          {stories && stories.map((group) => {
             const ringColor = group.all_seen 
-                ? "bg-gray-600" 
-                : "bg-gradient-to-tr from-yellow-400 via-cuadralo-pink to-purple-600";
+                ? "bg-black/10 dark:bg-white/20" 
+                : "bg-gradient-to-tr from-yellow-400 via-cuadralo-pink to-purple-600 shadow-sm";
 
             return (
                 <div 
                     key={group.user.id} 
-                    className="flex flex-col items-center min-w-[70px] cursor-pointer group select-none" 
+                    className="flex flex-col items-center min-w-[70px] cursor-pointer group select-none mt-2 relative" 
                     onClick={() => onViewStory(group.user.id)}
                 >
-                    <div className={`w-[74px] h-[74px] rounded-full flex items-center justify-center ${ringColor} p-[2px] transition-colors duration-300`}>
-                        <div className="w-full h-full rounded-full bg-black border-2 border-black overflow-hidden relative">
-                            <img 
-                                src={group.user.photo || "https://via.placeholder.com/150"} 
-                                alt={group.user.name} 
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                            />
+                    {/* Badge para otros usuarios */}
+                    {group.stories.length > 1 && (
+                        <span className="absolute -top-1 -right-1 bg-black/50 dark:bg-white/20 text-white text-[9px] font-black px-1.5 py-0.5 flex items-center justify-center rounded-full border-2 border-cuadralo-bgLight dark:border-cuadralo-bgDark z-20 backdrop-blur-sm">
+                            {group.stories.length}
+                        </span>
+                    )}
+
+                    <div className={`w-[74px] h-[74px] rounded-full flex items-center justify-center ${ringColor} p-[2.5px] transition-all duration-300`}>
+                        <div className="w-full h-full rounded-full bg-cuadralo-bgLight dark:bg-black border-2 border-cuadralo-bgLight dark:border-black overflow-hidden relative">
+                            <img src={group.user.photo || "https://via.placeholder.com/150"} alt={group.user.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                         </div>
                     </div>
-                    <span className="text-xs text-white mt-2 font-medium truncate w-16 text-center">
-                        {group.user.name}
+                    <span className="text-xs text-cuadralo-textMutedLight dark:text-gray-300 mt-2 font-medium truncate w-16 text-center group-hover:text-cuadralo-textLight dark:group-hover:text-white transition-colors">
+                        {group.user.name.split(" ")[0]}
                     </span>
                 </div>
             );
           })}
         </div>
 
-        {/* EDITOR (PREVIEW) */}
         <AnimatePresence>
             {previewFile && (
-                <StoryPreview 
-                    file={previewFile} 
-                    onClose={() => setPreviewFile(null)} 
-                    onUpload={handleConfirmUpload} 
-                    isUploading={uploading} 
-                />
+                <StoryPreview file={previewFile} onClose={() => { setPreviewFile(null); if(fileInputRef.current) fileInputRef.current.value = ""; }} onUpload={handleConfirmUpload} isUploading={uploading} />
             )}
         </AnimatePresence>
     </>

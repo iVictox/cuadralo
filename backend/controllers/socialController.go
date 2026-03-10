@@ -365,6 +365,11 @@ func CreateStory(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
+	// ✅ Validación estricta para evitar historias vacías
+	if data.ImageURL == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "La imagen no puede estar vacía"})
+	}
+
 	story := models.Story{
 		UserID:    userId,
 		ImageURL:  data.ImageURL,
@@ -372,7 +377,12 @@ func CreateStory(c *fiber.Ctx) error {
 		ExpiresAt: time.Now().Add(24 * time.Hour),
 	}
 
-	database.DB.Create(&story)
+	// ✅ Verificamos si la Base de Datos lanza un error al insertar
+	if err := database.DB.Create(&story).Error; err != nil {
+		fmt.Println("Error interno BD guardando historia:", err)
+		return c.Status(500).JSON(fiber.Map{"error": "Fallo al guardar en el servidor"})
+	}
+
 	database.DB.Preload("User").First(&story, story.ID)
 	websockets.BroadcastEvent("new_story", story)
 

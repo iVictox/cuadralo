@@ -35,8 +35,15 @@ const handleResponse = async (res) => {
 
 export const api = {
   get: async (endpoint) => {
-    const res = await fetch(`${API_URL}${endpoint}`, {
+    // ✅ MAGIA ANTICACHÉ: Añadimos un timestamp único a cada GET para que Next.js y el navegador
+    // se vean obligados a descargar la información fresca del servidor.
+    const separator = endpoint.includes('?') ? '&' : '?';
+    const noCacheUrl = `${API_URL}${endpoint}${separator}_t=${Date.now()}`;
+
+    const res = await fetch(noCacheUrl, {
+      method: "GET",
       headers: getHeaders(),
+      cache: "no-store", // Instrucción estricta para Next.js
     });
     return handleResponse(res);
   },
@@ -75,7 +82,7 @@ export const api = {
     const res = await fetch(`${API_URL}/upload`, {
         method: "POST",
         headers: {
-            "Authorization": `Bearer ${token}` // No enviamos Content-Type, fetch lo pone automático para FormData
+            "Authorization": `Bearer ${token}` 
         },
         body: formData
     });
