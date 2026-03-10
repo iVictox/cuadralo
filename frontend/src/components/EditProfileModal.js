@@ -5,7 +5,7 @@ import { X, Save, Loader2, Plus, GripHorizontal, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
-import { getInterestInfo } from "@/utils/interests"; 
+import { INTERESTS_LIST, getInterestInfo } from "@/utils/interests"; 
 
 export default function EditProfileModal({ user, onClose, onUpdate }) {
   const { showToast } = useToast();
@@ -17,13 +17,16 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
     location: user?.location || ""
   });
 
-  const [allInterests, setAllInterests] = useState([]);
-  const [groupedInterests, setGroupedInterests] = useState({});
-  
-  // ✅ Inicialización correcta de intereses (Asegurando que sean strings/slugs)
+  const groupedInterests = INTERESTS_LIST.reduce((acc, item) => {
+      const cat = item.category || "Otros";
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(item);
+      return acc;
+  }, {});
+
+  // ✅ AQUÍ leemos los intereses que ya tenías guardados.
   const [selectedInterests, setSelectedInterests] = useState(user?.interestsList || []);
   
-  // ✅ FILTRADO ESTRICTO DE FOTOS PARA EVITAR PANTALLAS NEGRAS ("")
   const [photos, setPhotos] = useState(() => {
       let initial = [];
       if (user?.photos && Array.isArray(user.photos)) {
@@ -41,25 +44,6 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
   
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
-
-  useEffect(() => {
-      const fetchInterests = async () => {
-          try {
-              const data = await api.get("/interests");
-              if (Array.isArray(data)) {
-                  setAllInterests(data);
-                  const groups = {};
-                  data.forEach(item => {
-                      const cat = item.category || "Otros";
-                      if (!groups[cat]) groups[cat] = [];
-                      groups[cat].push(item);
-                  });
-                  setGroupedInterests(groups);
-              }
-          } catch (error) { console.error("Error intereses", error); }
-      };
-      fetchInterests();
-  }, []);
 
   const handleChange = (e) => { 
       setFormData({ ...formData, [e.target.name]: e.target.value }); 
@@ -79,7 +63,6 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
   const handleFileChange = async (e) => {
       const file = e.target.files[0]; 
       if (!file) return; 
-      
       if (photos.length >= 9) return showToast("Máximo 9 fotos permitidas", "error");
 
       setUploading(true);
@@ -129,7 +112,7 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
             ...formData, 
             photo: mainPhoto, 
             photos: finalPhotos, 
-            interests: selectedInterests 
+            interests: selectedInterests // ✅ Enviamos la lista de Slugs al backend
         });
         showToast("Perfil actualizado correctamente", "success"); 
         onUpdate();
@@ -145,13 +128,11 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-[#1a0b2e] w-full max-w-xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         
-        {/* HEADER */}
         <div className="p-5 border-b border-white/10 flex justify-between items-center bg-[#0f0518]">
             <h2 className="text-white font-black uppercase tracking-widest text-lg">Ajustar Perfil</h2>
             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-all"><X size={20} /></button>
         </div>
 
-        {/* BODY */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8 no-scrollbar space-y-10">
             
             {/* FOTOS */}
@@ -175,7 +156,7 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                         >
                             <img src={photo} className="w-full h-full object-cover pointer-events-none" alt={`Uploaded ${index}`} />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <button onClick={(e) => handleDeletePhoto(e, index)} className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity shadow-lg backdrop-blur-sm"><Trash2 size={14} /></button>
+                            <button type="button" onClick={(e) => handleDeletePhoto(e, index)} className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity shadow-lg backdrop-blur-sm"><Trash2 size={14} /></button>
                             <div className="absolute bottom-2 right-2 text-white/70 opacity-0 group-hover:opacity-100"><GripHorizontal size={16}/></div>
                             {index === 0 && (<div className="absolute bottom-0 left-0 w-full bg-cuadralo-pink text-white text-[9px] font-bold text-center py-1.5 shadow-sm tracking-widest uppercase">Principal</div>)}
                         </motion.div>
@@ -200,7 +181,6 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
 
             {/* FORMULARIO DATOS */}
             <form id="editForm" onSubmit={handleSubmit} className="space-y-8">
-                
                 <div className="space-y-5">
                     <div>
                         <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Nombre Visible</label>
@@ -229,7 +209,7 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
 
                 {/* CATEGORÍAS DE INTERESES */}
                 <div>
-                    <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-4 block">Tus Intereses</label>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-4 block">Tus Intereses ({selectedInterests.length}/10)</label>
                     <div className="space-y-6">
                         {Object.entries(groupedInterests).map(([category, items]) => (
                             <div key={category} className="bg-[#0f0518] p-5 rounded-3xl border border-white/5">
@@ -241,12 +221,13 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                                         const info = getInterestInfo(slug); 
                                         return (
                                             <button 
-                                                key={interest.id} 
+                                                key={slug} 
                                                 type="button" 
                                                 onClick={() => toggleInterest(slug)}
                                                 className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${isSelected ? "bg-cuadralo-pink border-cuadralo-pink text-white shadow-[0_5px_15px_rgba(242,19,142,0.3)] scale-105" : "bg-white/5 border-white/10 text-gray-400 hover:border-white/30 hover:text-white hover:bg-white/10"}`}
                                             >
-                                                <span className="text-sm">{info.icon}</span> {interest.name}
+                                                <span className="text-sm flex items-center justify-center">{info.icon}</span> 
+                                                <span>{info.name}</span>
                                             </button>
                                         );
                                     })}
@@ -258,7 +239,6 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
             </form>
         </div>
 
-        {/* FOOTER */}
         <div className="p-5 border-t border-white/10 bg-[#0f0518] flex justify-end gap-4">
             <button onClick={onClose} className="px-6 py-3 rounded-xl text-gray-400 font-bold hover:bg-white/5 hover:text-white transition-colors text-sm">Cancelar</button>
             <button type="submit" form="editForm" disabled={saving || uploading} className="px-8 py-3 bg-cuadralo-pink rounded-xl text-white font-black uppercase tracking-widest shadow-lg shadow-cuadralo-pink/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 text-xs">

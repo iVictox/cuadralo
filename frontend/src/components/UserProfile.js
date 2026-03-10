@@ -26,7 +26,17 @@ export default function UserProfile({ username }) {
   const fetchProfileAndPosts = async () => {
     try {
       const data = await api.get(`/u/${username}`);
-      setUser(data);
+      
+      // ✅ CORRECCIÓN CLAVE: Procesar los intereses para que siempre sean una lista de slugs
+      let processedInterests = [];
+      if (data.interestsList && data.interestsList.length > 0) {
+          processedInterests = data.interestsList;
+      } else if (data.interests && data.interests.length > 0) {
+          processedInterests = data.interests.map(i => i.slug || i.id || i);
+      }
+      
+      const userWithInterests = { ...data, interestsList: processedInterests };
+      setUser(userWithInterests);
       
       const userStr = localStorage.getItem("user");
       if (userStr && data && data.id) {
@@ -61,7 +71,6 @@ export default function UserProfile({ username }) {
     } catch (error) { console.error(error); }
   };
 
-  // ✅ FILTRADO ESTRICTO DE FOTOS
   const getValidPhotos = () => {
       if (!user) return ["https://via.placeholder.com/600x800"];
       let valid = [];
@@ -233,6 +242,7 @@ export default function UserProfile({ username }) {
             </div>
           </section>
 
+          {/* ✅ SECCIÓN DE INTERESES CORREGIDA */}
           <section className="max-w-2xl">
             <div className="flex items-center gap-2 mb-4 text-cuadralo-pink">
                 <UserCircle size={18} />
@@ -244,7 +254,8 @@ export default function UserProfile({ username }) {
                     const info = getInterestInfo(slug);
                     return (
                         <span key={idx} className="px-5 py-3 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-xs md:text-sm font-bold tracking-widest uppercase text-gray-700 dark:text-white shadow-sm flex items-center gap-2 transition-colors hover:border-cuadralo-pink/50">
-                            <span className="text-base">{info.icon}</span> {info.label}
+                            <span className="text-cuadralo-pink">{info.icon}</span> 
+                            {info.name}
                         </span>
                     );
                     })}

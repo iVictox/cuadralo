@@ -12,7 +12,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// DTO de Registro
 type RegisterDTO struct {
 	Name        string   `json:"name"`
 	Email       string   `json:"email"`
@@ -35,28 +34,17 @@ func Register(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
-	// 1. Encriptar Password
 	password, _ := bcrypt.GenerateFromPassword([]byte(data.Password), 14)
 
-	// 2. Parsear Fecha de Nacimiento (String a time.Time)
 	birthTime, err := time.Parse("2006-01-02", data.BirthDate)
 	if err != nil {
-		// Si la fecha viene con mal formato, asignamos una por defecto (ej. hace 18 años)
 		birthTime = time.Now().AddDate(-18, 0, 0)
 	}
 
-	// 3. Buscar intereses
-	var selectedInterests []models.Interest
-	if len(data.Interests) > 0 {
-		database.DB.Where("slug IN ?", data.Interests).Find(&selectedInterests)
-	}
-
-	// 4. GENERAR USERNAME ÚNICO
-	// Ejemplo: Juan Perez -> juanperez1704567890
+	// 1. CREAR EL USUARIO (AÚN SIN INTERESES)
 	cleanName := strings.ToLower(strings.ReplaceAll(data.Name, " ", ""))
-	username := fmt.Sprintf("%s%d", cleanName, time.Now().Unix()%10000)
+	username := fmt.Sprintf("%s%d", cleanName, time.Now().Unix()%1000)
 
-	// 5. Crear Usuario (Asignamos birthTime y quitamos Age/Preferences)
 	user := models.User{
 		Name:      data.Name,
 		Username:  username,
@@ -66,20 +54,40 @@ func Register(c *fiber.Ctx) error {
 		Gender:    data.Gender,
 		Photo:     data.Photo,
 		Bio:       data.Bio,
-		Interests: selectedInterests,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "No se pudo crear el usuario, verifique datos."})
+		return c.Status(500).JSON(fiber.Map{"error": "Error al crear cuenta"})
+	}
+
+	// 2. CREAR Y ASOCIAR INTERESES CON SEGURIDAD TOTAL
+	if len(data.Interests) > 0 {
+		var finalInterests []models.Interest
+
+		for _, slug := range data.Interests {
+			var interest models.Interest
+
+			// Usamos FirstOrCreate. Si no existe un interés con ese Slug, lo inserta.
+			// Así evitamos el error "record not found" en el log.
+			database.DB.Where(models.Interest{Slug: slug}).FirstOrCreate(&interest, models.Interest{
+				Name:     slug,
+				Slug:     slug,
+				Category: "General",
+			})
+
+			finalInterests = append(finalInterests, interest)
+		}
+
+		// Asociamos la lista de intereses a nuestro usuario en la base de datos
+		database.DB.Model(&user).Association("Interests").Append(finalInterests)
 	}
 
 	return c.JSON(fiber.Map{
-		"message":  "Usuario registrado exitosamente",
-		"username": username, // Devolvemos el username generado
+		"message":  "Usuario registrado",
+		"username": username,
 	})
 }
 
-// LOGIN
 func Login(c *fiber.Ctx) error {
 	var data map[string]string
 	if err := c.BodyParser(&data); err != nil {
@@ -100,7 +108,7 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": float64(user.ID), // Parseado como float64 para coincidir con el Middleware
+		"sub": float64(user.ID),
 		"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
 	})
 
@@ -122,10 +130,10 @@ func Login(c *fiber.Ctx) error {
 		"user": fiber.Map{
 			"id":       user.ID,
 			"name":     user.Name,
-			"username": user.Username, // ✅ Enviamos username al frontend
+			"username": user.Username,
 			"email":    user.Email,
 			"photo":    user.Photo,
-			"role":     user.Role, // ✅ Enviamos el rol (user o admin)
+			"role":     user.Role,
 		},
 	})
 }

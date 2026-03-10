@@ -2,36 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { X, Heart, MapPin, Info, RotateCcw, Music, Gamepad2, Plane, Coffee, Dumbbell, Film, Palette, Book, Dog, Wine, Camera, Laptop, Mountain, Zap, Crown } from "lucide-react";
+import { X, Heart, MapPin, Info, RotateCcw, Zap, Crown } from "lucide-react";
 import Image from "next/image"; 
 import { api } from "@/utils/api"; 
 import MatchModal from "@/components/MatchModal"; 
 import ProfileDetailsModal from "@/components/ProfileDetailsModal";
 import PrimeModal from "@/components/PrimeModal"; 
 import BoostModal from "@/components/BoostModal"; 
-
-const AVAILABLE_INTERESTS = [
-    { id: "music", label: "Música", icon: <Music size={14} /> },
-    { id: "games", label: "Gaming", icon: <Gamepad2 size={14} /> },
-    { id: "travel", label: "Viajes", icon: <Plane size={14} /> },
-    { id: "coffee", label: "Café", icon: <Coffee size={14} /> },
-    { id: "gym", label: "Fitness", icon: <Dumbbell size={14} /> },
-    { id: "movies", label: "Cine", icon: <Film size={14} /> },
-    { id: "art", label: "Arte", icon: <Palette size={14} /> },
-    { id: "books", label: "Libros", icon: <Book size={14} /> },
-    { id: "dogs", label: "Perros", icon: <Dog size={14} /> },
-    { id: "cooking", label: "Cocina", icon: <Wine size={14} /> }, 
-    { id: "wine", label: "Vino", icon: <Wine size={14} /> },
-    { id: "photo", label: "Fotografía", icon: <Camera size={14} /> },
-    { id: "tech", label: "Tecnología", icon: <Laptop size={14} /> },
-    { id: "crypto", label: "Crypto", icon: <Laptop size={14} /> },
-    { id: "hiking", label: "Senderismo", icon: <Mountain size={14} /> },
-    { id: "health", label: "Salud", icon: <Heart size={14} /> },
-    { id: "party", label: "Fiesta", icon: <Music size={14} /> },
-    { id: "guitar", label: "Guitarra", icon: <Music size={14} /> },
-];
-const INTEREST_LABELS = AVAILABLE_INTERESTS.reduce((acc, item) => ({ ...acc, [item.id]: item.label }), {});
-const INTEREST_ICONS = AVAILABLE_INTERESTS.reduce((acc, item) => ({ ...acc, [item.id]: item.icon }), {});
+// ✅ Importamos la función para obtener la información de los intereses
+import { getInterestInfo } from "@/utils/interests";
 
 export default function CardStack() {
   const [cards, setCards] = useState([]);
@@ -91,15 +70,12 @@ export default function CardStack() {
     const cardToRemove = cards.find(c => c.id === id);
     setHistory(prev => [...prev, cardToRemove]);
     
-    // Primero actualizamos el estado visual para que la carta se vaya
     setCards((prev) => prev.filter((card) => card.id !== id));
 
     const action = direction === "right" ? "right" : "left";
     try {
-        // Le enviamos la petición al servidor
         const response = await api.post("/swipe", { target_id: id, action: action });
         
-        // Si el backend dice que hay match mutuo, levantamos el modal
         if (response.match) {
             setMatchData(cardToRemove);
         }
@@ -117,7 +93,6 @@ export default function CardStack() {
     setCards(prev => [...prev, lastCard]); 
   };
 
-  // PANTALLA DE CARGA
   if (loading) return (
     <div className="flex h-full w-full items-center justify-center flex-col gap-4">
         <div className="animate-spin h-10 w-10 border-4 border-cuadralo-pink border-t-transparent rounded-full"/>
@@ -125,12 +100,10 @@ export default function CardStack() {
     </div>
   );
 
-  // ✅ CORRECCIÓN: Unificamos el Return para que los modales JAMÁS se destruyan de la memoria de React
   return (
     <div className="relative w-full h-[65vh] max-h-[600px] flex justify-center items-center mt-6">
       
       {cards.length === 0 ? (
-        /* PANTALLA VACÍA (Sin más perfiles) */
         <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in absolute inset-0 z-0 bg-transparent">
           <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
               <motion.div animate={{ scale: [1, 1.5, 2], opacity: [0.4, 0.1, 0] }} transition={{ duration: 3, repeat: Infinity }} className="absolute inset-0 bg-cuadralo-pink/30 rounded-full blur-2xl"/>
@@ -156,7 +129,6 @@ export default function CardStack() {
           </button>
         </div>
       ) : (
-        /* VISTA PRINCIPAL DE SWIPES */
         <>
           <AnimatePresence>
               {cards.map((card, index) => {
@@ -173,7 +145,6 @@ export default function CardStack() {
               })}
           </AnimatePresence>
 
-          {/* BOTONES FLOTANTES */}
           <div className="absolute -bottom-24 flex items-center gap-6 z-50">
               <button onClick={() => removeCard(cards[cards.length - 1].id, "left")} className="w-16 h-16 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 hover:bg-white dark:hover:bg-[#2a2a2a] active:scale-95 transition-all group">
                   <X size={32} className="text-red-500 group-hover:text-red-600 dark:group-hover:text-red-400" strokeWidth={2.5} />
@@ -191,7 +162,6 @@ export default function CardStack() {
               </button>
           </div>
           
-          {/* BOTÓN DE DESTELLO SUPERIOR */}
           <button 
               onClick={() => setShowBoost(true)}
               className="absolute -top-12 right-2 md:right-4 p-2.5 bg-white/70 dark:bg-white/10 backdrop-blur-xl rounded-full shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 transition-all z-40 group"
@@ -202,7 +172,6 @@ export default function CardStack() {
         </>
       )}
 
-      {/* --- MODALES SIEMPRE ACTIVOS (Fuera de las condicionales) --- */}
       <AnimatePresence>
         {selectedProfile && (
             <ProfileDetailsModal profile={selectedProfile} onClose={() => setSelectedProfile(null)} />
@@ -217,7 +186,6 @@ export default function CardStack() {
         {showBoost && <BoostModal onClose={() => setShowBoost(false)} />}
       </AnimatePresence>
 
-      {/* AQUÍ VIVE EL MATCH AHORA. NO SE DESTRUIRÁ AUNQUE CARDS.LENGTH SEA 0 */}
       <AnimatePresence>
         {matchData && (
             <MatchModal 
@@ -233,7 +201,6 @@ export default function CardStack() {
   );
 }
 
-// --- SUBCOMPONENTE CARD ---
 function Card({ data, isFront, onSwipe, onInfo }) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -248,12 +215,10 @@ function Card({ data, isFront, onSwipe, onInfo }) {
     >
       <img src={data.img} alt={data.name} className="w-full h-full object-cover pointer-events-none" />
       
-      {/* Botón de Info */}
       <button onClick={(e) => { e.stopPropagation(); onInfo(); }} className="absolute top-5 right-5 w-10 h-10 flex items-center justify-center bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition-colors z-20 shadow-sm border border-white/20">
         <Info size={22} />
       </button>
 
-      {/* OVERLAY DE INFORMACIÓN */}
       <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-32 pb-8 px-6 text-white pointer-events-none">
         <h2 className="text-3xl font-extrabold flex items-end gap-2 mb-1 drop-shadow-md">
             {data.name} <span className="text-2xl text-white/90 font-medium">{data.age}</span>
@@ -275,12 +240,16 @@ function Card({ data, isFront, onSwipe, onInfo }) {
         </p>
         
         <div className="flex gap-2 flex-wrap">
-            {data.interests.slice(0, 3).map(id => (
-                <span key={id} className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white border border-white/30 shadow-sm">
-                    {INTEREST_ICONS[id] && <span className="text-white drop-shadow-sm">{INTEREST_ICONS[id]}</span>}
-                    <span className="font-semibold tracking-wide drop-shadow-sm">{INTEREST_LABELS[id] || id}</span>
-                </span>
-            ))}
+            {/* ✅ Usamos la función global para renderizar los intereses */}
+            {data.interests.slice(0, 3).map(id => {
+                const info = getInterestInfo(id);
+                return (
+                    <span key={id} className="flex items-center gap-1.5 text-xs px-3.5 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white border border-white/30 shadow-sm">
+                        <span className="text-white drop-shadow-sm">{info.icon}</span>
+                        <span className="font-semibold tracking-wide drop-shadow-sm uppercase">{info.name}</span>
+                    </span>
+                );
+            })}
         </div>
       </div>
     </motion.div>

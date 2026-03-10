@@ -8,6 +8,7 @@ import EditProfileModal from "./EditProfileModal";
 import SettingsModal from "./SettingsModal";
 import PostModal from "./PostModal";
 import { useRouter } from "next/navigation";
+import { getInterestInfo } from "@/utils/interests";
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -24,7 +25,16 @@ export default function Profile() {
   const fetchUserAndPosts = async () => {
     try {
       const data = await api.get("/me");
-      setUser(data);
+      
+      // ✅ CORRECCIÓN CLAVE: Asegurarnos de tener una lista plana de slugs para los intereses
+      let processedInterests = [];
+      if (data.interestsList && data.interestsList.length > 0) {
+          processedInterests = data.interestsList;
+      } else if (data.interests && data.interests.length > 0) {
+          processedInterests = data.interests.map(i => i.slug || i.id || i);
+      }
+      
+      setUser({ ...data, interestsList: processedInterests });
       
       if (data && data.id) {
           const userPosts = await api.get(`/users/${data.id}/posts`);
@@ -54,7 +64,6 @@ export default function Profile() {
       }
   };
 
-  // ✅ FILTRADO ESTRICTO DE FOTOS PARA EVITAR EL ERROR DE NEXT.JS
   const getValidPhotos = () => {
       if (!user) return ["https://via.placeholder.com/600x800"];
       let valid = [];
@@ -95,7 +104,7 @@ export default function Profile() {
       
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-0 md:gap-10 lg:gap-16 md:p-8 lg:p-12 pb-28">
         
-        {/* COLUMNA IZQUIERDA: FOTO PROTAGONISTA */}
+        {/* FOTO PROTAGONISTA */}
         <div className="w-full md:w-[40%] lg:w-[420px] flex-shrink-0 md:sticky md:top-8 h-max z-10">
           <div className={`relative w-full aspect-[3/4] md:rounded-[2.5rem] rounded-b-[2.5rem] overflow-hidden bg-black shadow-2xl transition-all ${isPrime ? 'ring-4 ring-yellow-500 shadow-[0_10px_40px_rgba(234,179,8,0.3)]' : 'shadow-cuadralo-pink/10'}`}>
             
@@ -145,7 +154,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA */}
+        {/* INFO DERECHA */}
         <div className="flex-1 px-6 md:px-0 mt-8 md:mt-0 space-y-8 md:space-y-10 pb-10">
           
           <div className="hidden md:block">
@@ -194,6 +203,7 @@ export default function Profile() {
             </div>
           </section>
 
+          {/* ✅ SECCIÓN DE INTERESES CORREGIDA */}
           <section className="max-w-2xl">
             <div className="flex items-center gap-2 mb-4 text-cuadralo-pink">
                 <UserCircle size={18} />
@@ -201,17 +211,22 @@ export default function Profile() {
             </div>
             {user?.interestsList && user.interestsList.length > 0 ? (
                 <div className="flex flex-wrap gap-3">
-                  {user.interestsList.map((slug, idx) => (
-                    <span key={idx} className="px-5 py-3 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-xs md:text-sm font-bold tracking-widest uppercase text-gray-700 dark:text-white/90 shadow-sm hover:border-cuadralo-pink/50 transition-colors">
-                      {slug.replace("-", " ")}
-                    </span>
-                  ))}
+                  {user.interestsList.map((slug, idx) => {
+                    const info = getInterestInfo(slug);
+                    return (
+                        <span key={idx} className="px-5 py-3 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-xs md:text-sm font-bold tracking-widest uppercase text-gray-700 dark:text-white/90 shadow-sm hover:border-cuadralo-pink/50 transition-colors flex items-center gap-2">
+                          <span className="text-cuadralo-pink">{info.icon}</span>
+                          {info.name}
+                        </span>
+                    );
+                  })}
                 </div>
             ) : (
                 <p className="text-sm text-gray-400 italic">No tienes intereses agregados.</p>
             )}
           </section>
 
+          {/* PUBLICACIONES */}
           <section className="pt-8 md:pt-10 border-t border-gray-200 dark:border-white/10">
               <div className="flex items-center gap-2 mb-6 md:ml-2">
                   <Grid size={20} className="text-cuadralo-pink" />

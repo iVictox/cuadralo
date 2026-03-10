@@ -11,11 +11,11 @@ import (
 func GetMe(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	var user models.User
+
 	if err := database.DB.Preload("Interests").First(&user, userId).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	// ✅ NUEVO: Calcular Estadísticas para mi propio perfil
 	var followersCount, followingCount int64
 	database.DB.Model(&models.Follow{}).Where("following_id = ?", user.ID).Count(&followersCount)
 	database.DB.Model(&models.Follow{}).Where("follower_id = ?", user.ID).Count(&followingCount)
@@ -26,13 +26,17 @@ func GetMe(c *fiber.Ctx) error {
 	for _, i := range user.Interests {
 		user.InterestsList = append(user.InterestsList, i.Slug)
 	}
+
 	return c.JSON(user)
 }
 
 func UpdateMe(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	var user models.User
-	database.DB.First(&user, userId)
+
+	if err := database.DB.Preload("Interests").First(&user, userId).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
+	}
 
 	var input struct {
 		Name      string   `json:"name"`
@@ -41,6 +45,7 @@ func UpdateMe(c *fiber.Ctx) error {
 		Photos    []string `json:"photos"`
 		Interests []string `json:"interests"`
 	}
+
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
@@ -58,29 +63,48 @@ func UpdateMe(c *fiber.Ctx) error {
 		}
 	}
 
+	database.DB.Save(&user)
+
+	// ✅ MAGIA DE INTERESES (A prueba de balas)
 	if input.Interests != nil {
 		var newInterests []models.Interest
-		database.DB.Where("slug IN ?", input.Interests).Find(&newInterests)
+
+		for _, slug := range input.Interests {
+			var interest models.Interest
+
+			// Buscamos
+			result := database.DB.Where("slug = ?", slug).First(&interest)
+
+			// Si no existe, lo forzamos a crearse
+			if result.RowsAffected == 0 {
+				interest = models.Interest{
+					Name:     slug,
+					Slug:     slug,
+					Category: "General",
+				}
+				database.DB.Create(&interest)
+			}
+
+			newInterests = append(newInterests, interest)
+		}
+
+		// Reemplazamos todos los intereses anteriores por los nuevos
 		database.DB.Model(&user).Association("Interests").Replace(newInterests)
 	}
 
-	database.DB.Save(&user)
-
-	// Volver a cargar el usuario con sus relaciones para devolverlo al frontend
+	// Recargamos al usuario
 	database.DB.Preload("Interests").First(&user, userId)
 
-	// ✅ NUEVO: Calcular Estadísticas también al actualizar para que no desaparezcan
 	var followersCount, followingCount int64
 	database.DB.Model(&models.Follow{}).Where("following_id = ?", user.ID).Count(&followersCount)
 	database.DB.Model(&models.Follow{}).Where("follower_id = ?", user.ID).Count(&followingCount)
 	user.FollowersCount = int(followersCount)
 	user.FollowingCount = int(followingCount)
 
-	var interestsList []string
+	user.InterestsList = []string{}
 	for _, i := range user.Interests {
-		interestsList = append(interestsList, i.Slug)
+		user.InterestsList = append(user.InterestsList, i.Slug)
 	}
-	user.InterestsList = interestsList
 
 	return c.JSON(user)
 }
@@ -91,6 +115,12 @@ func GetUser(c *fiber.Ctx) error {
 	if err := database.DB.Preload("Interests").First(&user, id).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "No encontrado"})
 	}
+
+	user.InterestsList = []string{}
+	for _, i := range user.Interests {
+		user.InterestsList = append(user.InterestsList, i.Slug)
+	}
+
 	return c.JSON(user)
 }
 
