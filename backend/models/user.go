@@ -1,6 +1,34 @@
 package models
 
-import "time"
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
+	"time"
+)
+
+// StringArray permite manejar []string como JSON en la BD para evitar errores de Scan
+type StringArray []string
+
+func (a StringArray) Value() (driver.Value, error) {
+	if len(a) == 0 {
+		return "[]", nil
+	}
+	return json.Marshal(a)
+}
+
+func (a *StringArray) Scan(value interface{}) error {
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return errors.New("falló la conversión de tipo a []byte")
+	}
+	return json.Unmarshal(bytes, &a)
+}
 
 type User struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
@@ -13,30 +41,22 @@ type User struct {
 	Bio       string    `json:"bio"`
 	Location  string    `json:"location"`
 
-	// Fotos
-	Photo  string   `json:"photo"`
-	Photos []string `gorm:"type:text[]" json:"photos"`
+	Photo  string      `json:"photo"`
+	Photos StringArray `gorm:"type:text" json:"photos"`
 
-	// ✅ CORRECCIÓN CRÍTICA: Relaciones e Intereses
-	Interests     []Interest `gorm:"many2many:user_interests;" json:"-"` // Relación real GORM en la BD
-	InterestsList []string   `gorm:"-" json:"interests"`                 // Campo virtual para mandar el JSON al Frontend
+	// Relaciones
+	Interests     []Interest `gorm:"many2many:user_interests;" json:"-"`
+	InterestsList []string   `gorm:"-" json:"interests"`
 
-	// Stats Sociales
 	FollowersCount int `gorm:"default:0" json:"followers_count"`
 	FollowingCount int `gorm:"default:0" json:"following_count"`
 
-	// SISTEMA DE ROLES
-	Role string `json:"role" gorm:"default:'user'"`
-
-	// SISTEMA PREMIUM "CUADRALO PRIME"
+	Role           string    `json:"role" gorm:"default:'user'"`
 	IsPrime        bool      `json:"is_prime" gorm:"default:false"`
 	PrimeExpiresAt time.Time `json:"prime_expires_at"`
-
-	// SISTEMA DE DESTELLOS
 	IsBoosted      bool      `json:"is_boosted" gorm:"default:false"`
 	BoostExpiresAt time.Time `json:"boost_expires_at"`
 
-	// Estado Frontend (Campos virtuales, no se guardan en BD)
 	IsFollowing    bool `gorm:"-" json:"is_following"`
 	HasStory       bool `gorm:"-" json:"has_story"`
 	HasUnseenStory bool `gorm:"-" json:"has_unseen_story"`
