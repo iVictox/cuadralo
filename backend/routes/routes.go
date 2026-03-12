@@ -31,14 +31,13 @@ func Setup(app *fiber.App) {
 	api.Delete("/social/posts/:id", controllers.DeletePost)
 	api.Post("/social/posts/:id/report", controllers.ReportPost)
 	api.Post("/social/posts/:id/like", controllers.TogglePostLike)
-
-	// ✅ NUEVO: Obtener posts de un usuario específico
 	api.Get("/users/:id/posts", controllers.GetUserPosts)
 
 	api.Get("/social/posts/:id/comments", controllers.GetPostComments)
 	api.Post("/social/posts/:id/comments", controllers.CreateComment)
 	api.Delete("/social/comments/:id", controllers.DeleteComment)
 	api.Post("/social/comments/:id/like", controllers.ToggleCommentLike)
+	api.Get("/social/posts/:id", controllers.GetSinglePost)
 
 	// --- HISTORIAS ---
 	api.Get("/social/stories", controllers.GetActiveStories)

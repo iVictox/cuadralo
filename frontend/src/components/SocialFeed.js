@@ -5,8 +5,10 @@ import { Plus, Loader2, RefreshCw, Crown, Sparkles } from "lucide-react";
 import StoriesBar from "./StoriesBar"; 
 import FeedPost from "./FeedPost";
 import StoryViewer from "./StoryViewer";
-// ✅ IMPORTAMOS EL NUEVO HEADER
 import SocialHeader from "./SocialHeader"; 
+import SearchModal from "./SearchModal"; 
+// ✅ IMPORTAMOS EL MODAL DE NOTIFICACIONES
+import NotificationModal from "./NotificationModal"; 
 import { api } from "@/utils/api";
 import { AnimatePresence, motion } from "framer-motion";
 import PrimeModal from "@/components/PrimeModal";
@@ -21,12 +23,20 @@ export default function SocialFeed({ onUploadClick }) {
   const [currentUser, setCurrentUser] = useState(null);
   
   const [viewingUserStories, setViewingUserStories] = useState(null);
-  const [showSearchModal, setShowSearchModal] = useState(false);
   const [showPrime, setShowPrime] = useState(false);
   const [isPrime, setIsPrime] = useState(false);
+  
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  // ✅ ESTADOS DE NOTIFICACIONES
+  const [showNotifModal, setShowNotifModal] = useState(false);
+  const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
 
-  const fetchData = async () => {
+  const [activeTab, setActiveTab] = useState("for_you");
+
+  const fetchData = async (tab = activeTab, isRefresh = false) => {
     try {
+      if (!isRefresh) setLoading(true);
+
       const status = await api.get("/premium/status").catch(() => ({ is_prime: false }));
       setIsPrime(status.is_prime);
 
@@ -34,7 +44,13 @@ export default function SocialFeed({ onUploadClick }) {
       const me = userStr ? JSON.parse(userStr) : null;
       setCurrentUser(me);
 
-      const feedData = await api.get("/social/feed");
+      // ✅ Cargar cantidad de notificaciones no leídas
+      const notifs = await api.get("/notifications").catch(() => []);
+      if (Array.isArray(notifs)) {
+          setUnreadNotifsCount(notifs.filter(n => !n.is_read).length);
+      }
+
+      const feedData = await api.get(`/social/feed?tab=${tab}`);
       setPosts(Array.isArray(feedData) ? feedData : []);
 
       const storiesResponse = await api.get("/social/stories");
@@ -50,12 +66,17 @@ export default function SocialFeed({ onUploadClick }) {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(activeTab); }, [activeTab]);
 
-  // WebSockets (Mantenemos tu lógica intacta)
+  // WebSockets para tiempo real
   useEffect(() => {
       const handleSocketEvent = (e) => {
           const { type, payload } = e.detail;
+
+          // ✅ NUEVO: ESCUCHAR NOTIFICACIONES EN TIEMPO REAL
+          if (type === "new_notification") {
+              setUnreadNotifsCount(prev => prev + 1);
+          }
 
           if (type === "new_story") {
               api.get("/social/stories").then(res => {
@@ -67,9 +88,7 @@ export default function SocialFeed({ onUploadClick }) {
               setStories(prev => prev.map(group => {
                   let changed = false;
                   const newGroupStories = group.stories.map(s => {
-                      if (String(s.id) === String(payload.story_id) && !s.seen) {
-                          changed = true; return { ...s, seen: true };
-                      }
+                      if (String(s.id) === String(payload.story_id) && !s.seen) { changed = true; return { ...s, seen: true }; }
                       return s;
                   });
                   if (changed) return { ...group, stories: newGroupStories, all_seen: newGroupStories.every(s => s.seen) };
@@ -108,7 +127,7 @@ export default function SocialFeed({ onUploadClick }) {
       return () => window.removeEventListener("socket_event", handleSocketEvent);
   }, [currentUser]);
 
-  const handleRefresh = () => { setRefreshing(true); fetchData(); };
+  const handleRefresh = () => { setRefreshing(true); fetchData(activeTab, true); };
   const handlePostDeleted = (deletedPostId) => { setPosts(prev => prev.filter(p => p.id !== deletedPostId)); };
 
   const handleViewStory = (targetUserId) => {
@@ -123,16 +142,24 @@ export default function SocialFeed({ onUploadClick }) {
   return (
     <div className="w-full h-full relative overflow-y-auto pb-28 no-scrollbar scroll-smooth">
       
-      {/* ✅ HEADER SUPERIOR */}
+      {/* HEADER SUPERIOR */}
       <SocialHeader 
-        unreadCount={3} /* Esto lo conectaremos al backend más adelante */
-        onSearchClick={() => alert("Abrir buscador")} 
-        onNotifClick={() => alert("Abrir notificaciones")} 
+        unreadCount={unreadNotifsCount} // ✅ Conectado en tiempo real
+        onSearchClick={() => setShowSearchModal(true)} 
+        onNotifClick={() => setShowNotifModal(true)} // ✅ Abre el modal
       />
 
-      {/* HISTORIAS (Ajustamos el padding top para que quede debajo del Header) */}
+      {/* HISTORIAS */}
       <div className="mb-4 pt-[72px] px-2 md:px-6">
-          <StoriesBar stories={stories} myStories={myStories} currentUser={currentUser} onViewStory={handleViewStory} onRefresh={fetchData} />
+          <StoriesBar stories={stories} myStories={myStories} currentUser={currentUser} onViewStory={handleViewStory} onRefresh={() => fetchData(activeTab, true)} />
+      </div>
+
+      {/* TABS DE NAVEGACIÓN */}
+      <div className="flex justify-center mb-6 px-4">
+          <div className="flex bg-black/5 dark:bg-white/5 p-1.5 rounded-2xl w-full max-w-[320px] shadow-inner">
+              <button onClick={() => setActiveTab("for_you")} className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all duration-300 ${activeTab === "for_you" ? "bg-white dark:bg-cuadralo-cardDark text-cuadralo-pink shadow-md" : "text-cuadralo-textMutedLight dark:text-gray-400 hover:text-cuadralo-textLight dark:hover:text-white"}`}>Para ti</button>
+              <button onClick={() => setActiveTab("following")} className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all duration-300 ${activeTab === "following" ? "bg-white dark:bg-cuadralo-cardDark text-cuadralo-pink shadow-md" : "text-cuadralo-textMutedLight dark:text-gray-400 hover:text-cuadralo-textLight dark:hover:text-white"}`}>Siguiendo</button>
+          </div>
       </div>
 
       {/* BANNER PREMIUM */}
@@ -146,12 +173,12 @@ export default function SocialFeed({ onUploadClick }) {
           </div>
       )}
 
-      {/* FEED */}
+      {/* FEED DE POSTS */}
       {loading ? (
-         <div className="flex justify-center py-20"><Loader2 className="animate-spin text-cuadralo-pink" size={40} /></div>
+         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" size={40} /></div>
       ) : (
          <div className="w-full max-w-[600px] mx-auto px-4 flex flex-col gap-8 pb-20">
-            <AnimatePresence>
+            <AnimatePresence mode="popLayout">
                 {posts.map((post, i) => (
                   <motion.div key={post.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ delay: i * 0.1, duration: 0.4, ease: "easeOut" }}>
                       <FeedPost post={post} onDelete={() => handlePostDeleted(post.id)} onViewStory={() => handleViewStory(post.user.id)} />
@@ -160,12 +187,18 @@ export default function SocialFeed({ onUploadClick }) {
             </AnimatePresence>
 
             {posts.length === 0 && (
-               <div className="text-center text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark py-20 font-medium">No hay publicaciones aún.</div>
+               <div className="text-center text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark py-16 px-6 font-medium">
+                  {activeTab === "following" 
+                      ? "Aún no sigues a nadie o tus amigos no han publicado nada. ¡Usa el buscador para conectarte!" 
+                      : "No hay publicaciones aún. ¡Sé el primero en romper el hielo!"}
+               </div>
             )}
             
-            <button onClick={handleRefresh} className="mx-auto flex items-center gap-2 text-xs text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark hover:text-cuadralo-pink transition-colors py-6 mb-10 bg-white/5 dark:bg-black/20 px-6 rounded-full backdrop-blur-md">
-                {refreshing ? <Loader2 className="animate-spin" size={16}/> : <RefreshCw size={16}/>} Actualizar Feed
-            </button>
+            {posts.length > 0 && (
+                <button onClick={handleRefresh} className="mx-auto flex items-center gap-2 text-xs text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark hover:text-cuadralo-pink transition-colors py-6 mb-10 bg-white/5 dark:bg-black/20 px-6 rounded-full backdrop-blur-md">
+                    {refreshing ? <Loader2 className="animate-spin" size={16}/> : <RefreshCw size={16}/>} Actualizar Feed
+                </button>
+            )}
          </div>
       )}
 
@@ -174,8 +207,18 @@ export default function SocialFeed({ onUploadClick }) {
       </button>
 
       <AnimatePresence>
+          {showSearchModal && <SearchModal onClose={() => setShowSearchModal(false)} />}
+          
+          {/* ✅ RENDERIZAMOS EL MODAL DE NOTIFICACIONES */}
+          {showNotifModal && (
+              <NotificationModal 
+                  onClose={() => setShowNotifModal(false)} 
+                  onReadSync={() => setUnreadNotifsCount(prev => Math.max(0, prev - 1))}
+              />
+          )}
+
           {viewingUserStories && (
-              <StoryViewer stories={viewingUserStories.list} isOwner={viewingUserStories.isOwner} onClose={() => setViewingUserStories(null)} onDeleteSuccess={() => { setViewingUserStories(null); fetchData(); }} />
+              <StoryViewer stories={viewingUserStories.list} isOwner={viewingUserStories.isOwner} onClose={() => setViewingUserStories(null)} />
           )}
           {showPrime && <PrimeModal onClose={() => setShowPrime(false)} />}
       </AnimatePresence>
