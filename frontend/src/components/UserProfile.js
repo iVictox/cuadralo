@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { MapPin, Crown, FileText, UserCircle, UserPlus, UserCheck, MessageCircle, ArrowLeft, Grid, Edit3, Settings } from "lucide-react";
 import { api } from "@/utils/api";
 import { motion, AnimatePresence } from "framer-motion";
-import PostModal from "./PostModal";
 import EditProfileModal from "./EditProfileModal"; 
 import SettingsModal from "./SettingsModal";       
 import { getInterestInfo } from "@/utils/interests";
@@ -18,7 +17,6 @@ export default function UserProfile({ username }) {
   const [activePhoto, setActivePhoto] = useState(0);
   
   const [isMe, setIsMe] = useState(false);
-  const [selectedPost, setSelectedPost] = useState(null);
   
   const [showEdit, setShowEdit] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -27,7 +25,6 @@ export default function UserProfile({ username }) {
     try {
       const data = await api.get(`/u/${username}`);
       
-      // ✅ CORRECCIÓN CLAVE: Procesar los intereses para que siempre sean una lista de slugs
       let processedInterests = [];
       if (data.interestsList && data.interestsList.length > 0) {
           processedInterests = data.interestsList;
@@ -242,7 +239,6 @@ export default function UserProfile({ username }) {
             </div>
           </section>
 
-          {/* ✅ SECCIÓN DE INTERESES CORREGIDA */}
           <section className="max-w-2xl">
             <div className="flex items-center gap-2 mb-4 text-cuadralo-pink">
                 <UserCircle size={18} />
@@ -276,7 +272,7 @@ export default function UserProfile({ username }) {
                       {posts.map((post) => (
                           <div 
                               key={post.id} 
-                              onClick={() => setSelectedPost(post)}
+                              onClick={() => router.push(`/post/${post.id}`)} // ✅ NAVEGAMOS A LA VISTA ÚNICA
                               className="relative aspect-square bg-gray-200 dark:bg-black rounded-lg md:rounded-2xl overflow-hidden cursor-pointer group"
                           >
                               <img 
@@ -299,12 +295,6 @@ export default function UserProfile({ username }) {
       </div>
 
       <AnimatePresence>
-        {selectedPost && (
-            <PostModal 
-                post={selectedPost} 
-                onClose={() => setSelectedPost(null)} 
-            />
-        )}
         {showEdit && <EditProfileModal user={user} onClose={() => setShowEdit(false)} onUpdate={fetchProfileAndPosts} />}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </AnimatePresence>

@@ -37,8 +37,8 @@ export default function NotificationModal({ onClose, onReadSync }) {
 
         onClose();
 
-        // ✅ ACTUALIZADO: Navegación inteligente a la nueva vista de POST
-        if ((notif.type === "post_like" || notif.type === "comment") && notif.post_id) {
+        // ✅ CORRECCIÓN A PRUEBA DE BALAS: Si tiene post_id, va directo a la publicación
+        if (notif.post_id) {
             router.push(`/post/${notif.post_id}`);
         } else if (notif.type === "follow" || notif.type === "swipe_like") {
             router.push(`/u/${notif.sender?.username}`);
@@ -116,7 +116,7 @@ export default function NotificationModal({ onClose, onReadSync }) {
                                     </span>
                                 </div>
 
-                                {/* ✅ MINIATURA DE LA PUBLICACIÓN (Aparece a la derecha) */}
+                                {/* MINIATURA DE LA PUBLICACIÓN */}
                                 {notif.post && notif.post.image_url && (
                                     <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-black/5 dark:border-white/10 shadow-sm ml-auto">
                                         <img src={notif.post.image_url} alt="Post" className="w-full h-full object-cover" />

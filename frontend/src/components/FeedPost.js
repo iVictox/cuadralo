@@ -102,6 +102,12 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                     src={post.image_url} 
                     alt="Post content" 
                     onDoubleClick={handleLike}
+                    // ✅ AÑADIDO: Si le das un solo clic, se abre en vista completa
+                    onClick={() => {
+                        if (!window.location.pathname.includes('/post/')) {
+                            router.push(`/post/${post.id}`);
+                        }
+                    }}
                     className="w-full h-full object-cover cursor-pointer"
                     loading="lazy"
                 />

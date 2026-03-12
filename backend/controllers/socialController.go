@@ -173,13 +173,25 @@ func TogglePostLike(c *fiber.Ctx) error {
 	var like models.PostLike
 	result := database.DB.Where("user_id = ? AND post_id = ?", userId, post.ID).First(&like)
 
+	// Si ya le había dado like, lo quitamos (No enviamos notificación aquí)
 	if result.RowsAffected > 0 {
 		database.DB.Delete(&like)
 		return c.JSON(fiber.Map{"message": "Like removido", "is_liked": false})
 	}
 
+	// Si es un nuevo like, lo guardamos
 	newLike := models.PostLike{UserID: userId, PostID: post.ID}
 	database.DB.Create(&newLike)
+
+	// 🚀 AQUI DISPARAMOS LA NOTIFICACIÓN MÁGICA
+	CreateAndBroadcastNotification(
+		post.UserID, // A quién le llega (dueño del post)
+		userId,      // Quién la envía (yo)
+		"post_like", // Tipo de notificación
+		&post.ID,    // ID del post (para la miniatura)
+		"le dio me gusta a tu publicación.",
+	)
+
 	return c.JSON(fiber.Map{"message": "Like agregado", "is_liked": true})
 }
 
@@ -275,6 +287,19 @@ func CreateComment(c *fiber.Ctx) error {
 
 	database.DB.Create(&comment)
 	database.DB.Preload("User").First(&comment, comment.ID)
+
+	// Necesitamos saber de quién es el post para notificarle
+	var post models.Post
+	if err := database.DB.First(&post, pId).Error; err == nil {
+		// 🚀 DISPARAMOS LA NOTIFICACIÓN DE COMENTARIO
+		CreateAndBroadcastNotification(
+			post.UserID,
+			userId,
+			"comment",
+			&post.ID,
+			"comentó: "+content,
+		)
+	}
 
 	return c.JSON(comment)
 }

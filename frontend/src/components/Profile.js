@@ -6,7 +6,6 @@ import { api } from "@/utils/api";
 import { motion, AnimatePresence } from "framer-motion";
 import EditProfileModal from "./EditProfileModal";
 import SettingsModal from "./SettingsModal";
-import PostModal from "./PostModal";
 import { useRouter } from "next/navigation";
 import { getInterestInfo } from "@/utils/interests";
 
@@ -18,7 +17,6 @@ export default function Profile() {
   
   const [showEdit, setShowEdit] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [selectedPost, setSelectedPost] = useState(null);
 
   const router = useRouter();
 
@@ -26,7 +24,6 @@ export default function Profile() {
     try {
       const data = await api.get("/me");
       
-      // ✅ CORRECCIÓN CLAVE: Asegurarnos de tener una lista plana de slugs para los intereses
       let processedInterests = [];
       if (data.interestsList && data.interestsList.length > 0) {
           processedInterests = data.interestsList;
@@ -52,16 +49,6 @@ export default function Profile() {
   const handleLogout = () => {
     localStorage.clear();
     router.push("/login");
-  };
-
-  const handleDeletePost = async (postId) => {
-      try {
-          await api.delete(`/social/posts/${postId}`);
-          setPosts(posts.filter(p => p.id !== postId));
-          setSelectedPost(null); 
-      } catch (error) {
-          console.error(error);
-      }
   };
 
   const getValidPhotos = () => {
@@ -203,7 +190,6 @@ export default function Profile() {
             </div>
           </section>
 
-          {/* ✅ SECCIÓN DE INTERESES CORREGIDA */}
           <section className="max-w-2xl">
             <div className="flex items-center gap-2 mb-4 text-cuadralo-pink">
                 <UserCircle size={18} />
@@ -238,7 +224,7 @@ export default function Profile() {
                       {posts.map((post) => (
                           <div 
                               key={post.id} 
-                              onClick={() => setSelectedPost(post)}
+                              onClick={() => router.push(`/post/${post.id}`)} // ✅ NAVEGAMOS A LA VISTA ÚNICA AQUÍ
                               className="relative aspect-square bg-gray-200 dark:bg-black rounded-lg md:rounded-2xl overflow-hidden cursor-pointer group"
                           >
                               <img 
@@ -267,9 +253,6 @@ export default function Profile() {
       <AnimatePresence>
         {showEdit && <EditProfileModal user={user} onClose={() => setShowEdit(false)} onUpdate={fetchUserAndPosts} />}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-        {selectedPost && (
-            <PostModal post={selectedPost} onClose={() => setSelectedPost(null)} onDelete={() => handleDeletePost(selectedPost.id)} />
-        )}
       </AnimatePresence>
     </div>
   );
