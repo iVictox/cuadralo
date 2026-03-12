@@ -13,6 +13,7 @@ func Setup(app *fiber.App) {
 	// --- RUTAS PÚBLICAS ---
 	api.Post("/register", controllers.Register)
 	api.Post("/login", controllers.Login)
+	api.Post("/login/google", controllers.GoogleLogin) // ✅ NUEVA RUTA PARA GOOGLE
 	api.Post("/upload", controllers.UploadFile)
 	api.Get("/interests", controllers.GetAllInterests)
 
@@ -31,13 +32,13 @@ func Setup(app *fiber.App) {
 	api.Delete("/social/posts/:id", controllers.DeletePost)
 	api.Post("/social/posts/:id/report", controllers.ReportPost)
 	api.Post("/social/posts/:id/like", controllers.TogglePostLike)
+	api.Get("/social/posts/:id", controllers.GetSinglePost)
 	api.Get("/users/:id/posts", controllers.GetUserPosts)
 
 	api.Get("/social/posts/:id/comments", controllers.GetPostComments)
 	api.Post("/social/posts/:id/comments", controllers.CreateComment)
 	api.Delete("/social/comments/:id", controllers.DeleteComment)
 	api.Post("/social/comments/:id/like", controllers.ToggleCommentLike)
-	api.Get("/social/posts/:id", controllers.GetSinglePost)
 
 	// --- HISTORIAS ---
 	api.Get("/social/stories", controllers.GetActiveStories)
