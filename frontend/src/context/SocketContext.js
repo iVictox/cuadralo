@@ -1,6 +1,5 @@
 "use client";
 import { createContext, useContext, useEffect, useState, useRef } from "react";
-import { api } from "@/utils/api";
 import { usePathname } from "next/navigation";
 
 const SocketContext = createContext();
@@ -17,10 +16,10 @@ export const SocketProvider = ({ children }) => {
     const pathname = usePathname();
 
     useEffect(() => {
-        // 1. Si vamos a páginas públicas (Login/Register), CERRAR conexión si existe.
+        // 1. Evitar conectar en login/registro
         if (pathname === "/login" || pathname === "/register") {
             if (socketRef.current) {
-                console.log("🔒 Cerrando sesión de chat (página pública)");
+                console.log("🔒 Cerrando sesión de chat");
                 socketRef.current.close();
                 socketRef.current = null;
                 setSocket(null);
@@ -29,22 +28,24 @@ export const SocketProvider = ({ children }) => {
             return;
         }
 
-        // 2. Función para iniciar conexión (solo si no existe ya)
-        const connectSocket = async () => {
-            // ✅ SINGLETON: Si ya hay conexión abierta, NO hacemos nada.
-            // Esto evita que el socket se reinicie al navegar, quitando el spinner.
+        const connectSocket = () => {
+            // Evitar doble conexión
             if (socketRef.current && (socketRef.current.readyState === WebSocket.OPEN || socketRef.current.readyState === WebSocket.CONNECTING)) {
                 return;
             }
 
             try {
-                // Verificar sesión (solo si no estamos conectados)
-                const me = await api.get("/me").catch(() => null);
+                // ✅ MAGIA: Leemos el ID del usuario del disco duro (instantáneo), 
+                // sin hacer peticiones "fetch" que bloqueen la carga del navegador.
+                const token = localStorage.getItem("token");
+                const userStr = localStorage.getItem("user");
+                
+                if (!token || !userStr) return;
+
+                const me = JSON.parse(userStr);
                 if (!me || !me.id) return;
 
-                // Doble chequeo por si se conectó mientras esperábamos la API
-                if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) return;
-
+                // Conectamos el WebSocket
                 const wsUrl = `ws://localhost:8000/ws/${me.id}`;
                 const ws = new WebSocket(wsUrl);
 
@@ -56,7 +57,6 @@ export const SocketProvider = ({ children }) => {
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
                     
-                    // Emitir evento global para otros componentes
                     const eventCustom = new CustomEvent("socket_event", { detail: data });
                     window.dispatchEvent(eventCustom);
                     
@@ -91,22 +91,20 @@ export const SocketProvider = ({ children }) => {
             }
         };
 
-        // 3. ESTRATEGIA ANTI-SPINNER
-        // Si el documento ya cargó, conectamos. Si no, esperamos al evento 'load'.
-        if (document.readyState === 'complete') {
+        // ========================================================
+        // 🚀 DESVINCULACIÓN TOTAL DEL HILO DE CARGA (SPINNER FIX)
+        // Usamos setTimeout para conectarnos *después* de que React
+        // termine de dibujar la pantalla. Esto le dice al navegador:
+        // "Ya terminé, apaga la ruedita". Y luego el socket se conecta en silencio.
+        // ========================================================
+        const timer = setTimeout(() => {
             connectSocket();
-        } else {
-            window.addEventListener('load', connectSocket);
-        }
+        }, 1000); // 1 segundo de retraso intencional
 
-        // ✅ IMPORTANTE: Cleanup modificado
-        // Quitamos el listener de 'load', pero NO cerramos el socket al desmontar el efecto
-        // debido a cambios de ruta. Solo se cierra explícitamente en el punto 1.
-        return () => {
-            window.removeEventListener('load', connectSocket);
-        };
+        // Cleanup: si el usuario cambia de pestaña rápido, cancelamos el timer.
+        return () => clearTimeout(timer);
 
-    }, [pathname]); // Se ejecuta al cambiar de ruta, pero el punto 2 filtra si ya estamos conectados.
+    }, [pathname]);
 
     const sendMessage = (payload) => {
         if (socket && socket.readyState === WebSocket.OPEN) {

@@ -400,7 +400,16 @@ func DeleteStory(c *fiber.Ctx) error {
 	if story.UserID != myId {
 		return c.Status(403).JSON(fiber.Map{"error": "No autorizado"})
 	}
+
+	// Eliminamos de la base de datos
 	database.DB.Delete(&story)
+
+	// ✅ MAGIA EN TIEMPO REAL: Avisamos a TODOS que esta historia ya no existe
+	websockets.BroadcastEvent("story_deleted", fiber.Map{
+		"story_id": storyId,
+		"user_id":  myId,
+	})
+
 	return c.JSON(fiber.Map{"message": "Historia eliminada"})
 }
 
