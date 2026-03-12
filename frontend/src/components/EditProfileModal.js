@@ -10,8 +10,10 @@ import { INTERESTS_LIST, getInterestInfo } from "@/utils/interests";
 export default function EditProfileModal({ user, onClose, onUpdate }) {
   const { showToast } = useToast();
   
+  // ✅ AÑADIDO: username en el estado inicial
   const [formData, setFormData] = useState({
     name: user?.name || "",
+    username: user?.username || "",
     bio: user?.bio || "",
     gender: user?.gender || "male",
     location: user?.location || ""
@@ -191,6 +193,23 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                         <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Nombre Visible</label>
                         <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-2xl px-5 py-4 text-sm text-cuadralo-textLight dark:text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all" placeholder="Ej. Alex" />
                     </div>
+
+                    {/* ✅ NUEVO CAMPO: USUARIO (@) */}
+                    <div>
+                        <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Nombre de Usuario (@)</label>
+                        <div className="relative">
+                            <span className="absolute left-4 top-4 text-cuadralo-pink font-bold">@</span>
+                            <input 
+                                type="text" 
+                                name="username" 
+                                value={formData.username} 
+                                onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s+/g, '')})} 
+                                className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-cuadralo-textLight dark:text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all lowercase" 
+                                placeholder="alex123" 
+                            />
+                        </div>
+                    </div>
+
                     <div>
                         <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Ubicación</label>
                         <input type="text" name="location" value={formData.location} onChange={handleChange} className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-2xl px-5 py-4 text-sm text-cuadralo-textLight dark:text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all" placeholder="Ej. Valencia, VE" />

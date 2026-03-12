@@ -3,6 +3,7 @@ package controllers
 import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
@@ -40,6 +41,7 @@ func UpdateMe(c *fiber.Ctx) error {
 
 	var input struct {
 		Name      string   `json:"name"`
+		Username  string   `json:"username"` // ✅ AÑADIDO
 		Bio       string   `json:"bio"`
 		Location  string   `json:"location"`
 		Photos    []string `json:"photos"`
@@ -53,6 +55,12 @@ func UpdateMe(c *fiber.Ctx) error {
 	if input.Name != "" {
 		user.Name = input.Name
 	}
+
+	// ✅ SE GUARDA EL NUEVO USERNAME SI SE ENVIÓ
+	if input.Username != "" {
+		user.Username = strings.ToLower(strings.ReplaceAll(input.Username, " ", ""))
+	}
+
 	user.Bio = input.Bio
 	user.Location = input.Location
 
@@ -63,7 +71,13 @@ func UpdateMe(c *fiber.Ctx) error {
 		}
 	}
 
-	database.DB.Save(&user)
+	// ✅ SE MANEJA EL ERROR SI EL USUARIO YA ESTÁ OCUPADO
+	if err := database.DB.Save(&user).Error; err != nil {
+		if strings.Contains(err.Error(), "username") {
+			return c.Status(400).JSON(fiber.Map{"error": "Ese nombre de usuario ya está ocupado."})
+		}
+		return c.Status(500).JSON(fiber.Map{"error": "Error al guardar el perfil"})
+	}
 
 	// ✅ MAGIA DE INTERESES (A prueba de balas)
 	if input.Interests != nil {

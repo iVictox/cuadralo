@@ -134,6 +134,12 @@ export default function Profile() {
                   {user?.birth_date ? new Date().getFullYear() - new Date(user?.birth_date).getFullYear() : ""}
                 </span>
               </h1>
+              {/* ✅ USERNAME EN MÓVIL */}
+              {user?.username && (
+                <div className="text-sm font-bold text-gray-300 drop-shadow-md mt-1">
+                  @{user.username}
+                </div>
+              )}
               <div className="flex items-center gap-2 mt-1 text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300">
                 <MapPin size={14} className="text-cuadralo-pink" /> {user?.location || "Sin ubicación"}
               </div>
@@ -151,6 +157,12 @@ export default function Profile() {
                 {user?.birth_date ? new Date().getFullYear() - new Date(user?.birth_date).getFullYear() : ""}
               </span>
             </h1>
+            {/* ✅ USERNAME EN ESCRITORIO */}
+            {user?.username && (
+              <div className="text-xl font-bold text-gray-500 dark:text-gray-400 mt-1">
+                @{user.username}
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-3 text-sm font-bold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
               <MapPin size={18} className="text-cuadralo-pink" /> {user?.location || "Sin ubicación configurada"}
             </div>

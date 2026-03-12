@@ -20,8 +20,9 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false); 
   
+  // ✅ AÑADIDO: username en el estado inicial
   const [formData, setFormData] = useState({
-      name: "", email: "", password: "", confirmPassword: "",
+      name: "", username: "", email: "", password: "", confirmPassword: "",
       birthDate: "", gender: "", photo: "", 
       bio: "", interests: [], preferences: { ageRange: [18, 30], distance: 50, show: "Todos" }
   });
@@ -155,6 +156,20 @@ export default function RegisterPage() {
                         
                         <form onSubmit={handleRegisterStart} className="space-y-4 flex-1">
                             <InputGroup icon={<User size={20} />} placeholder="Nombre completo" value={formData.name} onChange={(v) => handleChange("name", v)} />
+                            
+                            {/* ✅ NUEVO: Nombre de Usuario */}
+                            <div className="relative group">
+                                <div className="absolute left-4 top-3.5 text-cuadralo-pink font-bold">@</div>
+                                <input 
+                                    type="text" 
+                                    placeholder="usuario" 
+                                    className="w-full bg-black/20 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder-gray-600 focus:outline-none focus:border-cuadralo-pink transition-all lowercase" 
+                                    value={formData.username} 
+                                    onChange={(e) => handleChange("username", e.target.value.toLowerCase().replace(/\s+/g, ''))} 
+                                    required
+                                />
+                            </div>
+
                             <InputGroup icon={<Mail size={20} />} type="email" placeholder="Correo electrónico" value={formData.email} onChange={(v) => handleChange("email", v)} />
                             <InputGroup icon={<Lock size={20} />} type="password" placeholder="Contraseña" value={formData.password} onChange={(v) => handleChange("password", v)} />
                             <InputGroup icon={<Lock size={20} />} type="password" placeholder="Confirmar contraseña" value={formData.confirmPassword} onChange={(v) => handleChange("confirmPassword", v)} />

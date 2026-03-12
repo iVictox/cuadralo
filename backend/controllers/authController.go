@@ -14,6 +14,7 @@ import (
 
 type RegisterDTO struct {
 	Name        string   `json:"name"`
+	Username    string   `json:"username"` // ✅ AÑADIDO: Nombre de usuario personalizado
 	Email       string   `json:"email"`
 	Password    string   `json:"password"`
 	BirthDate   string   `json:"birthDate"`
@@ -41,10 +42,14 @@ func Register(c *fiber.Ctx) error {
 		birthTime = time.Now().AddDate(-18, 0, 0)
 	}
 
-	// 1. CREAR EL USUARIO (AÚN SIN INTERESES)
-	cleanName := strings.ToLower(strings.ReplaceAll(data.Name, " ", ""))
-	username := fmt.Sprintf("%s%d", cleanName, time.Now().Unix()%1000)
+	// ✅ LÓGICA DE USUARIO: Usa el enviado o genera uno automático
+	username := strings.ToLower(strings.ReplaceAll(data.Username, " ", ""))
+	if username == "" {
+		cleanName := strings.ToLower(strings.ReplaceAll(data.Name, " ", ""))
+		username = fmt.Sprintf("%s%d", cleanName, time.Now().Unix()%1000)
+	}
 
+	// 1. CREAR EL USUARIO
 	user := models.User{
 		Name:      data.Name,
 		Username:  username,
@@ -57,7 +62,11 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Error al crear cuenta"})
+		// ✅ EVITAR DUPLICADOS DE USUARIO
+		if strings.Contains(err.Error(), "username") {
+			return c.Status(400).JSON(fiber.Map{"error": "Ese nombre de usuario ya está en uso."})
+		}
+		return c.Status(500).JSON(fiber.Map{"error": "Error al crear cuenta. El email o usuario ya existe."})
 	}
 
 	// 2. CREAR Y ASOCIAR INTERESES CON SEGURIDAD TOTAL
