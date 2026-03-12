@@ -163,8 +163,21 @@ func DeleteAccount(c *fiber.Ctx) error {
 
 func SearchUsers(c *fiber.Ctx) error {
 	query := c.Query("q")
+	if query == "" {
+		return c.JSON([]models.User{}) // Si no hay query, devuelve lista vacía
+	}
+
 	var users []models.User
-	database.DB.Where("name ILIKE ? OR username ILIKE ?", "%"+query+"%", "%"+query+"%").Limit(20).Find(&users)
+
+	// Usamos LOWER para que la búsqueda ignore mayúsculas y minúsculas
+	searchTerm := "%" + query + "%"
+
+	// Buscamos coincidencias en el nombre O en el nombre de usuario, limitamos a 20 resultados
+	database.DB.Select("id, name, username, photo").
+		Where("LOWER(name) LIKE LOWER(?) OR LOWER(username) LIKE LOWER(?)", searchTerm, searchTerm).
+		Limit(20).
+		Find(&users)
+
 	return c.JSON(users)
 }
 

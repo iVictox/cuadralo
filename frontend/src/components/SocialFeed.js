@@ -5,6 +5,8 @@ import { Plus, Loader2, RefreshCw, Crown, Sparkles } from "lucide-react";
 import StoriesBar from "./StoriesBar"; 
 import FeedPost from "./FeedPost";
 import StoryViewer from "./StoryViewer";
+// ✅ IMPORTAMOS EL NUEVO HEADER
+import SocialHeader from "./SocialHeader"; 
 import { api } from "@/utils/api";
 import { AnimatePresence, motion } from "framer-motion";
 import PrimeModal from "@/components/PrimeModal";
@@ -19,7 +21,7 @@ export default function SocialFeed({ onUploadClick }) {
   const [currentUser, setCurrentUser] = useState(null);
   
   const [viewingUserStories, setViewingUserStories] = useState(null);
-
+  const [showSearchModal, setShowSearchModal] = useState(false);
   const [showPrime, setShowPrime] = useState(false);
   const [isPrime, setIsPrime] = useState(false);
 
@@ -50,84 +52,49 @@ export default function SocialFeed({ onUploadClick }) {
 
   useEffect(() => { fetchData(); }, []);
 
-  // ==========================================
-  // 🚀 MAGIA EN TIEMPO REAL (WEBSOCKETS)
-  // ==========================================
+  // WebSockets (Mantenemos tu lógica intacta)
   useEffect(() => {
       const handleSocketEvent = (e) => {
           const { type, payload } = e.detail;
 
-          // 1. Alguien subió una historia
           if (type === "new_story") {
               api.get("/social/stories").then(res => {
-                  if (res) {
-                      setStories(res.feed || []);
-                      setMyStories(res.my_stories || []);
-                  }
+                  if (res) { setStories(res.feed || []); setMyStories(res.my_stories || []); }
               }).catch(() => {});
           }
 
-          // 2. Acabas de ver una historia: Apagamos el arito al instante
           if (type === "story_viewed") {
               setStories(prev => prev.map(group => {
                   let changed = false;
                   const newGroupStories = group.stories.map(s => {
                       if (String(s.id) === String(payload.story_id) && !s.seen) {
-                          changed = true;
-                          return { ...s, seen: true };
+                          changed = true; return { ...s, seen: true };
                       }
                       return s;
                   });
-
-                  if (changed) {
-                      return {
-                          ...group,
-                          stories: newGroupStories,
-                          all_seen: newGroupStories.every(s => s.seen)
-                      };
-                  }
+                  if (changed) return { ...group, stories: newGroupStories, all_seen: newGroupStories.every(s => s.seen) };
                   return group;
               }));
           }
 
-          // 3. Alguien vio tu historia: Sincronizamos tus datos ocultos
           if (type === "story_seen_by") {
-              setMyStories(prev => prev.map(s => 
-                  String(s.id) === String(payload.story_id) ? { ...s, views_count: (s.views_count || 0) + 1 } : s
-              ));
-              
+              setMyStories(prev => prev.map(s => String(s.id) === String(payload.story_id) ? { ...s, views_count: (s.views_count || 0) + 1 } : s));
               setViewingUserStories(prev => {
-                  if (prev && prev.isOwner) {
-                      return {
-                          ...prev,
-                          list: prev.list.map(s => 
-                              String(s.id) === String(payload.story_id) ? { ...s, views_count: (s.views_count || 0) + 1 } : s
-                          )
-                      };
-                  }
+                  if (prev && prev.isOwner) return { ...prev, list: prev.list.map(s => String(s.id) === String(payload.story_id) ? { ...s, views_count: (s.views_count || 0) + 1 } : s) };
                   return prev;
               });
           }
 
-          // 4. Alguien eliminó una historia (o fuiste tú mismo)
           if (type === "story_deleted") {
               const { story_id, user_id } = payload;
-              
-              // A) Si fue mi propia historia
               if (currentUser && String(user_id) === String(currentUser.id)) {
                   setMyStories(prev => prev.filter(s => String(s.id) !== String(story_id)));
-              } 
-              // B) Si fue de un amigo
-              else {
+              } else {
                   setStories(prev => prev.map(group => {
-                      if (String(group.user.id) === String(user_id)) {
-                          return { ...group, stories: group.stories.filter(s => String(s.id) !== String(story_id)) };
-                      }
+                      if (String(group.user.id) === String(user_id)) return { ...group, stories: group.stories.filter(s => String(s.id) !== String(story_id)) };
                       return group;
                   }).filter(group => group.stories.length > 0));
               }
-
-              // C) Actualizamos el reproductor en vivo por si la estabas viendo
               setViewingUserStories(prev => {
                   if (!prev) return null;
                   const newList = prev.list.filter(s => String(s.id) !== String(story_id));
@@ -141,51 +108,39 @@ export default function SocialFeed({ onUploadClick }) {
       return () => window.removeEventListener("socket_event", handleSocketEvent);
   }, [currentUser]);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchData();
-  };
-
-  const handlePostDeleted = (deletedPostId) => {
-      setPosts(prev => prev.filter(p => p.id !== deletedPostId));
-  };
+  const handleRefresh = () => { setRefreshing(true); fetchData(); };
+  const handlePostDeleted = (deletedPostId) => { setPosts(prev => prev.filter(p => p.id !== deletedPostId)); };
 
   const handleViewStory = (targetUserId) => {
       if (currentUser && targetUserId === currentUser.id) {
           if (myStories.length > 0) setViewingUserStories({ list: myStories, isOwner: true });
       } else {
           const targetGroup = stories.find(g => g.user.id === targetUserId);
-          if (targetGroup && targetGroup.stories.length > 0) {
-              setViewingUserStories({ list: targetGroup.stories, isOwner: false });
-          }
+          if (targetGroup && targetGroup.stories.length > 0) setViewingUserStories({ list: targetGroup.stories, isOwner: false });
       }
   };
 
   return (
     <div className="w-full h-full relative overflow-y-auto pb-28 no-scrollbar scroll-smooth">
       
-      {/* HISTORIAS */}
-      <div className="mb-4 pt-20 px-2 md:px-6">
-          <StoriesBar 
-              stories={stories} 
-              myStories={myStories} 
-              currentUser={currentUser}
-              onViewStory={handleViewStory} 
-              onRefresh={fetchData} 
-          />
+      {/* ✅ HEADER SUPERIOR */}
+      <SocialHeader 
+        unreadCount={3} /* Esto lo conectaremos al backend más adelante */
+        onSearchClick={() => alert("Abrir buscador")} 
+        onNotifClick={() => alert("Abrir notificaciones")} 
+      />
+
+      {/* HISTORIAS (Ajustamos el padding top para que quede debajo del Header) */}
+      <div className="mb-4 pt-[72px] px-2 md:px-6">
+          <StoriesBar stories={stories} myStories={myStories} currentUser={currentUser} onViewStory={handleViewStory} onRefresh={fetchData} />
       </div>
 
       {/* BANNER PREMIUM */}
       {!isPrime && !loading && (
           <div className="flex justify-center mb-8 px-4">
-              <motion.button
-                  initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} onClick={() => setShowPrime(true)}
-                  className="group w-full max-w-md flex items-center justify-center gap-3 px-6 py-3 rounded-2xl bg-white/40 dark:bg-black/40 border border-yellow-500/30 hover:border-yellow-400 shadow-glass-light dark:shadow-glass-dark backdrop-blur-lg transition-all"
-              >
+              <motion.button initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} onClick={() => setShowPrime(true)} className="group w-full max-w-md flex items-center justify-center gap-3 px-6 py-3 rounded-2xl bg-white/40 dark:bg-black/40 border border-yellow-500/30 hover:border-yellow-400 shadow-glass-light dark:shadow-glass-dark backdrop-blur-lg transition-all">
                   <Crown size={18} className="text-yellow-500 group-hover:scale-110 transition-transform" fill="currentColor" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-yellow-100/90">
-                      Sube tus fotos en <b className="text-yellow-600 dark:text-yellow-400">Ultra HD</b>
-                  </span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-yellow-100/90">Sube tus fotos en <b className="text-yellow-600 dark:text-yellow-400">Ultra HD</b></span>
                   <Sparkles size={16} className="text-yellow-400 opacity-50 group-hover:opacity-100 animate-pulse" />
               </motion.button>
           </div>
@@ -198,20 +153,14 @@ export default function SocialFeed({ onUploadClick }) {
          <div className="w-full max-w-[600px] mx-auto px-4 flex flex-col gap-8 pb-20">
             <AnimatePresence>
                 {posts.map((post, i) => (
-                  <motion.div 
-                      key={post.id}
-                      initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ delay: i * 0.1, duration: 0.4, ease: "easeOut" }}
-                  >
+                  <motion.div key={post.id} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9 }} transition={{ delay: i * 0.1, duration: 0.4, ease: "easeOut" }}>
                       <FeedPost post={post} onDelete={() => handlePostDeleted(post.id)} onViewStory={() => handleViewStory(post.user.id)} />
                   </motion.div>
                 ))}
             </AnimatePresence>
 
             {posts.length === 0 && (
-               <div className="text-center text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark py-20 font-medium">
-                  No hay publicaciones aún.
-               </div>
+               <div className="text-center text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark py-20 font-medium">No hay publicaciones aún.</div>
             )}
             
             <button onClick={handleRefresh} className="mx-auto flex items-center gap-2 text-xs text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark hover:text-cuadralo-pink transition-colors py-6 mb-10 bg-white/5 dark:bg-black/20 px-6 rounded-full backdrop-blur-md">
@@ -226,11 +175,7 @@ export default function SocialFeed({ onUploadClick }) {
 
       <AnimatePresence>
           {viewingUserStories && (
-              <StoryViewer 
-                  stories={viewingUserStories.list} 
-                  isOwner={viewingUserStories.isOwner}
-                  onClose={() => setViewingUserStories(null)} 
-              />
+              <StoryViewer stories={viewingUserStories.list} isOwner={viewingUserStories.isOwner} onClose={() => setViewingUserStories(null)} onDeleteSuccess={() => { setViewingUserStories(null); fetchData(); }} />
           )}
           {showPrime && <PrimeModal onClose={() => setShowPrime(false)} />}
       </AnimatePresence>
