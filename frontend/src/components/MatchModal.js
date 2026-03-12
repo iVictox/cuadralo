@@ -16,10 +16,10 @@ export default function MatchModal({ myPhoto, matchedUser, onClose }) {
 
       <motion.div initial={{ opacity: 0, y: -50 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16 z-10">
         <h2 className="text-5xl md:text-8xl font-black text-cuadralo-textLight dark:text-white tracking-tighter uppercase italic leading-none">
-          ¡LO <span className="text-cuadralo-pink">CUADRASTE</span>!
+          ¡HICIERON <span className="text-cuadralo-pink">MATCH</span>!
         </h2>
         <p className="text-cuadralo-textMutedLight dark:text-white/60 text-lg font-bold uppercase tracking-[0.3em] mt-4">
-            Has conectado con <span className="text-cuadralo-pink">{matchedUser.name}</span>
+          Acabas de cuadrar con <span className="text-cuadralo-pink">{matchedUser.name}</span>
         </p>
       </motion.div>
 
@@ -30,7 +30,7 @@ export default function MatchModal({ myPhoto, matchedUser, onClose }) {
 
         <motion.div initial={{ x: -200, opacity: 0, rotate: -15 }} animate={{ x: -50, opacity: 1, rotate: -12 }} transition={{ delay: 0.5, type: "spring" }} className="absolute z-20">
           <div className="p-1 bg-white rounded-[3rem] shadow-2xl shadow-cuadralo-pink/20">
-              <img src={myPhoto || "https://via.placeholder.com/150"} className="w-40 h-40 md:w-52 md:h-52 rounded-[2.8rem] object-cover" />
+            <img src={myPhoto || "https://via.placeholder.com/150"} className="w-40 h-40 md:w-52 md:h-52 rounded-[2.8rem] object-cover" />
           </div>
         </motion.div>
 
@@ -38,7 +38,7 @@ export default function MatchModal({ myPhoto, matchedUser, onClose }) {
 
         <motion.div initial={{ x: 200, opacity: 0, rotate: 15 }} animate={{ x: 50, opacity: 1, rotate: 12 }} transition={{ delay: 0.5, type: "spring" }} className="absolute z-30">
           <div className="p-1 bg-white rounded-[3rem] shadow-2xl shadow-cuadralo-pink/20">
-              <img src={matchedUser.img || "https://via.placeholder.com/150"} className="w-40 h-40 md:w-52 md:h-52 rounded-[2.8rem] object-cover" />
+            <img src={matchedUser.img || "https://via.placeholder.com/150"} className="w-40 h-40 md:w-52 md:h-52 rounded-[2.8rem] object-cover" />
           </div>
         </motion.div>
       </div>

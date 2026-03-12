@@ -1,37 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
-    ChevronDown, MapPin, Star, Music, Gamepad2, Plane, Coffee, Dumbbell, Film, 
-    Palette, Book, Dog, Wine, Camera, Laptop, Mountain, Heart, ShieldCheck, Quote, Loader2 
+    ChevronDown, MapPin, Quote, Loader2, Crown, ChevronLeft, ChevronRight, User, Calendar, Heart
 } from "lucide-react";
 import { api } from "@/utils/api";
-
-const ICONS = {
-    music: <Music size={14} />, games: <Gamepad2 size={14} />, travel: <Plane size={14} />,
-    coffee: <Coffee size={14} />, gym: <Dumbbell size={14} />, movies: <Film size={14} />,
-    art: <Palette size={14} />, books: <Book size={14} />, dogs: <Dog size={14} />,
-    cooking: <Wine size={14} />, wine: <Wine size={14} />, photo: <Camera size={14} />,
-    tech: <Laptop size={14} />, crypto: <Laptop size={14} />, hiking: <Mountain size={14} />,
-    health: <Heart size={14} />, party: <Music size={14} />, guitar: <Music size={14} />
-};
+import { getInterestInfo } from "@/utils/interests"; // ✅ Usamos el traductor oficial de intereses
 
 export default function ProfileDetailsModal({ profile, onClose }) {
     const [fullProfile, setFullProfile] = useState(profile);
     const [loading, setLoading] = useState(false);
+    const [activePhoto, setActivePhoto] = useState(0);
 
     useEffect(() => {
         const fetchFullDetails = async () => {
-            // Si falta info crítica (bio o intereses), la pedimos al backend
-            if (profile.bio || (profile.interests && profile.interests.length > 0)) {
-                return;
-            }
-
             setLoading(true);
             try {
+                // Siempre pedimos el perfil completo para traer el array de fotos, seguidores, etc.
                 const data = await api.get(`/users/${profile.id}`);
-                setFullProfile(data);
+                
+                // Formateamos los intereses para que Next.js no dé problemas
+                let processedInterests = [];
+                if (data.interestsList && data.interestsList.length > 0) {
+                    processedInterests = data.interestsList;
+                } else if (data.interests && data.interests.length > 0) {
+                    processedInterests = data.interests.map(i => i.slug || i.id || i);
+                }
+
+                setFullProfile({ ...data, interests: processedInterests });
             } catch (error) {
                 console.error("Error cargando perfil completo:", error);
             } finally {
@@ -45,9 +42,45 @@ export default function ProfileDetailsModal({ profile, onClose }) {
     }, [profile]);
 
     const interests = Array.isArray(fullProfile.interests) ? fullProfile.interests : [];
-    const img = fullProfile.photo || fullProfile.img || "https://via.placeholder.com/400";
-    const bio = fullProfile.bio || "Sin descripción";
-    const age = fullProfile.age ? `, ${fullProfile.age}` : "";
+    
+    // ✅ Función para asegurar que siempre haya al menos una foto y agrupar todas las que el usuario subió
+    const getValidPhotos = () => {
+        let valid = [];
+        if (fullProfile.photos && Array.isArray(fullProfile.photos)) {
+            valid = fullProfile.photos.filter(p => typeof p === 'string' && p.trim() !== "");
+        }
+        if (valid.length === 0 && fullProfile.photo && typeof fullProfile.photo === 'string' && fullProfile.photo.trim() !== "") {
+            valid = [fullProfile.photo];
+        }
+        if (valid.length === 0 && fullProfile.img) {
+            valid = [fullProfile.img];
+        }
+        if (valid.length === 0) {
+            valid = ["https://via.placeholder.com/600x800"];
+        }
+        return valid;
+    };
+
+    const photos = getValidPhotos();
+
+    // Controles del carrusel de imágenes
+    const nextPhoto = (e) => {
+        e.stopPropagation();
+        if (activePhoto < photos.length - 1) setActivePhoto(activePhoto + 1);
+    };
+
+    const prevPhoto = (e) => {
+        e.stopPropagation();
+        if (activePhoto > 0) setActivePhoto(activePhoto - 1);
+    };
+
+    const bio = fullProfile.bio || "Aún no ha escrito nada sobre sí mismo. ¡Averígualo chateando!";
+    
+    // Cálculo inteligente de edad
+    let ageDisplay = fullProfile.age || "";
+    if (!ageDisplay && fullProfile.birth_date) {
+        ageDisplay = new Date().getFullYear() - new Date(fullProfile.birth_date).getFullYear();
+    }
 
     return (
         <motion.div 
@@ -58,26 +91,81 @@ export default function ProfileDetailsModal({ profile, onClose }) {
             <motion.div 
                 initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                className="bg-[#140520] w-full max-w-md h-[90vh] sm:h-[85vh] rounded-t-3xl sm:rounded-3xl overflow-y-auto scrollbar-hide border border-white/10 shadow-2xl relative"
+                className={`bg-[#140520] w-full max-w-md h-[90vh] sm:h-[85vh] rounded-t-3xl sm:rounded-[2.5rem] overflow-y-auto no-scrollbar border border-white/10 shadow-2xl relative flex flex-col ${fullProfile.is_prime ? 'ring-2 ring-yellow-500/50' : ''}`}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="relative h-[50%] w-full">
-                    <img src={img} className="w-full h-full object-cover" alt={fullProfile.name} />
-                    <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition-colors z-20 border border-white/10">
+                {/* 📸 CARRUSEL DE FOTOS SUPERIOR */}
+                <div className="relative w-full aspect-[4/5] sm:aspect-square flex-shrink-0 bg-black">
+                    
+                    {/* Badge Prime (Si lo es) */}
+                    {fullProfile.is_prime && (
+                        <div className="absolute top-5 left-5 z-30 bg-gradient-to-r from-yellow-400 to-yellow-600 p-2 rounded-xl shadow-lg border border-yellow-300">
+                            <Crown size={18} className="text-white fill-white animate-pulse" />
+                        </div>
+                    )}
+
+                    <AnimatePresence mode="wait">
+                        <motion.img 
+                            key={activePhoto}
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+                            src={photos[activePhoto]} 
+                            className="w-full h-full object-cover" 
+                            alt={fullProfile.name} 
+                        />
+                    </AnimatePresence>
+
+                    {/* Botón Cerrar */}
+                    <button onClick={onClose} className="absolute top-4 right-4 p-3 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition-colors z-20 border border-white/10 shadow-lg">
                         <ChevronDown size={24}/>
                     </button>
-                    <div className="absolute bottom-0 w-full h-40 bg-gradient-to-t from-[#140520] via-[#140520]/90 to-transparent"/>
+
+                    {/* Indicadores estilo historias */}
+                    {photos.length > 1 && (
+                        <div className="absolute top-4 inset-x-20 flex gap-1.5 z-20">
+                            {photos.map((_, i) => (
+                                <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${i === activePhoto ? 'bg-white shadow-[0_0_5px_rgba(255,255,255,0.8)]' : 'bg-white/30 backdrop-blur-md'}`} />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Controles Invisibles para tocar lados */}
+                    <div className="absolute inset-0 flex z-10 pt-16">
+                        <div className="w-1/2 h-full cursor-pointer flex items-center justify-start px-4 opacity-0 hover:opacity-100 transition-opacity" onClick={prevPhoto}>
+                            {activePhoto > 0 && <div className="bg-black/30 p-2 rounded-full backdrop-blur-md"><ChevronLeft className="text-white" /></div>}
+                        </div>
+                        <div className="w-1/2 h-full cursor-pointer flex items-center justify-end px-4 opacity-0 hover:opacity-100 transition-opacity" onClick={nextPhoto}>
+                            {activePhoto < photos.length - 1 && <div className="bg-black/30 p-2 rounded-full backdrop-blur-md"><ChevronRight className="text-white" /></div>}
+                        </div>
+                    </div>
+
+                    <div className="absolute bottom-0 w-full h-48 bg-gradient-to-t from-[#140520] via-[#140520]/80 to-transparent pointer-events-none"/>
                 </div>
 
-                <div className="px-6 pb-10 relative -mt-16 z-10">
-                    <div className="flex justify-between items-end mb-6">
-                        <div>
-                            <h2 className="text-4xl font-extrabold text-white flex items-center gap-2">
-                                {fullProfile.name}<span className="text-2xl font-medium text-gray-400">{age}</span>
-                                {fullProfile.is_verified && <ShieldCheck size={24} className="text-blue-400 fill-blue-400/20" />}
-                            </h2>
-                            <div className="flex items-center gap-2 text-cuadralo-pink text-sm font-medium mt-1">
-                                <MapPin size={16} fill="currentColor" /> <span>Valencia, Venezuela</span>
+                {/* 📄 INFO DEL PERFIL INFERIOR */}
+                <div className="px-6 pb-10 relative -mt-16 z-10 flex-1">
+                    
+                    <div className="mb-6">
+                        <h2 className="text-4xl font-black text-white flex items-end gap-3 drop-shadow-md tracking-tighter uppercase">
+                            {fullProfile.name}
+                            {ageDisplay && <span className="text-3xl font-light text-cuadralo-pink mb-[2px]">{ageDisplay}</span>}
+                        </h2>
+                        
+                        <div className="flex items-center gap-2 text-gray-300 text-xs font-bold uppercase tracking-[0.2em] mt-2">
+                            <MapPin size={16} className="text-cuadralo-pink" /> 
+                            {fullProfile.location || "Ubicación desconocida"}
+                        </div>
+                        
+                        {/* Etiquetas Pequeñas */}
+                        <div className="flex flex-wrap gap-2 mt-4">
+                            {fullProfile.gender && (
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-[10px] uppercase tracking-widest font-bold text-gray-300 shadow-sm">
+                                    <User size={12} className="text-cuadralo-pink" />
+                                    <span>{fullProfile.gender}</span>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-[10px] uppercase tracking-widest font-bold text-gray-300 shadow-sm">
+                                <Calendar size={12} className="text-blue-400" />
+                                <span>Se unió en {new Date(fullProfile.created_at || Date.now()).getFullYear()}</span>
                             </div>
                         </div>
                     </div>
@@ -85,23 +173,53 @@ export default function ProfileDetailsModal({ profile, onClose }) {
                     {loading ? (
                         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" size={32} /></div>
                     ) : (
-                        <div className="space-y-8">
-                            <div className="relative bg-white/5 border border-white/10 p-6 rounded-2xl">
-                                <Quote size={20} className="absolute top-4 left-4 text-white/20 rotate-180" />
-                                <p className="text-gray-200 text-base leading-relaxed text-center italic pt-2 px-2 font-medium">"{bio}"</p>
-                                <Quote size={20} className="absolute bottom-4 right-4 text-white/20" />
+                        <div className="space-y-8 mt-6">
+                            
+                            {/* SOBRE MÍ */}
+                            <div>
+                                <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-3 flex items-center gap-2">
+                                    <Quote size={14} className="text-cuadralo-pink"/> Sobre mí
+                                </h3>
+                                <div className="bg-white/5 border border-white/5 p-6 rounded-3xl shadow-inner">
+                                    <p className="text-gray-300 text-sm leading-relaxed italic">
+                                        "{bio}"
+                                    </p>
+                                </div>
                             </div>
 
+                            {/* 🇪🇸 INTERESES EN ESPAÑOL */}
                             {interests.length > 0 && (
                                 <div>
-                                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 ml-1">Intereses</h3>
+                                    <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-4 ml-1 flex items-center gap-2">
+                                        <Heart size={14} className="text-cuadralo-pink"/> Intereses
+                                    </h3>
                                     <div className="flex flex-wrap gap-2.5">
-                                        {interests.map(id => (
-                                            <div key={id} className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-sm font-medium text-gray-200 shadow-sm">
-                                                <span className="text-cuadralo-pink">{ICONS[id] || <Star size={14} />}</span>
-                                                <span className="capitalize">{id}</span>
-                                            </div>
-                                        ))}
+                                        {interests.map(slug => {
+                                            const info = getInterestInfo(slug);
+                                            return (
+                                                <div 
+                                                    key={slug} 
+                                                    className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-xs font-bold tracking-widest uppercase text-white shadow-sm"
+                                                >
+                                                    <span className="text-cuadralo-pink">{info.icon}</span>
+                                                    {info.name}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ESTADÍSTICAS DEL USUARIO */}
+                            {(fullProfile.followers_count > 0 || fullProfile.following_count > 0) && (
+                                <div className="flex gap-4 pt-4 border-t border-white/10">
+                                    <div className="flex-1 bg-white/5 p-4 rounded-2xl text-center border border-white/5">
+                                        <span className="block text-2xl font-black text-white">{fullProfile.followers_count || 0}</span>
+                                        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-gray-500">Seguidores</span>
+                                    </div>
+                                    <div className="flex-1 bg-white/5 p-4 rounded-2xl text-center border border-white/5">
+                                        <span className="block text-2xl font-black text-white">{fullProfile.following_count || 0}</span>
+                                        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-gray-500">Seguidos</span>
                                     </div>
                                 </div>
                             )}

@@ -150,7 +150,7 @@ export default function SocialFeed({ onUploadClick }) {
       />
 
       {/* HISTORIAS */}
-      <div className="mb-4 pt-[72px] px-2 md:px-6">
+      <div className="mb-4 pt-[10px] px-2 md:px-6">
           <StoriesBar stories={stories} myStories={myStories} currentUser={currentUser} onViewStory={handleViewStory} onRefresh={() => fetchData(activeTab, true)} />
       </div>
 

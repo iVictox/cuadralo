@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { X, Heart, MapPin, Info, RotateCcw, Zap, Crown } from "lucide-react";
+import { X, Heart, MapPin, Info, RotateCcw, Zap, Crown, User, ChevronLeft, ChevronRight } from "lucide-react"; // ✅ Añadimos User y Chevrons
 import Image from "next/image"; 
 import { api } from "@/utils/api"; 
 import MatchModal from "@/components/MatchModal"; 
 import ProfileDetailsModal from "@/components/ProfileDetailsModal";
 import PrimeModal from "@/components/PrimeModal"; 
 import BoostModal from "@/components/BoostModal"; 
-// ✅ Importamos la función para obtener la información de los intereses
 import { getInterestInfo } from "@/utils/interests";
 
 export default function CardStack() {
@@ -50,11 +49,13 @@ export default function CardStack() {
           id: u.id,
           name: u.name,
           age: u.age,
+          gender: u.gender, // ✅ Capturamos el género
           bio: u.bio || "Sin descripción...",
           interests: typeof u.interests === 'string' ? JSON.parse(u.interests || "[]") : u.interests || [],
           img: u.photo || "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=600",
-          location: "Valencia, VE", 
-          matchPercentage: Math.floor(Math.random() * (99 - 70) + 70),
+          // ✅ Aseguramos que 'photos' sea un array válido para el carrusel
+          photos: Array.isArray(u.photos) ? u.photos.filter(p => p && p.trim() !== "") : [u.photo].filter(p => p && p.trim() !== ""),
+          location: "Valencia, Carabobo", 
           is_prime: u.is_prime 
       }));
 
@@ -206,6 +207,19 @@ function Card({ data, isFront, onSwipe, onInfo }) {
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
   const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 1, 1, 1, 0.5]);
 
+  // ✅ ESTADO MÁGICO: Controla qué foto estamos viendo en la tarjeta
+  const [activePhoto, setActivePhoto] = useState(0);
+
+  const nextPhoto = (e) => {
+    e.stopPropagation(); // Evitamos que el clic se entienda como 'swipe'
+    if (activePhoto < data.photos.length - 1) setActivePhoto(activePhoto + 1);
+  };
+
+  const prevPhoto = (e) => {
+    e.stopPropagation(); // Evitamos que el clic se entienda como 'swipe'
+    if (activePhoto > 0) setActivePhoto(activePhoto - 1);
+  };
+
   return (
     <motion.div
       style={{ x, rotate, opacity, zIndex: isFront ? 20 : 0 }}
@@ -213,13 +227,46 @@ function Card({ data, isFront, onSwipe, onInfo }) {
       onDragEnd={(e, i) => { if (i.offset.x > 100) onSwipe(data.id, "right"); else if (i.offset.x < -100) onSwipe(data.id, "left"); }}
       className={`absolute w-[92%] md:w-[380px] h-full bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-[2.5rem] overflow-hidden shadow-glass-light dark:shadow-glass-dark border border-gray-200 dark:border-white/10 ${!isFront && 'pointer-events-none'} cursor-grab active:cursor-grabbing`}
     >
-      <img src={data.img} alt={data.name} className="w-full h-full object-cover pointer-events-none" />
+      {/* ✅ CARRUSEL DE FOTOS DENTRO DE LA TARJETA */}
+      <img src={data.photos[activePhoto]} alt={data.name} className="w-full h-full object-cover pointer-events-none" />
       
+      {/* ✅ BARRA DE INDICADORES DE FOTOS (ESTILO HISTORIAS) */}
+      {data.photos.length > 1 && (
+          <div className="absolute top-4 inset-x-12 flex gap-1 z-20">
+              {data.photos.map((_, i) => (
+                  <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${i === activePhoto ? 'bg-white shadow-[0_0_5px_rgba(255,255,255,0.8)]' : 'bg-white/30 backdrop-blur-md'}`} />
+              ))}
+          </div>
+      )}
+
+      {/* ✅ CONTROLES INVISIBLES PARA TOCAR LADOS DE LA FOTO */}
+      {data.photos.length > 1 && (
+        <div className="absolute inset-0 flex z-10 pt-16">
+          <div className="w-1/2 h-full cursor-pointer flex items-center justify-start px-2 opacity-0 hover:opacity-100 transition-opacity" onClick={prevPhoto}>
+            {activePhoto > 0 && <div className="bg-black/30 p-2 rounded-full backdrop-blur-md"><ChevronLeft className="text-white" /></div>}
+          </div>
+          <div className="w-1/2 h-full cursor-pointer flex items-center justify-end px-2 opacity-0 hover:opacity-100 transition-opacity" onClick={nextPhoto}>
+            {activePhoto < data.photos.length - 1 && <div className="bg-black/30 p-2 rounded-full backdrop-blur-md"><ChevronRight className="text-white" /></div>}
+          </div>
+        </div>
+      )}
+
+      {/* Botón Info */}
       <button onClick={(e) => { e.stopPropagation(); onInfo(); }} className="absolute top-5 right-5 w-10 h-10 flex items-center justify-center bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition-colors z-20 shadow-sm border border-white/20">
         <Info size={22} />
       </button>
 
-      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-32 pb-8 px-6 text-white pointer-events-none">
+      {/* GRADIENTE INFERIOR Y TEXTO */}
+      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/95 via-black/60 to-transparent pt-32 pb-8 px-6 text-white pointer-events-none">
+        
+        {/* ✅ BADGE DE GÉNERO */}
+        {data.gender && (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] uppercase tracking-widest font-bold text-gray-100 shadow-inner w-max mb-3 border border-white/5">
+                <User size={12} className="text-cuadralo-pink" />
+                <span>{data.gender}</span>
+            </div>
+        )}
+
         <h2 className="text-3xl font-extrabold flex items-end gap-2 mb-1 drop-shadow-md">
             {data.name} <span className="text-2xl text-white/90 font-medium">{data.age}</span>
         </h2>
@@ -240,7 +287,6 @@ function Card({ data, isFront, onSwipe, onInfo }) {
         </p>
         
         <div className="flex gap-2 flex-wrap">
-            {/* ✅ Usamos la función global para renderizar los intereses */}
             {data.interests.slice(0, 3).map(id => {
                 const info = getInterestInfo(id);
                 return (
