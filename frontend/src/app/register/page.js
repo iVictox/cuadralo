@@ -185,7 +185,7 @@ export default function RegisterPage() {
   ];
 
   return (
-    <div className="min-h-screen w-full flex bg-cuadralo-bgLight dark:bg-[#0f0518] overflow-hidden text-cuadralo-textLight dark:text-white transition-colors duration-500">
+    <div className="min-h-screen w-full flex bg-cuadralo-bgLight dark:bg-[#0f0518] overflow-hidden text-cuadralo-textLight dark:text-white transition-colors duration-500 relative">
       
       {/* PANEL IZQUIERDO (Escritorio) */}
       <div className="hidden lg:flex w-[45%] relative bg-black items-center justify-center p-16 overflow-hidden">
@@ -218,8 +218,14 @@ export default function RegisterPage() {
           </div>
       </div>
 
+      {/* FONDOS ANIMADOS MÓVIL */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none lg:hidden z-0">
+          <div className="absolute top-[-10%] -left-[20%] w-[400px] h-[400px] bg-cuadralo-pink/20 rounded-full blur-[100px] animate-pulse" />
+          <div className="absolute bottom-[-10%] -right-[20%] w-[400px] h-[400px] bg-purple-600/20 rounded-full blur-[100px] animate-pulse delay-1000" />
+      </div>
+
       {/* PANEL DERECHO (Formulario) */}
-      <div className="w-full lg:w-[55%] flex flex-col items-center justify-center p-6 sm:p-12 md:p-20 relative z-10">
+      <div className="w-full lg:w-[55%] flex flex-col items-center justify-center p-6 sm:p-12 md:p-20 relative z-10 bg-white/40 dark:bg-black/10 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none">
           
           <div className="absolute top-8 left-8 lg:hidden w-32 h-8 relative">
                <Image src="/logo.svg" fill className="object-contain dark:invert-0 invert" alt="Cuadralo" priority />
@@ -232,6 +238,21 @@ export default function RegisterPage() {
           )}
 
           <div className="w-full max-w-md mt-16 lg:mt-0">
+              <div className="mb-8 lg:hidden">
+                 <AnimatePresence mode="wait">
+                     <motion.div 
+                        key={step} 
+                        initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.3 }}
+                     >
+                         <h2 className="text-3xl sm:text-4xl font-black text-cuadralo-textLight dark:text-white tracking-tighter mb-3 leading-[1.1]">
+                            {stepContent[step].title}
+                         </h2>
+                         <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base font-medium leading-relaxed">
+                            {stepContent[step].desc}
+                         </p>
+                     </motion.div>
+                 </AnimatePresence>
+              </div>
               
               {/* Barra de Progreso */}
               {step > 0 && (
@@ -246,7 +267,6 @@ export default function RegisterPage() {
                   {/* PASO 0: CREAR CUENTA */}
                   {step === 0 && (
                       <motion.div key="s0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                          <h2 className="text-3xl font-black mb-8 lg:hidden">Únete a Cuadralo 🚀</h2>
                           
                           <form onSubmit={handleRegisterStart} className="space-y-5">
                               <FloatingInput label="Nombre completo" icon={<User size={20}/>} value={formData.name} onChange={(v) => handleChange("name", v)} />
@@ -268,7 +288,7 @@ export default function RegisterPage() {
                           <div className="relative my-8">
                               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-black/10 dark:border-white/10"></div></div>
                               <div className="relative flex justify-center text-sm">
-                                  <span className="px-4 bg-cuadralo-bgLight dark:bg-[#0f0518] text-gray-500 font-bold uppercase tracking-widest text-[10px]">
+                                  <span className="px-4 bg-transparent text-gray-500 font-bold uppercase tracking-widest text-[10px]">
                                       O regístrate con
                                   </span>
                               </div>
