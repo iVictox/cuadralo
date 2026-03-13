@@ -194,7 +194,7 @@ export default function RegisterPage() {
           <div className="absolute -bottom-[20%] -right-[10%] w-[600px] h-[600px] bg-blue-600/20 rounded-full blur-[120px] animate-pulse delay-1000" />
           
           <div className="relative z-10 w-full max-w-md">
-             <div className="w-48 h-12 relative mb-16">
+             <div className="w-72 h-20 relative mb-12">
                  <Image src="/logo.svg" fill className="object-contain dark:invert-0 invert" alt="Cuadralo" priority />
              </div>
              
@@ -227,17 +227,20 @@ export default function RegisterPage() {
       {/* PANEL DERECHO (Formulario) */}
       <div className="w-full lg:w-[55%] flex flex-col items-center justify-center p-6 sm:p-12 md:p-20 relative z-10 bg-white/40 dark:bg-black/10 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none">
           
-          <div className="absolute top-8 left-8 lg:hidden w-32 h-8 relative">
-               <Image src="/logo.svg" fill className="object-contain dark:invert-0 invert" alt="Cuadralo" priority />
-          </div>
-
           {step > 0 && !isLoading && (
-              <button onClick={prevStep} className="absolute top-6 right-6 lg:top-12 lg:left-12 w-12 h-12 bg-black/5 dark:bg-white/5 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
+              <button onClick={prevStep} className="absolute top-6 left-6 lg:top-12 lg:left-12 w-12 h-12 z-20 bg-black/5 dark:bg-white/5 rounded-full flex items-center justify-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors shadow-md">
                   <ArrowLeft size={24} />
               </button>
           )}
 
-          <div className="w-full max-w-md mt-16 lg:mt-0">
+          <div className="w-full max-w-md mt-10 lg:mt-0">
+              {/* LOGO MÓVIL CENTRADO Y GRANDE */}
+              <div className="flex justify-center mb-10 lg:hidden relative z-10">
+                  <div className="w-56 h-16 relative">
+                      <Image src="/logo.svg" fill className="object-contain dark:invert-0 invert" alt="Cuadralo" priority />
+                  </div>
+              </div>
+
               <div className="mb-8 lg:hidden">
                  <AnimatePresence mode="wait">
                      <motion.div 
