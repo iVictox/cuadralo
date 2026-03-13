@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation"; 
 import { api } from "@/utils/api";
 import { AnimatePresence } from "framer-motion";
@@ -19,8 +19,7 @@ import SocialFeed from "@/components/SocialFeed";
 import FilterModal from "@/components/FilterModal";
 import UploadModal from "@/components/UploadModal";
 
-// 1. Componente interno que usa useSearchParams (TU CÓDIGO INTACTO)
-function MainAppContent() {
+export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams(); 
   
@@ -99,18 +98,5 @@ function MainAppContent() {
         {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
       </AnimatePresence>
     </main>
-  );
-}
-
-// 2. Exportación principal que envuelve TODO con Suspense
-export default function Home() {
-  return (
-    <Suspense fallback={
-        <div className="min-h-screen w-full flex items-center justify-center bg-cuadralo-bgLight dark:bg-cuadralo-bgDark">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cuadralo-pink"></div>
-        </div>
-    }>
-      <MainAppContent />
-    </Suspense>
   );
 }
