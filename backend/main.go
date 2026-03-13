@@ -61,7 +61,7 @@ func main() {
 	// Configuración CORS
 	app.Use(cors.New(cors.Config{
 		AllowCredentials: true,
-		AllowOrigins:     "http://localhost:3000", // Ajustar según puerto frontend
+		AllowOrigins:     "http://localhost:3000, https://cuadralo.club", // Ajustar según puerto frontend
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, Upgrade, Connection",
 	}))
 
