@@ -19,6 +19,8 @@ import SocialFeed from "@/components/SocialFeed";
 import FilterModal from "@/components/FilterModal";
 import UploadModal from "@/components/UploadModal";
 
+export const dynamic = "force-dynamic";
+
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams(); 
