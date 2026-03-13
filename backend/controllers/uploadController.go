@@ -40,7 +40,7 @@ func UploadFile(c *fiber.Ctx) error {
 
 	// 6. Devolver la URL completa
 	// NOTA: Asegúrate que este puerto coincida con tu backend
-	fullUrl := fmt.Sprintf("http://api.cuadralo.club:8000/uploads/%s", filename)
+	fullUrl := fmt.Sprintf("http://api.cuadralo.club/uploads/%s", filename)
 
 	return c.JSON(fiber.Map{
 		"url": fullUrl,
