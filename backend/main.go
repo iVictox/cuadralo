@@ -84,5 +84,5 @@ func main() {
 	routes.Setup(app)
 
 	// Iniciar servidor en puerto 8000
-	log.Fatal(app.Listen(":8000"))
+	log.Fatal(app.Listen(":8080"))
 }
