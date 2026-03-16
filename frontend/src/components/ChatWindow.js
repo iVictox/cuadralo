@@ -4,13 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
     ArrowLeft, Send, MoreVertical, Image as ImageIcon, Smile, 
-    Loader2, Trash2, Bookmark, Clock, Copy, MoreHorizontal, Check, CheckCheck, Eye, EyeOff, AlertTriangle, X as XIcon, ArrowDown
+    Loader2, Trash2, Bookmark, Clock, Copy, MoreHorizontal, Check, CheckCheck, Eye, EyeOff, AlertTriangle, X as XIcon, MessageCircle
 } from "lucide-react";
-import EmojiPicker from 'emoji-picker-react';
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
-import { useConfirm } from "@/context/ConfirmContext";
 import ProfileDetailsModal from "@/components/ProfileDetailsModal";
+import CheckoutModal from "@/components/CheckoutModal"; // ✅ Importamos el Checkout para comprar más
 
 // --- SUB-COMPONENTE: FOTO "VER UNA VEZ" ---
 const SecretImageMessage = ({ msg, isMe, onOpen, isViewed }) => {
@@ -115,22 +114,43 @@ const MessageItem = ({ msg, isMe, onDelete, onOpenImage, onToggleSave }) => {
 
 export default function ChatWindow({ chat, onBack }) {
   const { showToast } = useToast();
-  const { confirm } = useConfirm();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [myId, setMyId] = useState(null);
-  const [showEmoji, setShowEmoji] = useState(false);
+  
+  // ✅ NUEVO: Estado para saber cuántos rompehielos tiene y abrir checkout
+  const [rompehielosCount, setRompehielosCount] = useState(0);
+  const [showCheckout, setShowCheckout] = useState(false);
+
   const [viewProfile, setViewProfile] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState(null); 
   const scrollContainerRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const rompehieloProduct = {
+      id: "rompehielos_5",
+      name: "Pack x5 Rompehielos",
+      desc: "Mensajes directos sin límite",
+      price: 3.99,
+      type: "consumable"
+  };
+
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) setMyId(JSON.parse(userStr).id);
+    
+    // Al abrir el chat, obtenemos el inventario actual
+    fetchMyPlan();
   }, []);
+
+  const fetchMyPlan = async () => {
+      try {
+          const res = await api.get("/premium/status");
+          setRompehielosCount(res.rompehielos_count || 0);
+      } catch(e) {}
+  };
 
   const fetchMessages = async () => {
     try {
@@ -146,15 +166,30 @@ export default function ChatWindow({ chat, onBack }) {
     return () => clearInterval(interval);
   }, [chat.id]);
 
+  // ✅ MODIFICADO: Interceptamos errores de Rompehielos
   const handleSend = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
+    
     const msg = newMessage;
     setNewMessage("");
+    
     try {
         await api.post("/messages", { receiver_id: chat.id, content: msg, type: "text" });
         fetchMessages();
-    } catch (error) { setNewMessage(msg); }
+        
+        // Si el chat fue directo y exitoso, descontamos visualmente 1 para que la UI se sienta veloz
+        if (chat.isDirect) {
+            setRompehielosCount(prev => prev > 0 ? prev - 1 : 0);
+        }
+    } catch (error) { 
+        setNewMessage(msg); // Restauramos el mensaje si falló
+        if (error.needs_purchase) {
+            setShowCheckout(true);
+        } else {
+            showToast("Error enviando mensaje", "error");
+        }
+    }
   };
 
   const handleImageUpload = async (e) => {
@@ -165,48 +200,101 @@ export default function ChatWindow({ chat, onBack }) {
           const imageUrl = await api.upload(file);
           await api.post("/messages", { receiver_id: chat.id, content: imageUrl, type: "image" });
           fetchMessages();
-      } catch (error) { showToast("Error", "error"); } 
+          if (chat.isDirect) setRompehielosCount(prev => prev > 0 ? prev - 1 : 0);
+      } catch (error) { 
+          if (error.needs_purchase) {
+              setShowCheckout(true);
+          } else {
+              showToast("Error subiendo imagen", "error");
+          }
+      } 
       finally { setIsUploading(false); }
   };
 
   return (
-    <div className="flex flex-col h-screen bg-cuadralo-bgLight dark:bg-cuadralo-bgDark relative z-50 w-full max-w-2xl mx-auto border-x border-black/5 dark:border-white/5 transition-colors duration-300">
-      {/* HEADER */}
-      <div className="px-4 py-4 flex items-center justify-between bg-cuadralo-bgLight/90 dark:bg-cuadralo-bgDark/90 backdrop-blur-md border-b border-black/5 dark:border-white/5 sticky top-0 z-20">
-         <div className="flex items-center gap-3">
-            <button onClick={onBack} className="p-2 -ml-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full"><ArrowLeft size={22} /></button>
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setViewProfile(true)}>
-                <div className="w-10 h-10 rounded-2xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm"><img src={chat.photo || "https://via.placeholder.com/150"} className="w-full h-full object-cover" /></div>
-                <div><h3 className="font-black text-sm">{chat.name}</h3><span className="text-[9px] uppercase font-black tracking-widest text-green-500">Online</span></div>
+    <>
+        <div className="flex flex-col h-screen bg-cuadralo-bgLight dark:bg-cuadralo-bgDark relative z-50 w-full max-w-2xl mx-auto border-x border-black/5 dark:border-white/5 transition-colors duration-300">
+        
+        {/* HEADER */}
+        <div className="px-4 py-4 flex items-center justify-between bg-cuadralo-bgLight/90 dark:bg-cuadralo-bgDark/90 backdrop-blur-md border-b border-black/5 dark:border-white/5 sticky top-0 z-20">
+            <div className="flex items-center gap-3">
+                <button onClick={onBack} className="p-2 -ml-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full"><ArrowLeft size={22} /></button>
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => !chat.isDirect && setViewProfile(true)}>
+                    <div className="w-10 h-10 rounded-2xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm"><img src={chat.photo || "https://via.placeholder.com/150"} className="w-full h-full object-cover" /></div>
+                    <div>
+                        <h3 className="font-black text-sm">{chat.name}</h3>
+                        <span className="text-[9px] uppercase font-black tracking-widest text-green-500">Online</span>
+                    </div>
+                </div>
             </div>
-         </div>
-      </div>
+            
+            {/* ✅ MENÚ DE INVENTARIO: Solo se muestra si es chat directo */}
+            {chat.isDirect && (
+                <div className="flex flex-col items-end">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-0.5">Tus Rompehielos</span>
+                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold text-sm ${rompehielosCount > 0 ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'}`}>
+                        <MessageCircle size={14} fill="currentColor" /> {rompehielosCount}
+                    </div>
+                </div>
+            )}
+        </div>
 
-      {/* MESSAGES */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
-        {loading ? <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-cuadralo-pink border-t-transparent animate-spin rounded-full"/></div> : messages.map((msg) => (
-            <MessageItem key={msg.id} msg={msg} isMe={msg.sender_id === myId} onDelete={() => {}} onOpenImage={setFullscreenImage} onToggleSave={() => {}} />
-        ))}
-      </div>
-
-      {/* INPUTS */}
-      <div className="bg-cuadralo-bgLight dark:bg-cuadralo-bgDark border-t border-black/5 dark:border-white/5 p-3 pb-8 md:pb-4 transition-colors">
-          <form onSubmit={handleSend} className="flex items-center gap-2 max-w-3xl mx-auto">
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
-            <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="p-3 bg-black/5 dark:bg-white/5 rounded-2xl text-cuadralo-textMutedLight dark:text-gray-400 hover:text-cuadralo-pink transition-all">
-                {isUploading ? <Loader2 size={20} className="animate-spin" /> : <ImageIcon size={20} />}
-            </button>
-            <div className="flex-1 relative bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-cuadralo-pink/20 transition-all">
-                <input type="text" placeholder="Escribe..." className="w-full bg-transparent py-3.5 px-5 text-sm outline-none font-medium" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+        {/* ALERTA DE CHAT DIRECTO */}
+        {chat.isDirect && (
+            <div className="bg-blue-500/10 border-b border-blue-500/20 p-3 text-center text-blue-500 font-bold text-xs">
+                ¡Estás en modo directo! Se consumirá 1 Rompehielos por cada mensaje.
             </div>
-            <button type="submit" disabled={!newMessage.trim()} className="p-3.5 bg-cuadralo-pink rounded-2xl text-white shadow-lg shadow-cuadralo-pink/20 hover:scale-105 active:scale-95 transition-all">
-                <Send size={20} />
-            </button>
-          </form>
-      </div>
-      
-      <AnimatePresence>{fullscreenImage && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[60] bg-black flex items-center justify-center p-4"><img src={fullscreenImage.content} className="max-w-full max-h-full object-contain" /><button onClick={() => setFullscreenImage(null)} className="absolute top-6 right-6 p-3 bg-white/10 rounded-full text-white"><XIcon size={24} /></button></motion.div>}</AnimatePresence>
-      <AnimatePresence>{viewProfile && <ProfileDetailsModal profile={chat} onClose={() => setViewProfile(false)} />}</AnimatePresence>
-    </div>
+        )}
+
+        {/* MESSAGES */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+            {loading ? <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-cuadralo-pink border-t-transparent animate-spin rounded-full"/></div> : messages.map((msg) => (
+                <MessageItem key={msg.id} msg={msg} isMe={msg.sender_id === myId} onDelete={() => {}} onOpenImage={setFullscreenImage} onToggleSave={() => {}} />
+            ))}
+        </div>
+
+        {/* INPUTS */}
+        <div className="bg-cuadralo-bgLight dark:bg-cuadralo-bgDark border-t border-black/5 dark:border-white/5 p-3 pb-8 md:pb-4 transition-colors relative">
+            
+            {/* Si es chat directo y no tiene rompehielos, bloqueamos la barra */}
+            {chat.isDirect && rompehielosCount <= 0 && (
+                <div className="absolute inset-0 z-10 bg-cuadralo-bgLight/80 dark:bg-[#1a0b2e]/80 backdrop-blur-sm flex items-center justify-center border-t border-white/5">
+                    <button onClick={() => setShowCheckout(true)} className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-black uppercase tracking-widest text-xs px-6 py-3 rounded-xl shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2">
+                        <MessageCircle size={16} /> Comprar Rompehielos
+                    </button>
+                </div>
+            )}
+
+            <form onSubmit={handleSend} className="flex items-center gap-2 max-w-3xl mx-auto">
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="p-3 bg-black/5 dark:bg-white/5 rounded-2xl text-cuadralo-textMutedLight dark:text-gray-400 hover:text-cuadralo-pink transition-all">
+                    {isUploading ? <Loader2 size={20} className="animate-spin" /> : <ImageIcon size={20} />}
+                </button>
+                <div className="flex-1 relative bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-cuadralo-pink/20 transition-all">
+                    <input type="text" placeholder="Escribe..." className="w-full bg-transparent py-3.5 px-5 text-sm outline-none font-medium" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                </div>
+                <button type="submit" disabled={!newMessage.trim()} className="p-3.5 bg-cuadralo-pink rounded-2xl text-white shadow-lg shadow-cuadralo-pink/20 hover:scale-105 active:scale-95 transition-all">
+                    <Send size={20} />
+                </button>
+            </form>
+        </div>
+        
+        <AnimatePresence>{fullscreenImage && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-[60] bg-black flex items-center justify-center p-4"><img src={fullscreenImage.content} className="max-w-full max-h-full object-contain" /><button onClick={() => setFullscreenImage(null)} className="absolute top-6 right-6 p-3 bg-white/10 rounded-full text-white"><XIcon size={24} /></button></motion.div>}</AnimatePresence>
+        <AnimatePresence>{viewProfile && !chat.isDirect && <ProfileDetailsModal profile={chat} onClose={() => setViewProfile(false)} />}</AnimatePresence>
+        </div>
+
+        {/* ✅ MODAL DE COMPRA */}
+        <AnimatePresence>
+            {showCheckout && (
+                <CheckoutModal 
+                    product={rompehieloProduct} 
+                    onClose={() => {
+                        setShowCheckout(false);
+                        fetchMyPlan(); // Recargar inventario al cerrar por si acaso
+                    }} 
+                />
+            )}
+        </AnimatePresence>
+    </>
   );
 }
