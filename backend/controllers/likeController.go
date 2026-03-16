@@ -1,3 +1,4 @@
+// Archivo: backend/controllers/likeController.go
 package controllers
 
 import (
@@ -51,6 +52,15 @@ func Swipe(c *fiber.Ctx) error {
 func GetSwipeFeed(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
+	// ✅ NUEVO: Obtener la distancia límite en km (por defecto 50km, o la que envíe el cliente por query param)
+	maxDistance := c.QueryInt("distance", 50)
+
+	// ✅ NUEVO: Obtener el usuario actual para conocer su ubicación (latitud y longitud)
+	var currentUser models.User
+	if err := database.DB.Select("latitude, longitude").First(&currentUser, myId).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Usuario actual no encontrado"})
+	}
+
 	// A. Obtener lista de usuarios a los que YA les hice swipe (likes o dislikes)
 	var swipedList []models.Like
 	database.DB.Select("to_user_id").Where("from_user_id = ?", myId).Find(&swipedList)
@@ -63,11 +73,21 @@ func GetSwipeFeed(c *fiber.Ctx) error {
 
 	// B. Buscar usuarios que NO estén en la lista de excluidos
 	var users []models.User
-	// Preload de intereses para mostrar en la tarjeta
-	result := database.DB.Preload("Interests").
-		Where("id NOT IN ?", excludedIDs).
-		Limit(20). // Traemos de 20 en 20 para no saturar
-		Find(&users)
+
+	// Construimos la base de la consulta
+	query := database.DB.Preload("Interests").Where("id NOT IN ?", excludedIDs)
+
+	// ✅ NUEVO: Implementación de la fórmula matemática de Haversine para filtrar por distancia
+	// Solo aplicamos el filtro de distancia si el usuario actual tiene coordenadas válidas
+	if currentUser.Latitude != 0 || currentUser.Longitude != 0 {
+		// Fórmula para calcular la distancia en Kilómetros (6371 es el radio de la tierra en km)
+		haversine := `( 6371 * acos( cos( radians(?) ) * cos( radians( latitude ) ) * cos( radians( longitude ) - radians(?) ) + sin( radians(?) ) * sin( radians( latitude ) ) ) )`
+
+		query = query.Where(haversine+" <= ?", currentUser.Latitude, currentUser.Longitude, currentUser.Latitude, maxDistance)
+	}
+
+	// Preload de intereses para mostrar en la tarjeta y limitamos la respuesta a 20 para no saturar
+	result := query.Limit(20).Find(&users)
 
 	if result.Error != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error cargando feed"})
