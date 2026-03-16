@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronRight, UploadCloud, CheckCircle, Smartphone, Building, Hash, Info, RefreshCw, Crown } from "lucide-react";
+import { X, ChevronRight, UploadCloud, CheckCircle, Smartphone, Building, Hash, Info, RefreshCw, Crown, Zap } from "lucide-react";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 
@@ -14,40 +14,74 @@ const MY_BANK_DETAILS = {
     name: "Cuadralo App C.A."
 };
 
+const VZLA_BANKS = [
+    { code: "0156", name: "100% Banco" },
+    { code: "0172", name: "Bancamiga" },
+    { code: "0114", name: "Bancaribe" },
+    { code: "0171", name: "Banco Activo" },
+    { code: "0166", name: "Banco Agrícola" },
+    { code: "0175", name: "Banco Bicentenario" },
+    { code: "0128", name: "Banco Caroní" },
+    { code: "0102", name: "Banco de Venezuela" },
+    { code: "0163", name: "Banco del Tesoro" },
+    { code: "0115", name: "Banco Exterior" },
+    { code: "0138", name: "Banco Plaza" },
+    { code: "0157", name: "Bancosur" },
+    { code: "0134", name: "Banesco" },
+    { code: "0177", name: "BANFANB" },
+    { code: "0174", name: "Banplus" },
+    { code: "0168", name: "Bancrecer" },
+    { code: "0151", name: "BFC Banco Fondo Común" },
+    { code: "0191", name: "BNC Nacional de Crédito" },
+    { code: "0105", name: "Mercantil" },
+    { code: "0169", name: "Mi Banco" },
+    { code: "0108", name: "Provincial" },
+    { code: "0104", name: "Venezolano de Crédito" },
+];
+
 export default function CheckoutModal({ product, onClose }) {
   const { showToast } = useToast();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Tasa BCV y Cálculos
   const [bcvRate, setBcvRate] = useState(null);
   const [amountVES, setAmountVES] = useState(null);
   
-  // Formulario
   const [formData, setFormData] = useState({ reference: "", bank: "", phone: "" });
   const [receiptFile, setReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState(null);
 
-  // Obtener Tasa Euro BCV en tiempo real (Usando API PyDolarVenezuela)
+  // ✅ CORRECCIÓN DEFINITIVA: Lector de API a prueba de fallos y formatos
   useEffect(() => {
       const fetchRate = async () => {
           try {
-              const res = await fetch("https://pydolarvenezuela-api.vercel.app/api/v1/dollar/page?page=bcv");
+              // Intentamos obtener la data desde PyDolarVenezuela
+              const res = await fetch("https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv");
+              if (!res.ok) throw new Error("Error de conexión con la API");
+              
               const data = await res.json();
-              // Buscamos el valor del EURO
-              if (data.monitors && data.monitors.eur) {
-                  const rate = data.monitors.eur.price;
-                  setBcvRate(rate);
-                  setAmountVES((product.price * rate).toFixed(2));
-              } else {
-                  throw new Error("No Euro data");
-              }
+              
+              // Localizar el Euro sin importar si la API lo llama 'eur' o 'euro'
+              let rawRate = data.monitors?.eur?.price || data.monitors?.euro?.price;
+
+              if (!rawRate) throw new Error("No se encontró el valor del Euro");
+
+              // LIMPIEZA MATEMÁTICA: Convertimos "511,22" a 511.22 real para JavaScript
+              const cleanRate = typeof rawRate === 'string' 
+                  ? parseFloat(rawRate.replace(',', '.')) 
+                  : parseFloat(rawRate);
+
+              setBcvRate(cleanRate);
+              setAmountVES((product.price * cleanRate).toFixed(2));
+
           } catch (error) {
-              console.error("Error obteniendo tasa BCV:", error);
-              // Fallback de emergencia si la API falla
-              setBcvRate(43.50); 
-              setAmountVES((product.price * 43.50).toFixed(2));
+              console.error("Fallo en la API, usando tasa de emergencia:", error);
+              
+              // ✅ TASA DE EMERGENCIA ACTUALIZADA AL MERCADO ACTUAL
+              const emergencyRate = 511.22; 
+              setBcvRate(emergencyRate); 
+              setAmountVES((product.price * emergencyRate).toFixed(2));
           }
       };
       fetchRate();
@@ -69,10 +103,8 @@ export default function CheckoutModal({ product, onClose }) {
 
       setLoading(true);
       try {
-          // 1. Subir la imagen al servidor
           const receiptUrl = await api.upload(receiptFile);
 
-          // 2. Enviar el reporte de pago
           await api.post("/premium/report-payment", {
               item_type: product.id,
               amount_usd: product.price,
@@ -84,7 +116,6 @@ export default function CheckoutModal({ product, onClose }) {
               receipt: receiptUrl
           });
 
-          // 3. Pantalla de Éxito
           setStep(3);
       } catch (error) {
           console.error(error);
@@ -102,7 +133,6 @@ export default function CheckoutModal({ product, onClose }) {
         exit={{ opacity: 0, scale: 0.95 }}
         className="relative w-full max-w-lg bg-[#0f0518] rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl text-white flex flex-col max-h-[90vh]"
       >
-        {/* Cabecera Pestañas Nav */}
         <div className="bg-white/5 border-b border-white/10 p-4 flex items-center justify-between">
             <h3 className="font-bold text-lg flex items-center gap-2">
                 {step === 1 ? "Resumen de Compra" : step === 2 ? "Pago Móvil" : "¡Recibido!"}
@@ -115,11 +145,10 @@ export default function CheckoutModal({ product, onClose }) {
         <div className="p-6 overflow-y-auto scrollbar-hide">
             <AnimatePresence mode="wait">
                 
-                {/* === PASO 1: DETALLES DEL PRODUCTO Y MÉTODO === */}
+                {/* === PASO 1 === */}
                 {step === 1 && (
                     <motion.div key="step1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                         
-                        {/* Producto */}
                         <div className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20">
                             <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-lg text-black">
                                 {product.id === 'vip' ? <Crown size={32} /> : <Zap size={32} />}
@@ -130,7 +159,6 @@ export default function CheckoutModal({ product, onClose }) {
                             </div>
                         </div>
 
-                        {/* Totales */}
                         <div className="bg-black/50 rounded-2xl p-5 border border-white/5">
                             <div className="flex justify-between items-center mb-3">
                                 <span className="text-white/60">Precio (USD)</span>
@@ -138,15 +166,18 @@ export default function CheckoutModal({ product, onClose }) {
                             </div>
                             <div className="flex justify-between items-center pb-3 border-b border-white/10">
                                 <span className="text-white/60 flex items-center gap-1">Tasa Euro BCV {!bcvRate && <RefreshCw size={12} className="animate-spin" />}</span>
-                                <span className="text-sm font-bold text-yellow-400">Bs. {bcvRate ? bcvRate.toFixed(2) : "Cargando..."}</span>
+                                <span className="text-sm font-bold text-yellow-400">
+                                    Bs. {bcvRate ? bcvRate.toLocaleString('es-VE', { minimumFractionDigits: 2 }) : "Cargando..."}
+                                </span>
                             </div>
                             <div className="flex justify-between items-center pt-3">
                                 <span className="text-white font-bold">Total a Pagar</span>
-                                <span className="text-2xl font-black text-green-400">Bs. {amountVES || "..."}</span>
+                                <span className="text-2xl font-black text-green-400">
+                                    Bs. {amountVES ? parseFloat(amountVES).toLocaleString('es-VE', { minimumFractionDigits: 2 }) : "..."}
+                                </span>
                             </div>
                         </div>
 
-                        {/* Selección de Método */}
                         <div>
                             <h4 className="text-sm font-bold text-white/50 uppercase tracking-widest mb-3">Método de Pago</h4>
                             <button onClick={() => setStep(2)} className="w-full flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cuadralo-pink/50 transition-all group">
@@ -165,11 +196,10 @@ export default function CheckoutModal({ product, onClose }) {
                     </motion.div>
                 )}
 
-                {/* === PASO 2: INSTRUCCIONES Y FORMULARIO PAGO MÓVIL === */}
+                {/* === PASO 2 === */}
                 {step === 2 && (
                     <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-6">
                         
-                        {/* Instrucciones de Pago */}
                         <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5">
                             <div className="flex items-center gap-2 mb-3 text-blue-400">
                                 <Info size={16} />
@@ -179,20 +209,32 @@ export default function CheckoutModal({ product, onClose }) {
                                 <div><span className="text-white/50 block text-xs">Banco</span><span className="font-bold">{MY_BANK_DETAILS.bank}</span></div>
                                 <div><span className="text-white/50 block text-xs">Teléfono</span><span className="font-bold">{MY_BANK_DETAILS.phone}</span></div>
                                 <div><span className="text-white/50 block text-xs">Cédula/RIF</span><span className="font-bold">{MY_BANK_DETAILS.rif}</span></div>
-                                <div><span className="text-white/50 block text-xs">Monto Exacto</span><span className="font-black text-green-400">Bs. {amountVES}</span></div>
+                                <div><span className="text-white/50 block text-xs">Monto Exacto</span><span className="font-black text-green-400">Bs. {amountVES ? parseFloat(amountVES).toLocaleString('es-VE', { minimumFractionDigits: 2 }) : ""}</span></div>
                             </div>
                         </div>
 
-                        {/* Formulario */}
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1 block">Tu Banco</label>
-                                    <div className="relative">
-                                        <Building size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30" />
-                                        <input type="text" placeholder="Ej: Mercantil" value={formData.bank} onChange={(e) => setFormData({...formData, bank: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm focus:border-cuadralo-pink outline-none transition-colors" />
-                                    </div>
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1 block">Banco Emisor</label>
+                                <div className="relative">
+                                    <Building size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30 pointer-events-none" />
+                                    <select 
+                                        value={formData.bank} 
+                                        onChange={(e) => setFormData({...formData, bank: e.target.value})} 
+                                        className="w-full bg-[#1a0f2e] border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm text-white focus:border-cuadralo-pink outline-none transition-colors appearance-none cursor-pointer"
+                                    >
+                                        <option value="" disabled>Selecciona tu banco...</option>
+                                        {VZLA_BANKS.map((b) => (
+                                            <option key={b.code} value={`${b.name} (${b.code})`}>
+                                                {b.name} ({b.code})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <ChevronRight size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/30 rotate-90 pointer-events-none" />
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1 block">Tu Teléfono</label>
                                     <div className="relative">
@@ -200,17 +242,15 @@ export default function CheckoutModal({ product, onClose }) {
                                         <input type="text" placeholder="0412..." value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm focus:border-cuadralo-pink outline-none transition-colors" />
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <div>
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1 block">Referencia (Últimos 6 dígitos)</label>
-                                <div className="relative">
-                                    <Hash size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30" />
-                                    <input type="text" placeholder="123456" value={formData.reference} onChange={(e) => setFormData({...formData, reference: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm focus:border-cuadralo-pink outline-none transition-colors" />
+                                <div>
+                                    <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1 block">Referencia</label>
+                                    <div className="relative">
+                                        <Hash size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30" />
+                                        <input type="text" placeholder="Últimos 6 dígitos" value={formData.reference} onChange={(e) => setFormData({...formData, reference: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm focus:border-cuadralo-pink outline-none transition-colors" />
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Subir Capture */}
                             <div>
                                 <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-2 block">Capture del Pago</label>
                                 <div 
@@ -240,7 +280,7 @@ export default function CheckoutModal({ product, onClose }) {
                     </motion.div>
                 )}
 
-                {/* === PASO 3: ÉXITO === */}
+                {/* === PASO 3 === */}
                 {step === 3 && (
                     <motion.div key="step3" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-10 text-center">
                         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", bounce: 0.5, delay: 0.2 }} className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center text-green-400 mb-6">
