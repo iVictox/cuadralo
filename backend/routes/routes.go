@@ -10,23 +10,19 @@ import (
 func Setup(app *fiber.App) {
 	api := app.Group("/api")
 
-	// --- RUTAS PÚBLICAS ---
 	api.Post("/register", controllers.Register)
 	api.Post("/login", controllers.Login)
-	api.Post("/login/google", controllers.GoogleLogin) // ✅ NUEVA RUTA PARA GOOGLE
+	api.Post("/login/google", controllers.GoogleLogin)
 	api.Post("/upload", controllers.UploadFile)
 	api.Get("/interests", controllers.GetAllInterests)
 
-	// --- MIDDLEWARE DE AUTENTICACIÓN ---
-	// Todas las rutas debajo de esto requieren estar logueado
+	// MIDDLEWARE
 	api.Use(middleware.IsAuthenticated)
 
-	// --- BUSQUEDA & NOTIFICACIONES ---
 	api.Get("/search", controllers.SearchUsers)
 	api.Get("/notifications", controllers.GetNotifications)
 	api.Post("/notifications/:id/read", controllers.MarkNotificationRead)
 
-	// --- SOCIAL (Feed, Posts, Comentarios) ---
 	api.Get("/social/feed", controllers.GetSocialFeed)
 	api.Post("/social/posts", controllers.CreatePost)
 	api.Delete("/social/posts/:id", controllers.DeletePost)
@@ -40,19 +36,16 @@ func Setup(app *fiber.App) {
 	api.Delete("/social/comments/:id", controllers.DeleteComment)
 	api.Post("/social/comments/:id/like", controllers.ToggleCommentLike)
 
-	// --- HISTORIAS ---
 	api.Get("/social/stories", controllers.GetActiveStories)
 	api.Post("/social/stories", controllers.CreateStory)
 	api.Delete("/social/stories/:id", controllers.DeleteStory)
 	api.Post("/social/stories/:id/view", controllers.ViewStory)
 	api.Get("/social/stories/:id/viewers", controllers.GetStoryViewers)
 
-	// --- PERFILES ---
 	api.Get("/u/:username", controllers.GetProfileByUsername)
 	api.Post("/users/:id/follow", controllers.FollowUser)
 	api.Get("/users/:id", controllers.GetUser)
 
-	// --- USUARIO (Mi cuenta) ---
 	api.Get("/me", controllers.GetMe)
 	api.Put("/me", controllers.UpdateMe)
 	api.Delete("/me", controllers.DeleteAccount)
@@ -61,7 +54,9 @@ func Setup(app *fiber.App) {
 	// --- SWIPE (Citas) ---
 	api.Get("/feed", controllers.GetSwipeFeed)
 	api.Post("/swipe", controllers.Swipe)
+	api.Delete("/swipe/undo", controllers.UndoSwipe)
 	api.Get("/likes-received", controllers.GetReceivedLikes)
+	api.Get("/rompehielos/requests", controllers.GetRompehielosRequests) // ✅ FASE 3: Bandeja de entrada de Rompehielos
 	api.Get("/matches", controllers.GetMatches)
 	api.Delete("/matches/:id", controllers.DeleteMatch)
 
@@ -73,12 +68,14 @@ func Setup(app *fiber.App) {
 	api.Delete("/messages/:id", controllers.DeleteMessage)
 	api.Post("/messages/:id/view", controllers.MarkMessageViewed)
 
-	// PREMIUM & DESTELLOS
+	// --- PREMIUM Y TIENDA ---
 	api.Get("/premium/status", controllers.GetMyPlan)
 	api.Post("/premium/buy", controllers.BuyPrime)
-	api.Post("/premium/boost", controllers.BuyBoost)
+	api.Post("/premium/boost/buy", controllers.BuyBoost)
+	api.Post("/premium/boost/activate", controllers.ActivateBoost)
+	api.Post("/premium/rompehielos/buy", controllers.BuyRompehielos)
 
-	// ADMINISTRACIÓN
+	// --- ADMIN ---
 	admin := api.Group("/admin", middleware.IsAdmin)
 	admin.Get("/stats", controllers.GetDashboardStats)
 	admin.Get("/users", controllers.GetAllUsersAdmin)

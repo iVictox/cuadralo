@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { X, Heart, MapPin, Info, RotateCcw, Zap, Crown, User, ChevronLeft, ChevronRight } from "lucide-react"; // ✅ Añadimos User y Chevrons
+import { X, Heart, MapPin, Info, RotateCcw, Zap, Crown, User, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react"; 
 import Image from "next/image"; 
 import { api } from "@/utils/api"; 
 import MatchModal from "@/components/MatchModal"; 
 import ProfileDetailsModal from "@/components/ProfileDetailsModal";
-import PrimeModal from "@/components/PrimeModal"; 
+import PrimeModal from "@/components/PrimeModal"; // Internamente sigue siendo PrimeModal
 import BoostModal from "@/components/BoostModal"; 
 import { getInterestInfo } from "@/utils/interests";
 
@@ -21,6 +21,9 @@ export default function CardStack() {
   
   const [showPrime, setShowPrime] = useState(false);
   const [showBoost, setShowBoost] = useState(false);
+  
+  const [showIcebreaker, setShowIcebreaker] = useState(null);
+  const [icebreakerMsg, setIcebreakerMsg] = useState("");
 
   const [isPrime, setIsPrime] = useState(false); 
   const [myPhoto, setMyPhoto] = useState(null);
@@ -49,11 +52,10 @@ export default function CardStack() {
           id: u.id,
           name: u.name,
           age: u.age,
-          gender: u.gender, // ✅ Capturamos el género
+          gender: u.gender, 
           bio: u.bio || "Sin descripción...",
           interests: typeof u.interests === 'string' ? JSON.parse(u.interests || "[]") : u.interests || [],
           img: u.photo || "https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=600",
-          // ✅ Aseguramos que 'photos' sea un array válido para el carrusel
           photos: Array.isArray(u.photos) ? u.photos.filter(p => p && p.trim() !== "") : [u.photo].filter(p => p && p.trim() !== ""),
           location: "Valencia, Carabobo", 
           is_prime: u.is_prime 
@@ -69,29 +71,67 @@ export default function CardStack() {
 
   const removeCard = async (id, direction) => {
     const cardToRemove = cards.find(c => c.id === id);
-    setHistory(prev => [...prev, cardToRemove]);
-    
-    setCards((prev) => prev.filter((card) => card.id !== id));
-
     const action = direction === "right" ? "right" : "left";
+
     try {
         const response = await api.post("/swipe", { target_id: id, action: action });
         
+        setHistory(prev => [...prev, cardToRemove]);
+        setCards((prev) => prev.filter((card) => card.id !== id));
+
         if (response.match) {
             setMatchData(cardToRemove);
         }
-    } catch (error) { console.error(error); }
+    } catch (error) {
+        if (error.needs_prime) {
+            setShowPrime(true);
+        } else {
+            console.error(error);
+        }
+    }
   };
 
-  const handleRewind = () => {
+  const sendIcebreaker = async () => {
+      if(!icebreakerMsg.trim() || !showIcebreaker) return;
+      
+      try {
+          const response = await api.post("/swipe", { 
+              target_id: showIcebreaker.id, 
+              action: "rompehielo", 
+              message: icebreakerMsg 
+          });
+          
+          setHistory(prev => [...prev, showIcebreaker]);
+          setCards((prev) => prev.filter((card) => card.id !== showIcebreaker.id));
+          
+          if (response.match) setMatchData(showIcebreaker);
+          
+          setShowIcebreaker(null);
+          setIcebreakerMsg("");
+      } catch (error) {
+          if (error.needs_purchase || error.needs_prime) {
+              alert("Te has quedado sin Rompehielos. Ve a la tienda para conseguir más.");
+          } else {
+              console.error(error);
+          }
+      }
+  };
+
+  const handleRewind = async () => {
     if (!isPrime) {
         setShowPrime(true);
         return;
     }
     if (history.length === 0) return;
-    const lastCard = history[history.length - 1];
-    setHistory(prev => prev.slice(0, -1)); 
-    setCards(prev => [...prev, lastCard]); 
+    
+    try {
+        await api.delete("/swipe/undo");
+        const lastCard = history[history.length - 1];
+        setHistory(prev => prev.slice(0, -1)); 
+        setCards(prev => [...prev, lastCard]); 
+    } catch (error) {
+        if (error.needs_prime) setShowPrime(true);
+    }
   };
 
   if (loading) return (
@@ -146,32 +186,75 @@ export default function CardStack() {
               })}
           </AnimatePresence>
 
-          <div className="absolute -bottom-24 flex items-center gap-6 z-50">
-              <button onClick={() => removeCard(cards[cards.length - 1].id, "left")} className="w-16 h-16 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 hover:bg-white dark:hover:bg-[#2a2a2a] active:scale-95 transition-all group">
-                  <X size={32} className="text-red-500 group-hover:text-red-600 dark:group-hover:text-red-400" strokeWidth={2.5} />
-              </button>
+          <div className="absolute -bottom-24 flex items-center justify-center gap-4 z-40 w-full px-4">
               
               <button 
                   onClick={handleRewind} 
-                  className={`w-12 h-12 rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark backdrop-blur-xl border transition-all ${ (history.length === 0 && isPrime) ? 'bg-gray-200/50 dark:bg-gray-800/50 opacity-50 border-transparent cursor-not-allowed' : 'bg-white/70 dark:bg-[#1a1a1a]/80 border-gray-200/50 dark:border-white/10 hover:bg-yellow-50 dark:hover:bg-yellow-500/20 hover:border-yellow-400 cursor-pointer'}`}
+                  className={`w-12 h-12 rounded-full flex flex-shrink-0 items-center justify-center shadow-glass-light dark:shadow-glass-dark backdrop-blur-xl border transition-all ${ (history.length === 0 && isPrime) ? 'bg-gray-200/50 dark:bg-gray-800/50 opacity-50 border-transparent cursor-not-allowed' : 'bg-white/70 dark:bg-[#1a1a1a]/80 border-gray-200/50 dark:border-white/10 hover:bg-yellow-50 dark:hover:bg-yellow-500/20 hover:border-yellow-400 cursor-pointer'}`}
               >
-                  <RotateCcw size={22} className="text-yellow-500" strokeWidth={2.5} />
+                  <RotateCcw size={20} className="text-yellow-500" strokeWidth={2.5} />
               </button>
 
-              <button onClick={() => removeCard(cards[cards.length - 1].id, "right")} className="w-16 h-16 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 hover:bg-white dark:hover:bg-[#2a2a2a] active:scale-95 transition-all group">
-                  <Heart size={32} className="text-cuadralo-pink fill-current group-hover:scale-110 transition-transform" strokeWidth={2} />
+              <button onClick={() => removeCard(cards[cards.length - 1].id, "left")} className="w-14 h-14 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 active:scale-95 transition-all group">
+                  <X size={28} className="text-red-500" strokeWidth={2.5} />
+              </button>
+
+              <button onClick={() => setShowIcebreaker(cards[cards.length - 1])} className="w-12 h-12 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 hover:bg-blue-50 dark:hover:bg-blue-900/20 active:scale-95 transition-all group relative">
+                  <MessageCircle size={22} className="text-blue-500" strokeWidth={2.5} />
+              </button>
+
+              <button onClick={() => removeCard(cards[cards.length - 1].id, "right")} className="w-14 h-14 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 active:scale-95 transition-all group">
+                  <Heart size={28} className="text-cuadralo-pink fill-current" strokeWidth={2} />
+              </button>
+
+              <button onClick={() => setShowBoost(true)} className="w-12 h-12 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 active:scale-95 transition-all group">
+                  <Zap size={20} className="text-purple-500 fill-current" strokeWidth={2.5} />
               </button>
           </div>
-          
-          <button 
-              onClick={() => setShowBoost(true)}
-              className="absolute -top-12 right-2 md:right-4 p-2.5 bg-white/70 dark:bg-white/10 backdrop-blur-xl rounded-full shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 transition-all z-40 group"
-              title="Ser más visible"
-          >
-              <Zap size={20} className="text-cuadralo-pink fill-current group-hover:animate-pulse" />
-          </button>
         </>
       )}
+
+      <AnimatePresence>
+        {showIcebreaker && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+                initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                className="bg-white dark:bg-[#1a1a1a] rounded-[2rem] p-6 w-full max-w-sm shadow-2xl relative"
+            >
+                <button onClick={() => setShowIcebreaker(null)} className="absolute top-4 right-4 text-gray-400 hover:text-black dark:hover:text-white">
+                    <X size={24} />
+                </button>
+                <div className="flex items-center gap-4 mb-4">
+                    <img src={showIcebreaker.photos[0]} className="w-12 h-12 rounded-full object-cover shadow-md" alt="" />
+                    <div>
+                        <h3 className="font-black text-lg">Rompe el Hielo</h3>
+                        <p className="text-xs text-blue-500 font-bold uppercase tracking-widest">Conexión Directa</p>
+                    </div>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 font-medium">Envía un mensaje llamativo a {showIcebreaker.name} antes de hacer match. Destaca sobre el resto.</p>
+                
+                <textarea 
+                    autoFocus
+                    value={icebreakerMsg}
+                    onChange={(e) => setIcebreakerMsg(e.target.value)}
+                    placeholder="Escribe algo ingenioso..."
+                    className="w-full bg-gray-100 dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-2xl p-4 text-sm resize-none outline-none focus:border-blue-500 h-28 mb-4 transition-colors"
+                    maxLength={150}
+                />
+                <button 
+                    onClick={sendIcebreaker}
+                    disabled={!icebreakerMsg.trim()}
+                    className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-black uppercase tracking-widest text-xs py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95"
+                >
+                    Enviar y Dar Like
+                </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {selectedProfile && (
@@ -207,16 +290,15 @@ function Card({ data, isFront, onSwipe, onInfo }) {
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
   const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 1, 1, 1, 0.5]);
 
-  // ✅ ESTADO MÁGICO: Controla qué foto estamos viendo en la tarjeta
   const [activePhoto, setActivePhoto] = useState(0);
 
   const nextPhoto = (e) => {
-    e.stopPropagation(); // Evitamos que el clic se entienda como 'swipe'
+    e.stopPropagation(); 
     if (activePhoto < data.photos.length - 1) setActivePhoto(activePhoto + 1);
   };
 
   const prevPhoto = (e) => {
-    e.stopPropagation(); // Evitamos que el clic se entienda como 'swipe'
+    e.stopPropagation(); 
     if (activePhoto > 0) setActivePhoto(activePhoto - 1);
   };
 
@@ -227,10 +309,8 @@ function Card({ data, isFront, onSwipe, onInfo }) {
       onDragEnd={(e, i) => { if (i.offset.x > 100) onSwipe(data.id, "right"); else if (i.offset.x < -100) onSwipe(data.id, "left"); }}
       className={`absolute w-[92%] md:w-[380px] h-full bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-[2.5rem] overflow-hidden shadow-glass-light dark:shadow-glass-dark border border-gray-200 dark:border-white/10 ${!isFront && 'pointer-events-none'} cursor-grab active:cursor-grabbing`}
     >
-      {/* ✅ CARRUSEL DE FOTOS DENTRO DE LA TARJETA */}
       <img src={data.photos[activePhoto]} alt={data.name} className="w-full h-full object-cover pointer-events-none" />
       
-      {/* ✅ BARRA DE INDICADORES DE FOTOS (ESTILO HISTORIAS) */}
       {data.photos.length > 1 && (
           <div className="absolute top-4 inset-x-12 flex gap-1 z-20">
               {data.photos.map((_, i) => (
@@ -239,7 +319,6 @@ function Card({ data, isFront, onSwipe, onInfo }) {
           </div>
       )}
 
-      {/* ✅ CONTROLES INVISIBLES PARA TOCAR LADOS DE LA FOTO */}
       {data.photos.length > 1 && (
         <div className="absolute inset-0 flex z-10 pt-16">
           <div className="w-1/2 h-full cursor-pointer flex items-center justify-start px-2 opacity-0 hover:opacity-100 transition-opacity" onClick={prevPhoto}>
@@ -251,15 +330,11 @@ function Card({ data, isFront, onSwipe, onInfo }) {
         </div>
       )}
 
-      {/* Botón Info */}
       <button onClick={(e) => { e.stopPropagation(); onInfo(); }} className="absolute top-5 right-5 w-10 h-10 flex items-center justify-center bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition-colors z-20 shadow-sm border border-white/20">
         <Info size={22} />
       </button>
 
-      {/* GRADIENTE INFERIOR Y TEXTO */}
       <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/95 via-black/60 to-transparent pt-32 pb-8 px-6 text-white pointer-events-none">
-        
-        {/* ✅ BADGE DE GÉNERO */}
         {data.gender && (
             <div className="flex items-center gap-1.5 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] uppercase tracking-widest font-bold text-gray-100 shadow-inner w-max mb-3 border border-white/5">
                 <User size={12} className="text-cuadralo-pink" />
@@ -271,10 +346,11 @@ function Card({ data, isFront, onSwipe, onInfo }) {
             {data.name} <span className="text-2xl text-white/90 font-medium">{data.age}</span>
         </h2>
         
+        {/* ✅ CAMBIO VIP APLICADO */}
         {data.is_prime && (
             <div className="flex items-center gap-1.5 text-yellow-400 mb-2 drop-shadow-sm">
                 <Crown size={16} fill="currentColor"/> 
-                <span className="text-xs font-bold uppercase tracking-wider">Prime Member</span>
+                <span className="text-xs font-bold uppercase tracking-wider">VIP</span>
             </div>
         )}
         

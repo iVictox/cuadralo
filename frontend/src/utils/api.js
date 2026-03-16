@@ -14,11 +14,8 @@ const getHeaders = () => {
 // Función genérica para manejar respuestas y errores 401
 const handleResponse = async (res) => {
     if (res.status === 401) {
-        // --- SEGURIDAD: Si el token es inválido o el usuario fue borrado ---
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        
-        // Evitar bucles de redirección si ya estamos en login
         if (!window.location.pathname.includes("/login")) {
             window.location.href = "/login";
         }
@@ -27,7 +24,8 @@ const handleResponse = async (res) => {
 
     if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Error en la petición");
+        // ✅ AHORA ARROJAMOS EL OBJETO COMPLETO PARA PODER LEER "needs_prime"
+        throw errorData; 
     }
 
     return res.json();
@@ -35,15 +33,13 @@ const handleResponse = async (res) => {
 
 export const api = {
   get: async (endpoint) => {
-    // ✅ MAGIA ANTICACHÉ: Añadimos un timestamp único a cada GET para que Next.js y el navegador
-    // se vean obligados a descargar la información fresca del servidor.
     const separator = endpoint.includes('?') ? '&' : '?';
     const noCacheUrl = `${API_URL}${endpoint}${separator}_t=${Date.now()}`;
 
     const res = await fetch(noCacheUrl, {
       method: "GET",
       headers: getHeaders(),
-      cache: "no-store", // Instrucción estricta para Next.js
+      cache: "no-store",
     });
     return handleResponse(res);
   },
