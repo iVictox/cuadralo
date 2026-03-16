@@ -22,6 +22,8 @@ type RegisterDTO struct {
 	Photo       string   `json:"photo"`
 	Photos      []string `json:"photos"`
 	Bio         string   `json:"bio"`
+	Latitude    float64  `json:"latitude"`
+	Longitude   float64  `json:"longitude"`
 	Interests   []string `json:"interests"`
 	Preferences struct {
 		Distance int    `json:"distance"`
@@ -64,6 +66,8 @@ func Register(c *fiber.Ctx) error {
 		Photo:     mainPhoto,
 		Photos:    data.Photos,
 		Bio:       data.Bio,
+		Latitude:  data.Latitude,
+		Longitude: data.Longitude,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {

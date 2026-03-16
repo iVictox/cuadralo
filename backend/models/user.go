@@ -40,6 +40,8 @@ type User struct {
 	Gender    string    `json:"gender"`
 	Bio       string    `json:"bio"`
 	Location  string    `json:"location"`
+	Latitude  float64   `json:"latitude"`
+	Longitude float64   `json:"longitude"`
 
 	Photo  string      `json:"photo"`
 	Photos StringArray `gorm:"type:text" json:"photos"`
@@ -56,6 +58,11 @@ type User struct {
 	PrimeExpiresAt time.Time `json:"prime_expires_at"`
 	IsBoosted      bool      `json:"is_boosted" gorm:"default:false"`
 	BoostExpiresAt time.Time `json:"boost_expires_at"`
+
+	BoostsCount      int       `json:"boosts_count" gorm:"default:0"`
+	RompehielosCount int       `json:"rompehielos_count" gorm:"default:0"`
+	DailyLikes       int       `json:"daily_likes" gorm:"default:0"`
+	LastLikeDate     time.Time `json:"last_like_date"`
 
 	IsFollowing    bool `gorm:"-" json:"is_following"`
 	HasStory       bool `gorm:"-" json:"has_story"`
