@@ -148,11 +148,11 @@ export default function CheckoutModal({ product, onClose }) {
 
                         <div className="bg-black/50 rounded-2xl p-5 border border-white/5">
                             <div className="flex justify-between items-center mb-3">
-                                <span className="text-white/60">Precio (USD)</span>
-                                <span className="text-xl font-black">${product.price.toFixed(2)}</span>
+                                <span className="text-white/60">Precio</span>
+                                <span className="text-xl font-black">{product.price.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center pb-3 border-b border-white/10">
-                                <span className="text-white/60 flex items-center gap-1">Tasa Euro BCV {!bcvRate && <RefreshCw size={12} className="animate-spin" />}</span>
+                                <span className="text-white/60 flex items-center gap-1">Tasa BCV {!bcvRate && <RefreshCw size={12} className="animate-spin" />}</span>
                                 <span className="text-sm font-bold text-yellow-400">
                                     Bs. {bcvRate ? bcvRate.toLocaleString('es-VE', { minimumFractionDigits: 2 }) : "Cargando..."}
                                 </span>
