@@ -8,10 +8,10 @@ import { useToast } from "@/context/ToastContext";
 
 // Configuración de tu cuenta receptora
 const MY_BANK_DETAILS = {
-    bank: "Banesco (0134)",
-    phone: "0414-1234567",
-    rif: "J-12345678-9",
-    name: "Cuadralo App C.A."
+    bank: "Bancamiga (0172)",
+    phone: "0412-7703302",
+    rif: "V-30839445",
+    name: "Victor De Abreu"
 };
 
 const VZLA_BANKS = [
@@ -79,7 +79,7 @@ export default function CheckoutModal({ product, onClose }) {
               console.error("Fallo en la API, usando tasa de emergencia:", error);
               
               // ✅ TASA DE EMERGENCIA ACTUALIZADA AL MERCADO ACTUAL
-              const emergencyRate = 511.22; 
+              const emergencyRate = 0; 
               setBcvRate(emergencyRate); 
               setAmountVES((product.price * emergencyRate).toFixed(2));
           }
