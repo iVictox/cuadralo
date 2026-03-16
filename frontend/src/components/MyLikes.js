@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Heart, Loader2, Zap, Crown, Sparkles, ArrowUpCircle, MessageCircle } from "lucide-react";
+import { Lock, Heart, Loader2, Zap, Crown, Sparkles, MessageCircle, ArrowRight } from "lucide-react";
 import { api } from "@/utils/api";
-import PrimeModal from "@/components/PrimeModal"; // Internamente lo mantenemos igual
+import { useToast } from "@/context/ToastContext";
+import PrimeModal from "@/components/PrimeModal"; 
 import BoostModal from "@/components/BoostModal"; 
 
 export default function MyLikes() {
+  const { showToast } = useToast();
   const [likes, setLikes] = useState([]);
   const [rompehielos, setRompehielos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,24 @@ export default function MyLikes() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ NUEVO: Función para responder a un Rompehielo desde el Inbox
+  const handleInboxAction = async (targetId, action) => {
+      try {
+          // action puede ser "right" (Match) o "left" (Descartar)
+          await api.post("/swipe", { target_id: targetId, action: action });
+          
+          // Lo removemos de la bandeja visualmente
+          setRompehielos((prev) => prev.filter((r) => r.id !== targetId));
+          
+          if (action === "right") {
+              showToast("¡Es un Match! Ahora pueden chatear gratis.", "success");
+          }
+      } catch (error) {
+          console.error(error);
+          showToast("Error procesando la solicitud", "error");
+      }
   };
 
   if (loading) {
@@ -72,13 +92,9 @@ export default function MyLikes() {
       {view === "likes" && (
           likes.length > 0 ? (
             <>
-                {/* ✅ BANNER VIP REDISEÑADO (Estilo Black Card) */}
                 {likes.some(l => l.locked) && (
                     <div className="bg-gradient-to-r from-neutral-900 to-black border border-yellow-500/30 p-4 rounded-3xl mb-8 flex items-center justify-between shadow-2xl relative overflow-hidden group">
-                        
-                        {/* Brillos sutiles de fondo */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 blur-[40px] rounded-full -mr-10 -mt-10 pointer-events-none" />
-
                         <div className="flex gap-4 items-center z-10 relative">
                             <div className="p-3 bg-gradient-to-br from-yellow-400/20 to-amber-600/20 rounded-2xl text-yellow-400 border border-yellow-500/20 shadow-inner">
                                 <Crown size={22} />
@@ -113,7 +129,6 @@ export default function MyLikes() {
 
                         {user.locked ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-4 text-center">
-                                {/* ✅ ICONO VIP EN FOTO BLOQUEADA */}
                                 <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2 }} className="w-14 h-14 bg-gradient-to-tr from-yellow-400 via-yellow-200 to-amber-600 rounded-full flex items-center justify-center text-black shadow-[0_0_20px_rgba(234,179,8,0.5)] mb-4 p-0.5">
                                     <div className="w-full h-full bg-[#111] rounded-full flex items-center justify-center">
                                         <Lock size={20} className="text-yellow-400" />
@@ -140,6 +155,7 @@ export default function MyLikes() {
           )
       )}
 
+      {/* === BANDEJA DE ROMPEHIELOS === */}
       {view === "messages" && (
           rompehielos.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up">
@@ -156,11 +172,18 @@ export default function MyLikes() {
                                   "{req.message}"
                               </div>
 
+                              {/* ✅ BOTONES DE ACCIÓN CONECTADOS */}
                               <div className="mt-4 flex gap-2">
-                                  <button className="flex-1 bg-gradient-to-r from-cuadralo-pink to-purple-600 text-white font-bold text-xs py-2 rounded-xl shadow-md hover:scale-105 active:scale-95 transition-all">
-                                      Dar Like
+                                  <button 
+                                      onClick={() => handleInboxAction(req.id, "right")}
+                                      className="flex-1 flex items-center justify-center gap-1.5 bg-gradient-to-r from-cuadralo-pink to-purple-600 text-white font-bold text-xs py-2.5 rounded-xl shadow-md hover:scale-105 active:scale-95 transition-all"
+                                  >
+                                      Dar Like <ArrowRight size={14} />
                                   </button>
-                                  <button className="flex-1 bg-gray-100 dark:bg-black/50 text-gray-500 font-bold text-xs py-2 rounded-xl hover:scale-105 active:scale-95 transition-all">
+                                  <button 
+                                      onClick={() => handleInboxAction(req.id, "left")}
+                                      className="flex-1 bg-gray-100 dark:bg-black/50 text-gray-500 hover:text-red-500 font-bold text-xs py-2.5 rounded-xl hover:scale-105 active:scale-95 transition-all border border-transparent hover:border-red-500/30"
+                                  >
                                       Descartar
                                   </button>
                               </div>

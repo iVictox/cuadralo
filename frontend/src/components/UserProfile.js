@@ -6,6 +6,7 @@ import { api } from "@/utils/api";
 import { motion, AnimatePresence } from "framer-motion";
 import EditProfileModal from "./EditProfileModal"; 
 import SettingsModal from "./SettingsModal";       
+import ChatWindow from "./ChatWindow"; // ✅ Importamos el ChatWindow
 import { getInterestInfo } from "@/utils/interests";
 import { useRouter } from "next/navigation";
 
@@ -20,6 +21,9 @@ export default function UserProfile({ username }) {
   
   const [showEdit, setShowEdit] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  
+  // ✅ NUEVO: Estado para abrir el chat directo de Rompehielos
+  const [showDirectChat, setShowDirectChat] = useState(false);
 
   const fetchProfileAndPosts = async () => {
     try {
@@ -159,7 +163,6 @@ export default function UserProfile({ username }) {
                   {user?.birth_date ? new Date().getFullYear() - new Date(user?.birth_date).getFullYear() : ""}
                 </span>
               </h1>
-              {/* ✅ USERNAME EN MÓVIL */}
               {user?.username && (
                 <div className="text-sm font-bold text-gray-300 drop-shadow-md mt-1">
                   @{user.username}
@@ -185,7 +188,6 @@ export default function UserProfile({ username }) {
                 {user?.birth_date ? new Date().getFullYear() - new Date(user?.birth_date).getFullYear() : ""}
               </span>
             </h1>
-            {/* ✅ USERNAME EN ESCRITORIO */}
             {user?.username && (
               <div className="text-xl font-bold text-gray-500 dark:text-gray-400 mt-1">
                 @{user.username}
@@ -231,7 +233,11 @@ export default function UserProfile({ username }) {
                         {user.is_following ? <><UserCheck size={18} /> Siguiendo</> : <><UserPlus size={18} /> Seguir</>}
                     </button>
                     
-                    <button className="p-4 md:p-5 bg-purple-100 dark:bg-purple-600 hover:bg-purple-200 dark:hover:bg-purple-500 text-purple-700 dark:text-white rounded-2xl transition-all active:scale-95 shadow-sm">
+                    {/* ✅ BOTÓN DE CHAT CONECTADO */}
+                    <button 
+                        onClick={() => setShowDirectChat(true)}
+                        className="p-4 md:p-5 bg-purple-100 dark:bg-purple-600 hover:bg-purple-200 dark:hover:bg-purple-500 text-purple-700 dark:text-white rounded-2xl transition-all active:scale-95 shadow-sm"
+                    >
                         <MessageCircle size={24} fill="currentColor" className="dark:text-white text-purple-700" />
                     </button>
                   </>
@@ -284,7 +290,7 @@ export default function UserProfile({ username }) {
                       {posts.map((post) => (
                           <div 
                               key={post.id} 
-                              onClick={() => router.push(`/post/${post.id}`)} // ✅ NAVEGAMOS A LA VISTA ÚNICA
+                              onClick={() => router.push(`/post/${post.id}`)} 
                               className="relative aspect-square bg-gray-200 dark:bg-black rounded-lg md:rounded-2xl overflow-hidden cursor-pointer group"
                           >
                               <img 
@@ -310,6 +316,26 @@ export default function UserProfile({ username }) {
         {showEdit && <EditProfileModal user={user} onClose={() => setShowEdit(false)} onUpdate={fetchProfileAndPosts} />}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </AnimatePresence>
+
+      {/* ✅ VENTANA DE CHAT DIRECTO (Rompehielos) */}
+      <AnimatePresence>
+        {showDirectChat && (
+            <div className="fixed inset-0 z-[400] bg-black/90 flex items-center justify-center">
+                <div className="w-full h-full md:max-w-2xl md:h-[90vh] md:rounded-[2rem] overflow-hidden relative">
+                    <ChatWindow 
+                        chat={{ 
+                            id: user.id, 
+                            name: user.name, 
+                            photo: photos[0],
+                            isDirect: true // Activa la lógica de Rompehielos
+                        }} 
+                        onBack={() => setShowDirectChat(false)} 
+                    />
+                </div>
+            </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

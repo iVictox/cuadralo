@@ -84,7 +84,6 @@ type MessageDTO struct {
 	Type       string `json:"type"`
 }
 
-// ✅ MODIFICADO: Sistema Híbrido (Match = Gratis / Sin Match = Cobra Rompehielos)
 func SendMessage(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
@@ -97,20 +96,18 @@ func SendMessage(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
-	// 1. Obtener al usuario que envía
 	var sender models.User
 	if err := database.DB.First(&sender, myId).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	// 2. Verificar si existe un Match oficial entre ambos
 	var matchCount int64
 	database.DB.Model(&models.Match{}).Where(
 		"(user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)",
 		myId, data.ReceiverID, data.ReceiverID, myId,
 	).Count(&matchCount)
 
-	// 3. Si NO hay match, se trata de una conexión directa y debemos cobrar 1 Rompehielos
+	// SI NO HAY MATCH, COBRAMOS ROMPEHIELOS Y LO MANDAMOS AL INBOX
 	if matchCount == 0 {
 		if sender.RompehielosCount <= 0 {
 			return c.Status(403).JSON(fiber.Map{
@@ -120,15 +117,36 @@ func SendMessage(c *fiber.Ctx) error {
 			})
 		}
 
-		// Descontar el rompehielo
 		sender.RompehielosCount--
 		database.DB.Save(&sender)
 
-		// Opcional: Podrías registrar esto también en la tabla `Likes` con action="rompehielo"
-		// para que aparezca en la bandeja del receptor si así lo deseas.
+		// ✅ CORRECCIÓN: Insertar en la tabla Likes para que aparezca en el Inbox del receptor
+		var existingLike models.Like
+		errLike := database.DB.Where("from_user_id = ? AND to_user_id = ?", myId, data.ReceiverID).First(&existingLike).Error
+
+		if errLike != nil {
+			// No había interacción previa, creamos el rompehielo
+			newLike := models.Like{
+				FromUserID: myId,
+				ToUserID:   data.ReceiverID,
+				Action:     "rompehielo",
+				Message:    data.Content,
+			}
+			if data.Type == "image" {
+				newLike.Message = "📷 Te ha enviado una foto."
+			}
+			database.DB.Create(&newLike)
+		} else {
+			// Ya existía interacción previa, actualizamos el texto para que el Inbox muestre el último mensaje
+			existingLike.Action = "rompehielo"
+			existingLike.Message = data.Content
+			if data.Type == "image" {
+				existingLike.Message = "📷 Te ha enviado una foto."
+			}
+			database.DB.Save(&existingLike)
+		}
 	}
 
-	// 4. Crear el mensaje
 	msgType := "text"
 	if data.Type == "image" {
 		msgType = "image"
@@ -145,7 +163,6 @@ func SendMessage(c *fiber.Ctx) error {
 	}
 
 	if err := database.DB.Create(&msg).Error; err != nil {
-		// Si falla, le devolvemos el Rompehielo (opcional, buena práctica)
 		if matchCount == 0 {
 			sender.RompehielosCount++
 			database.DB.Save(&sender)
