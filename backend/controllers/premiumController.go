@@ -3,6 +3,8 @@ package controllers
 import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
+	"encoding/json"
+	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -202,4 +204,37 @@ func ReportPayment(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Pago reportado exitosamente. Tu solicitud está en revisión.",
 	})
+}
+
+// ✅ NUEVA FUNCIÓN: El servidor consulta la tasa sin problemas de bloqueo (CORS)
+func GetExchangeRate(c *fiber.Ctx) error {
+	// Consultamos a DolarAPI que es ultra estable
+	resp, err := http.Get("https://ve.dolarapi.com/v1/cotizaciones/eur")
+
+	// TASA DE EMERGENCIA EXACTA que me pediste por si se cae el internet del servidor
+	fallbackRate := 512.22
+
+	if err != nil {
+		return c.JSON(fiber.Map{"rate": fallbackRate})
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Promedio float64 `json:"promedio"`
+		Venta    float64 `json:"venta"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return c.JSON(fiber.Map{"rate": fallbackRate})
+	}
+
+	rate := result.Venta
+	if rate == 0 {
+		rate = result.Promedio
+	}
+	if rate == 0 {
+		rate = fallbackRate
+	}
+
+	return c.JSON(fiber.Map{"rate": rate})
 }

@@ -71,6 +71,7 @@ func Setup(app *fiber.App) {
 	// --- PREMIUM Y TIENDA ---
 	// --- PREMIUM Y TIENDA ---
 	api.Get("/premium/status", controllers.GetMyPlan)
+	api.Get("/premium/rate", controllers.GetExchangeRate) // ✅ AÑADE ESTA LÍNEA AQUÍ
 	api.Post("/premium/buy", controllers.BuyPrime)
 	api.Post("/premium/boost/buy", controllers.BuyBoost)
 	api.Post("/premium/boost/activate", controllers.ActivateBoost)

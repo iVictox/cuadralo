@@ -6,12 +6,11 @@ import { X, ChevronRight, UploadCloud, CheckCircle, Smartphone, Building, Hash, 
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 
-// Configuración de tu cuenta receptora
 const MY_BANK_DETAILS = {
-    bank: "Bancamiga (0172)",
-    phone: "0412-7703302",
-    rif: "V-30839445",
-    name: "Victor De Abreu"
+    bank: "Banesco (0134)",
+    phone: "0414-1234567",
+    rif: "J-12345678-9",
+    name: "Cuadralo App C.A."
 };
 
 const VZLA_BANKS = [
@@ -52,34 +51,22 @@ export default function CheckoutModal({ product, onClose }) {
   const [receiptFile, setReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState(null);
 
-  // ✅ CORRECCIÓN DEFINITIVA: Lector de API a prueba de fallos y formatos
+  // ✅ AHORA LE PREGUNTAMOS A NUESTRO PROPIO BACKEND (Cero errores de CORS)
   useEffect(() => {
       const fetchRate = async () => {
           try {
-              // Intentamos obtener la data desde PyDolarVenezuela
-              const res = await fetch("https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv");
-              if (!res.ok) throw new Error("Error de conexión con la API");
+              const res = await api.get("/premium/rate");
               
-              const data = await res.json();
-              
-              // Localizar el Euro sin importar si la API lo llama 'eur' o 'euro'
-              let rawRate = data.monitors?.eur?.price || data.monitors?.euro?.price;
-
-              if (!rawRate) throw new Error("No se encontró el valor del Euro");
-
-              // LIMPIEZA MATEMÁTICA: Convertimos "511,22" a 511.22 real para JavaScript
-              const cleanRate = typeof rawRate === 'string' 
-                  ? parseFloat(rawRate.replace(',', '.')) 
-                  : parseFloat(rawRate);
-
-              setBcvRate(cleanRate);
-              setAmountVES((product.price * cleanRate).toFixed(2));
-
+              if (res.rate) {
+                  setBcvRate(res.rate);
+                  setAmountVES((product.price * res.rate).toFixed(2));
+              } else {
+                  throw new Error("Tasa no recibida");
+              }
           } catch (error) {
-              console.error("Fallo en la API, usando tasa de emergencia:", error);
-              
-              // ✅ TASA DE EMERGENCIA ACTUALIZADA AL MERCADO ACTUAL
-              const emergencyRate = 0; 
+              console.error("Fallo obteniendo la tasa del servidor:", error);
+              // La tasa 512.22 se mantiene como emergencia local por si acaso
+              const emergencyRate = 512.22; 
               setBcvRate(emergencyRate); 
               setAmountVES((product.price * emergencyRate).toFixed(2));
           }
