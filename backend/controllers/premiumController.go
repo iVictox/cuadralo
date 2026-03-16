@@ -154,3 +154,52 @@ func ActivateBoost(c *fiber.Ctx) error {
 		"boosts_count": user.BoostsCount,
 	})
 }
+
+// Estructura para recibir los datos del frontend
+type PaymentReportInput struct {
+	ItemType  string  `json:"item_type"`
+	AmountUSD float64 `json:"amount_usd"`
+	AmountVES float64 `json:"amount_ves"`
+	Rate      float64 `json:"rate"`
+	Reference string  `json:"reference"`
+	Bank      string  `json:"bank"`
+	Phone     string  `json:"phone"`
+	Receipt   string  `json:"receipt"`
+}
+
+// ✅ NUEVO: Endpoint para recibir el reporte de pago
+func ReportPayment(c *fiber.Ctx) error {
+	userId := uint(c.Locals("userId").(float64))
+
+	var input PaymentReportInput
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	// Validar que se enviaron los datos clave
+	if input.Reference == "" || input.Receipt == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "La referencia y el comprobante son obligatorios"})
+	}
+
+	report := models.PaymentReport{
+		UserID:    userId,
+		ItemType:  input.ItemType,
+		AmountUSD: input.AmountUSD,
+		AmountVES: input.AmountVES,
+		Rate:      input.Rate,
+		Reference: input.Reference,
+		Bank:      input.Bank,
+		Phone:     input.Phone,
+		Receipt:   input.Receipt,
+		Status:    "pending", // El pago queda pendiente de aprobación por el Admin
+		CreatedAt: time.Now(),
+	}
+
+	if err := database.DB.Create(&report).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "No se pudo procesar el pago"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Pago reportado exitosamente. Tu solicitud está en revisión.",
+	})
+}
