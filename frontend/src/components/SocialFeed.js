@@ -7,7 +7,6 @@ import FeedPost from "./FeedPost";
 import StoryViewer from "./StoryViewer";
 import SocialHeader from "./SocialHeader"; 
 import SearchModal from "./SearchModal"; 
-// ✅ IMPORTAMOS EL MODAL DE NOTIFICACIONES
 import NotificationModal from "./NotificationModal"; 
 import { api } from "@/utils/api";
 import { AnimatePresence, motion } from "framer-motion";
@@ -27,7 +26,6 @@ export default function SocialFeed({ onUploadClick }) {
   const [isPrime, setIsPrime] = useState(false);
   
   const [showSearchModal, setShowSearchModal] = useState(false);
-  // ✅ ESTADOS DE NOTIFICACIONES
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
 
@@ -44,7 +42,6 @@ export default function SocialFeed({ onUploadClick }) {
       const me = userStr ? JSON.parse(userStr) : null;
       setCurrentUser(me);
 
-      // ✅ Cargar cantidad de notificaciones no leídas
       const notifs = await api.get("/notifications").catch(() => []);
       if (Array.isArray(notifs)) {
           setUnreadNotifsCount(notifs.filter(n => !n.is_read).length);
@@ -73,7 +70,6 @@ export default function SocialFeed({ onUploadClick }) {
       const handleSocketEvent = (e) => {
           const { type, payload } = e.detail;
 
-          // ✅ NUEVO: ESCUCHAR NOTIFICACIONES EN TIEMPO REAL
           if (type === "new_notification") {
               setUnreadNotifsCount(prev => prev + 1);
           }
@@ -144,9 +140,9 @@ export default function SocialFeed({ onUploadClick }) {
       
       {/* HEADER SUPERIOR */}
       <SocialHeader 
-        unreadCount={unreadNotifsCount} // ✅ Conectado en tiempo real
+        unreadCount={unreadNotifsCount} 
         onSearchClick={() => setShowSearchModal(true)} 
-        onNotifClick={() => setShowNotifModal(true)} // ✅ Abre el modal
+        onNotifClick={() => setShowNotifModal(true)} 
       />
 
       {/* HISTORIAS */}
@@ -209,7 +205,6 @@ export default function SocialFeed({ onUploadClick }) {
       <AnimatePresence>
           {showSearchModal && <SearchModal onClose={() => setShowSearchModal(false)} />}
           
-          {/* ✅ RENDERIZAMOS EL MODAL DE NOTIFICACIONES */}
           {showNotifModal && (
               <NotificationModal 
                   onClose={() => setShowNotifModal(false)} 
@@ -217,8 +212,24 @@ export default function SocialFeed({ onUploadClick }) {
               />
           )}
 
+          {/* ✅ SOLUCIÓN: Atrapamos la señal 'needsRefresh' y actualizamos la barra de historias a tiempo real */}
           {viewingUserStories && (
-              <StoryViewer stories={viewingUserStories.list} isOwner={viewingUserStories.isOwner} onClose={() => setViewingUserStories(null)} />
+              <StoryViewer 
+                  stories={viewingUserStories.list} 
+                  isOwner={viewingUserStories.isOwner} 
+                  onClose={(needsRefresh) => {
+                      setViewingUserStories(null);
+                      if (needsRefresh) {
+                          // Se eliminó una historia o terminó de verlas todas, recargamos solo la barra
+                          api.get("/social/stories").then(res => {
+                              if (res) { 
+                                  setStories(res.feed || []); 
+                                  setMyStories(res.my_stories || []); 
+                              }
+                          }).catch(() => {});
+                      }
+                  }} 
+              />
           )}
           {showPrime && <PrimeModal onClose={() => setShowPrime(false)} />}
       </AnimatePresence>
