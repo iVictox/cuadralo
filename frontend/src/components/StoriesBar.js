@@ -128,9 +128,17 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
           })}
         </div>
 
+        {/* ✅ AQUI ESTÁ LA SOLUCIÓN: Cambié onClose por onCancel y onUpload por onPublish */}
         <AnimatePresence>
             {previewFile && (
-                <StoryPreview file={previewFile} onClose={() => { setPreviewFile(null); if(fileInputRef.current) fileInputRef.current.value = ""; }} onUpload={handleConfirmUpload} isUploading={uploading} />
+                <StoryPreview 
+                    file={previewFile} 
+                    onCancel={() => { 
+                        setPreviewFile(null); 
+                        if(fileInputRef.current) fileInputRef.current.value = ""; 
+                    }} 
+                    onPublish={handleConfirmUpload} 
+                />
             )}
         </AnimatePresence>
     </>
