@@ -28,7 +28,6 @@ export default function CardStack() {
   const [isPrime, setIsPrime] = useState(false); 
   const [myPhoto, setMyPhoto] = useState(null);
 
-  // ✅ NUEVO: Guardamos la dirección del swipe para la animación de salida
   const [swipeDir, setSwipeDir] = useState("right");
 
   useEffect(() => {
@@ -73,7 +72,6 @@ export default function CardStack() {
   };
 
   const removeCard = async (id, direction) => {
-    // Definimos la dirección para que Framer Motion sepa a dónde volar la carta
     setSwipeDir(direction);
     
     const cardToRemove = cards.find(c => c.id === id);
@@ -100,7 +98,7 @@ export default function CardStack() {
   const sendIcebreaker = async () => {
       if(!icebreakerMsg.trim() || !showIcebreaker) return;
       
-      setSwipeDir("right"); // Animamos hacia la derecha al mandar el rompehielos
+      setSwipeDir("right"); 
       
       try {
           const response = await api.post("/swipe", { 
@@ -143,18 +141,19 @@ export default function CardStack() {
   };
 
   if (loading) return (
-    <div className="flex h-full w-full items-center justify-center flex-col gap-4">
+    <div className="flex h-[75vh] w-full items-center justify-center flex-col gap-4">
         <div className="animate-spin h-10 w-10 border-4 border-cuadralo-pink border-t-transparent rounded-full"/>
         <p className="text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark text-sm font-medium animate-pulse">Buscando perfiles cerca de ti...</p>
     </div>
   );
 
   return (
-    // ✅ CAMBIO DE TAMAÑO: Altura incrementada a 75vh y max-h de 720px para aprovechar mejor la pantalla
-    <div className="relative w-full h-[75vh] max-h-[720px] flex justify-center items-center mt-4">
+    // ✅ SOLUCIÓN: Flex layout con alturas adaptativas (h-[78vh] a h-[82vh] en móviles)
+    // Esto asegura que la carta y los botones convivan siempre en la pantalla sin solaparse.
+    <div className="relative w-full h-[78vh] md:h-[84vh] max-h-[880px] flex flex-col justify-between items-center mt-2 md:mt-4 pb-2 md:pb-6">
       
       {cards.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in absolute inset-0 z-0 bg-transparent">
+        <div className="flex flex-1 flex-col items-center justify-center w-full text-center px-6 animate-fade-in">
           <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
               <motion.div animate={{ scale: [1, 1.5, 2], opacity: [0.4, 0.1, 0] }} transition={{ duration: 3, repeat: Infinity }} className="absolute inset-0 bg-cuadralo-pink/30 rounded-full blur-2xl"/>
               <motion.div animate={{ rotate: 360 }} transition={{ duration: 30, repeat: Infinity, ease: "linear" }} className="relative w-32 h-32 z-10">
@@ -180,45 +179,49 @@ export default function CardStack() {
         </div>
       ) : (
         <>
-          <AnimatePresence>
-              {cards.map((card, index) => {
-              const isFront = index === cards.length - 1;
-              return (
-                  <Card 
-                      key={card.id} 
-                      data={card} 
-                      isFront={isFront} 
-                      onSwipe={removeCard} 
-                      onInfo={() => setSelectedProfile(card)} 
-                      swipeDir={swipeDir} // Pasamos la dirección de salida
-                  />
-              );
-              })}
-          </AnimatePresence>
+          {/* ✅ ZONA DE CARTAS: flex-1 permite que se estire al máximo tamaño posible */}
+          <div className="relative w-full flex-1 flex justify-center items-center">
+              <AnimatePresence>
+                  {cards.map((card, index) => {
+                  const isFront = index === cards.length - 1;
+                  return (
+                      <Card 
+                          key={card.id} 
+                          data={card} 
+                          isFront={isFront} 
+                          onSwipe={removeCard} 
+                          onInfo={() => setSelectedProfile(card)} 
+                          swipeDir={swipeDir} 
+                      />
+                  );
+                  })}
+              </AnimatePresence>
+          </div>
 
-          <div className="absolute -bottom-24 md:-bottom-20 flex items-center justify-center gap-4 z-40 w-full px-4">
+          {/* ✅ ZONA DE BOTONES: flex-shrink-0 garantiza que NO sean aplastados ni desaparezcan */}
+          <div className="flex items-center justify-center gap-3 sm:gap-5 z-40 w-full px-4 mt-6 flex-shrink-0">
               
               <button 
                   onClick={handleRewind} 
-                  className={`w-12 h-12 rounded-full flex flex-shrink-0 items-center justify-center shadow-glass-light dark:shadow-glass-dark backdrop-blur-xl border transition-all ${ (history.length === 0 && isPrime) ? 'bg-gray-200/50 dark:bg-gray-800/50 opacity-50 border-transparent cursor-not-allowed' : 'bg-white/70 dark:bg-[#1a1a1a]/80 border-gray-200/50 dark:border-white/10 hover:bg-yellow-50 dark:hover:bg-yellow-500/20 hover:border-yellow-400 cursor-pointer'}`}
+                  className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex flex-shrink-0 items-center justify-center shadow-glass-light dark:shadow-glass-dark backdrop-blur-xl border transition-all ${ (history.length === 0 && isPrime) ? 'bg-gray-200/50 dark:bg-gray-800/50 opacity-50 border-transparent cursor-not-allowed' : 'bg-white/70 dark:bg-[#1a1a1a]/80 border-gray-200/50 dark:border-white/10 hover:bg-yellow-50 dark:hover:bg-yellow-500/20 hover:border-yellow-400 cursor-pointer'}`}
               >
-                  <RotateCcw size={20} className="text-yellow-500" strokeWidth={2.5} />
+                  <RotateCcw size={22} className="text-yellow-500" strokeWidth={2.5} />
               </button>
 
-              <button onClick={() => removeCard(cards[cards.length - 1].id, "left")} className="w-14 h-14 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 active:scale-95 transition-all group">
-                  <X size={28} className="text-red-500" strokeWidth={2.5} />
+              <button onClick={() => removeCard(cards[cards.length - 1].id, "left")} className="w-16 h-16 md:w-18 md:h-18 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 active:scale-95 transition-all group">
+                  <X size={34} className="text-red-500" strokeWidth={2.5} />
               </button>
 
-              <button onClick={() => setShowIcebreaker(cards[cards.length - 1])} className="w-12 h-12 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 hover:bg-blue-50 dark:hover:bg-blue-900/20 active:scale-95 transition-all group relative">
-                  <MessageCircle size={22} className="text-blue-500" strokeWidth={2.5} />
+              <button onClick={() => setShowIcebreaker(cards[cards.length - 1])} className="w-12 h-12 md:w-14 md:h-14 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 hover:bg-blue-50 dark:hover:bg-blue-900/20 active:scale-95 transition-all group relative">
+                  <MessageCircle size={24} className="text-blue-500" strokeWidth={2.5} />
               </button>
 
-              <button onClick={() => removeCard(cards[cards.length - 1].id, "right")} className="w-14 h-14 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 active:scale-95 transition-all group">
-                  <Heart size={28} className="text-cuadralo-pink fill-current" strokeWidth={2} />
+              <button onClick={() => removeCard(cards[cards.length - 1].id, "right")} className="w-16 h-16 md:w-18 md:h-18 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 active:scale-95 transition-all group">
+                  <Heart size={34} className="text-cuadralo-pink fill-current" strokeWidth={2} />
               </button>
 
-              <button onClick={() => setShowBoost(true)} className="w-12 h-12 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 active:scale-95 transition-all group">
-                  <Zap size={20} className="text-purple-500 fill-current" strokeWidth={2.5} />
+              <button onClick={() => setShowBoost(true)} className="w-12 h-12 md:w-14 md:h-14 flex-shrink-0 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full flex items-center justify-center shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 hover:scale-110 active:scale-95 transition-all group">
+                  <Zap size={22} className="text-purple-500 fill-current" strokeWidth={2.5} />
               </button>
           </div>
         </>
@@ -291,11 +294,10 @@ export default function CardStack() {
   );
 }
 
-// ✅ COMPONENTE CARD MEJORADO
+// ✅ COMPONENTE CARD MEJORADO (Abarca todo el ancho/alto permitido)
 function Card({ data, isFront, onSwipe, onInfo, swipeDir }) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
-  // Mantenemos la opacidad completa en la foto de adelante, y atenuada si está en el fondo
   const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.8, 1, 1, 1, 0.8]);
 
   const [activePhoto, setActivePhoto] = useState(0);
@@ -315,23 +317,21 @@ function Card({ data, isFront, onSwipe, onInfo, swipeDir }) {
       style={{ x, rotate, opacity: isFront ? opacity : 1, zIndex: isFront ? 20 : 0 }}
       drag={isFront ? "x" : false} 
       dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.7} // Le da una sensación de peso más natural
+      dragElastic={0.7} 
       onDragEnd={(e, i) => { 
           if (i.offset.x > 100) onSwipe(data.id, "right"); 
           else if (i.offset.x < -100) onSwipe(data.id, "left"); 
       }}
-      // Efecto Stacking (Pila): La carta de atrás está un poco más pequeña y baja
       initial={{ scale: 0.95, y: 15 }}
       animate={{ scale: isFront ? 1 : 0.95, y: isFront ? 0 : 15 }}
-      // ✅ ANIMACIÓN DE SALIDA: La carta vuela en la dirección que seleccionaste
       exit={{ 
           x: swipeDir === "right" ? 600 : -600, 
           opacity: 0, 
           rotate: swipeDir === "right" ? 20 : -20,
           transition: { duration: 0.3, ease: "easeOut" } 
       }}
-      // ✅ CAMBIO DE TAMAÑO: Cartas más anchas (hasta 420px) para lucir las fotos
-      className={`absolute w-[95%] md:w-[420px] max-w-[450px] h-full bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-[2.5rem] overflow-hidden shadow-glass-light dark:shadow-glass-dark border border-gray-200 dark:border-white/10 ${!isFront && 'pointer-events-none opacity-80'} cursor-grab active:cursor-grabbing`}
+      // ✅ CARTA MASIVA: Ocupará todo el "flex-1" de alto y casi todo el ancho
+      className={`absolute w-[96%] sm:w-[420px] max-w-[460px] h-full bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-[2.5rem] overflow-hidden shadow-glass-light dark:shadow-glass-dark border border-gray-200 dark:border-white/10 ${!isFront && 'pointer-events-none opacity-80'} cursor-grab active:cursor-grabbing`}
     >
       <img src={data.photos[activePhoto]} alt={data.name} className="w-full h-full object-cover pointer-events-none" />
       
@@ -358,7 +358,7 @@ function Card({ data, isFront, onSwipe, onInfo, swipeDir }) {
         <Info size={22} />
       </button>
 
-      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/95 via-black/60 to-transparent pt-32 pb-8 px-6 text-white pointer-events-none">
+      <div className="absolute bottom-0 w-full bg-gradient-to-t from-black via-black/60 to-transparent pt-32 pb-6 px-6 text-white pointer-events-none">
         {data.gender && (
             <div className="flex items-center gap-1.5 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] uppercase tracking-widest font-bold text-gray-100 shadow-inner w-max mb-3 border border-white/5">
                 <User size={12} className="text-cuadralo-pink" />
