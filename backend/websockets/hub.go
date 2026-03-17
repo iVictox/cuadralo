@@ -51,8 +51,26 @@ func (h *Hub) Run() {
 		case client := <-h.Register:
 			h.Mutex.Lock()
 			h.Clients[client.UserID] = client.Conn
+
+			// ✅ SOLUCIÓN: Antes de soltar el Mutex, creamos una lista de todos los que están online
+			var onlineUserIDs []uint
+			for uid := range h.Clients {
+				onlineUserIDs = append(onlineUserIDs, uid)
+			}
 			h.Mutex.Unlock()
+
 			log.Printf("Usuario %d conectado", client.UserID)
+
+			// ✅ SOLUCIÓN: Enviamos a ESTE usuario recién conectado la lista completa de online
+			msgList := WSMessage{
+				Type:    TypeOnlineUsers,
+				Payload: onlineUserIDs,
+			}
+			if err := client.Conn.WriteJSON(msgList); err != nil {
+				log.Println("Error enviando lista inicial de online:", err)
+			}
+
+			// Y luego notificamos al RESTO que este usuario se conectó
 			h.notifyUserStatus(client.UserID, true)
 
 		case userID := <-h.Unregister:
