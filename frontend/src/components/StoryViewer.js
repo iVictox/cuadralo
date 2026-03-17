@@ -11,10 +11,8 @@ export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }
   const { confirm } = useConfirm();
   const { showToast } = useToast();
   
-  // ✅ ESTADOS DE LISTA DE REPRODUCCIÓN MULTI-USUARIO
   const [currentGroupIdx, setCurrentGroupIdx] = useState(initialGroupIndex);
   
-  // Empezar inteligentemente desde la primera historia NO VISTA de este usuario
   const [currentStoryIdx, setCurrentStoryIdx] = useState(() => {
       const group = playlist[initialGroupIndex];
       if (group && group.stories) {
@@ -32,7 +30,6 @@ export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }
   const [loadingViewers, setLoadingViewers] = useState(false);
   const [liveViewsCount, setLiveViewsCount] = useState(0);
 
-  // Variables calculadas
   const currentGroup = playlist[currentGroupIdx];
   const stories = currentGroup?.stories || [];
   const isOwner = currentGroup?.isOwner || false;
@@ -45,7 +42,6 @@ export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }
       }
   }, [currentStory]);
 
-  // Si alguien nos elimina una historia mientras la vemos, evitamos que crashee
   useEffect(() => {
     if (stories && stories.length > 0) {
         if (currentStoryIdx >= stories.length) {
@@ -56,9 +52,6 @@ export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }
     }
   }, [stories, currentStoryIdx, playlist, onClose]);
 
-  // ==========================================
-  // 🚀 VISTAS EN TIEMPO REAL (WEBSOCKETS)
-  // ==========================================
   useEffect(() => {
       const handleSocket = (e) => {
           const { type, payload } = e.detail;
@@ -88,27 +81,21 @@ export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }
     markAsRead();
   }, [currentStory, isOwner]);
 
-  // ✅ NAVEGACIÓN INTELIGENTE ESTILO INSTAGRAM
   const handleNext = useCallback(() => {
       if (currentStoryIdx < stories.length - 1) {
-          // Siguiente foto de la MISMA persona
           setCurrentStoryIdx(prev => prev + 1);
       } else if (currentGroupIdx < playlist.length - 1) {
-          // Saltamos a la SIGUIENTE persona
           setCurrentGroupIdx(prev => prev + 1);
           setCurrentStoryIdx(0);
       } else {
-          // Ya vimos a todos
           onClose(true); 
       }
   }, [currentStoryIdx, currentGroupIdx, stories.length, playlist.length, onClose]);
 
   const handlePrev = useCallback(() => {
       if (currentStoryIdx > 0) {
-          // Foto anterior de la MISMA persona
           setCurrentStoryIdx(prev => prev - 1);
       } else if (currentGroupIdx > 0) {
-          // Saltamos a la ÚLTIMA foto de la persona ANTERIOR
           setCurrentGroupIdx(prev => prev - 1);
           setCurrentStoryIdx(playlist[currentGroupIdx - 1].stories.length - 1);
       }
@@ -178,40 +165,49 @@ export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }
   return (
     <div className="fixed inset-0 z-[70] bg-black flex items-center justify-center">
         
-        {/* BARRAS DE PROGRESO (Solo de la persona que estamos viendo) */}
-        <div className="absolute top-4 left-0 w-full px-2 flex gap-1 z-20">
-            {stories.map((story, idx) => (
-                <div key={story.id} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
-                    <motion.div 
-                        initial={{ width: idx < currentStoryIdx ? "100%" : "0%" }}
-                        animate={{ width: idx === currentStoryIdx ? `${progress}%` : idx < currentStoryIdx ? "100%" : "0%" }}
-                        transition={{ ease: "linear", duration: idx === currentStoryIdx ? 0.05 : 0 }}
-                        className="h-full bg-white"
-                    />
-                </div>
-            ))}
-        </div>
-
-        {/* HEADER */}
-        <div className="absolute top-8 left-0 w-full px-4 flex justify-between items-center z-20 pt-2">
-            <div className="flex items-center gap-3">
-                <img 
-                    src={getProfilePic(displayUser?.photo)} 
-                    className="w-8 h-8 rounded-full border border-white/50 object-cover bg-[#1a0b2e]" 
-                    alt="Perfil"
-                />
-                <span className="text-white font-bold text-sm shadow-black drop-shadow-md">
-                    {displayUser?.name || "Usuario"}
-                </span>
-                <span className="text-white/70 text-xs shadow-black drop-shadow-md">
-                    {new Date(currentStory.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                </span>
+        {/* ✅ SOLUCIÓN: OVERLAY DE SOMBRA SUPERIOR PARA FOTOS BLANCAS */}
+        <div className="absolute top-0 left-0 w-full pt-4 pb-16 px-2 z-20 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
+            
+            {/* BARRAS DE PROGRESO */}
+            <div className="flex gap-1 w-full mb-4 px-2">
+                {stories.map((story, idx) => (
+                    <div key={story.id} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+                        <motion.div 
+                            initial={{ width: idx < currentStoryIdx ? "100%" : "0%" }}
+                            animate={{ width: idx === currentStoryIdx ? `${progress}%` : idx < currentStoryIdx ? "100%" : "0%" }}
+                            transition={{ ease: "linear", duration: idx === currentStoryIdx ? 0.05 : 0 }}
+                            className="h-full bg-white shadow-[0_0_2px_rgba(0,0,0,0.5)]"
+                        />
+                    </div>
+                ))}
             </div>
-            <div className="flex items-center gap-4">
-                {isOwner && (
-                    <button onClick={handleDelete} className="text-white/80 hover:text-red-500 transition-colors p-2"><Trash2 size={20} /></button>
-                )}
-                <button onClick={() => onClose(false)} className="text-white p-2"><X size={28} /></button>
+
+            {/* HEADER */}
+            <div className="flex justify-between items-center px-2 pointer-events-auto">
+                <div className="flex items-center gap-3">
+                    <img 
+                        src={getProfilePic(displayUser?.photo)} 
+                        className="w-8 h-8 rounded-full border border-white/50 object-cover bg-[#1a0b2e] shadow-md" 
+                        alt="Perfil"
+                    />
+                    <span className="text-white font-bold text-sm drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                        {displayUser?.name || "Usuario"}
+                    </span>
+                    <span className="text-white/90 text-xs drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                        {new Date(currentStory.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </span>
+                </div>
+                <div className="flex items-center gap-4">
+                    {isOwner && (
+                        <button onClick={handleDelete} className="text-white hover:text-red-500 transition-colors p-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                            {/* Filtro extra directo al SVG por si la foto es extremadamente luminosa */}
+                            <Trash2 size={22} style={{ filter: "drop-shadow(0px 2px 4px rgba(0,0,0,0.8))" }} />
+                        </button>
+                    )}
+                    <button onClick={() => onClose(false)} className="text-white p-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                        <X size={28} style={{ filter: "drop-shadow(0px 2px 4px rgba(0,0,0,0.8))" }} />
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -235,8 +231,8 @@ export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }
 
         {/* CONTADOR DE VISTAS (EN VIVO) */}
         {isOwner && (
-            <div className="absolute bottom-6 left-4 z-30">
-                <button onClick={handleOpenViewers} className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-white border border-white/20 hover:bg-white/20 transition-colors">
+            <div className="absolute bottom-6 left-4 z-30 pointer-events-auto">
+                <button onClick={handleOpenViewers} className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-white border border-white/20 hover:bg-white/20 transition-colors shadow-lg">
                     <Eye size={18} />
                     <span className="font-bold text-sm">{liveViewsCount}</span>
                     <span className="text-xs text-white/80 ml-1">vistas</span>
