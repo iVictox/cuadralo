@@ -46,7 +46,7 @@ export const SocketProvider = ({ children }) => {
                 if (!me || !me.id) return;
 
                 // Conectamos el WebSocket
-                const wsUrl = `ws://localhost:8000/ws/${me.id}`;
+                const wsUrl = `ws://cuadralo.club:8080/ws/${me.id}`;
                 const ws = new WebSocket(wsUrl);
 
                 ws.onopen = () => {
