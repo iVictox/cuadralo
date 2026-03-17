@@ -6,7 +6,7 @@ import { api } from "@/utils/api";
 import { motion, AnimatePresence } from "framer-motion";
 import EditProfileModal from "./EditProfileModal"; 
 import SettingsModal from "./SettingsModal";       
-import ChatWindow from "./ChatWindow"; // ✅ Importamos el ChatWindow
+import ChatWindow from "./ChatWindow"; 
 import { getInterestInfo } from "@/utils/interests";
 import { useRouter } from "next/navigation";
 
@@ -21,8 +21,6 @@ export default function UserProfile({ username }) {
   
   const [showEdit, setShowEdit] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  
-  // ✅ NUEVO: Estado para abrir el chat directo de Rompehielos
   const [showDirectChat, setShowDirectChat] = useState(false);
 
   const fetchProfileAndPosts = async () => {
@@ -233,7 +231,6 @@ export default function UserProfile({ username }) {
                         {user.is_following ? <><UserCheck size={18} /> Siguiendo</> : <><UserPlus size={18} /> Seguir</>}
                     </button>
                     
-                    {/* ✅ BOTÓN DE CHAT CONECTADO */}
                     <button 
                         onClick={() => setShowDirectChat(true)}
                         className="p-4 md:p-5 bg-purple-100 dark:bg-purple-600 hover:bg-purple-200 dark:hover:bg-purple-500 text-purple-700 dark:text-white rounded-2xl transition-all active:scale-95 shadow-sm"
@@ -317,7 +314,6 @@ export default function UserProfile({ username }) {
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       </AnimatePresence>
 
-      {/* ✅ VENTANA DE CHAT DIRECTO (Rompehielos) */}
       <AnimatePresence>
         {showDirectChat && (
             <div className="fixed inset-0 z-[400] bg-black/90 flex items-center justify-center">
@@ -327,7 +323,8 @@ export default function UserProfile({ username }) {
                             id: user.id, 
                             name: user.name, 
                             photo: photos[0],
-                            isDirect: true // Activa la lógica de Rompehielos
+                            // ✅ SOLUCIÓN: Si es match, isDirect es falso (Chat Gratis). Si no, es Rompehielos.
+                            isDirect: !user.is_match 
                         }} 
                         onBack={() => setShowDirectChat(false)} 
                     />

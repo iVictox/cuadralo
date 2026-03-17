@@ -36,10 +36,36 @@ func GetProfileByUsername(c *fiber.Ctx) error {
 		user.IsFollowing = true
 	}
 
-	return c.JSON(user)
+	// ✅ NUEVO: Comprobar si ya son un Match oficial
+	var match models.Match
+	isMatch := false
+	if database.DB.Where("(user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)", myId, user.ID, user.ID, myId).First(&match).RowsAffected > 0 {
+		isMatch = true
+	}
+
+	// Enviamos la respuesta construida manualmente para incluir el campo IsMatch sin ensuciar el modelo User globalmente
+	return c.JSON(fiber.Map{
+		"id":               user.ID,
+		"name":             user.Name,
+		"username":         user.Username,
+		"bio":              user.Bio,
+		"gender":           user.Gender,
+		"birth_date":       user.BirthDate,
+		"location":         user.Location,
+		"photo":            user.Photo,
+		"photos":           user.Photos,
+		"followers_count":  user.FollowersCount,
+		"following_count":  user.FollowingCount,
+		"is_prime":         user.IsPrime,
+		"interestsList":    user.InterestsList,
+		"is_following":     user.IsFollowing,
+		"has_story":        user.HasStory,
+		"has_unseen_story": user.HasUnseenStory,
+		"is_match":         isMatch, // <- Enviamos si es match o no
+	})
 }
 
-// ✅ Función renombrada para routes.go
+// Función renombrada para routes.go
 func FollowUser(c *fiber.Ctx) error {
 	followerID := uint(c.Locals("userId").(float64))
 	followingIDStr := c.Params("id")
@@ -66,12 +92,8 @@ func FollowUser(c *fiber.Ctx) error {
 	}
 	database.DB.Create(&newFollow)
 
-	// 🚀 DISPARAMOS LA NOTIFICACIÓN DE NUEVO SEGUIDOR
-	// Como no es un post, le enviamos "nil" en el ID de publicación
-	websockets.SendToUser(fmt.Sprintf("%d", followingID), "new_notification", nil) // Llamada temporal si la función helper no está exportada, o si tienes tu propia lógica de notificación.
+	websockets.SendToUser(fmt.Sprintf("%d", followingID), "new_notification", nil)
 
-	// NOTA: Como la función CreateAndBroadcastNotification está en socialController,
-	// la forma más fácil es replicar la lógica pequeña aquí:
 	notif := models.Notification{
 		UserID:    followingID,
 		SenderID:  followerID,
