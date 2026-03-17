@@ -7,7 +7,7 @@ import Image from "next/image";
 import { api } from "@/utils/api"; 
 import MatchModal from "@/components/MatchModal"; 
 import ProfileDetailsModal from "@/components/ProfileDetailsModal";
-import PrimeModal from "@/components/PrimeModal"; // Internamente sigue siendo PrimeModal
+import PrimeModal from "@/components/PrimeModal";
 import BoostModal from "@/components/BoostModal"; 
 import { getInterestInfo } from "@/utils/interests";
 
@@ -27,6 +27,9 @@ export default function CardStack() {
 
   const [isPrime, setIsPrime] = useState(false); 
   const [myPhoto, setMyPhoto] = useState(null);
+
+  // ✅ NUEVO: Guardamos la dirección del swipe para la animación de salida
+  const [swipeDir, setSwipeDir] = useState("right");
 
   useEffect(() => {
     fetchFeed();
@@ -70,6 +73,9 @@ export default function CardStack() {
   };
 
   const removeCard = async (id, direction) => {
+    // Definimos la dirección para que Framer Motion sepa a dónde volar la carta
+    setSwipeDir(direction);
+    
     const cardToRemove = cards.find(c => c.id === id);
     const action = direction === "right" ? "right" : "left";
 
@@ -93,6 +99,8 @@ export default function CardStack() {
 
   const sendIcebreaker = async () => {
       if(!icebreakerMsg.trim() || !showIcebreaker) return;
+      
+      setSwipeDir("right"); // Animamos hacia la derecha al mandar el rompehielos
       
       try {
           const response = await api.post("/swipe", { 
@@ -142,7 +150,8 @@ export default function CardStack() {
   );
 
   return (
-    <div className="relative w-full h-[65vh] max-h-[600px] flex justify-center items-center mt-6">
+    // ✅ CAMBIO DE TAMAÑO: Altura incrementada a 75vh y max-h de 720px para aprovechar mejor la pantalla
+    <div className="relative w-full h-[75vh] max-h-[720px] flex justify-center items-center mt-4">
       
       {cards.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full text-center px-6 animate-fade-in absolute inset-0 z-0 bg-transparent">
@@ -181,12 +190,13 @@ export default function CardStack() {
                       isFront={isFront} 
                       onSwipe={removeCard} 
                       onInfo={() => setSelectedProfile(card)} 
+                      swipeDir={swipeDir} // Pasamos la dirección de salida
                   />
               );
               })}
           </AnimatePresence>
 
-          <div className="absolute -bottom-24 flex items-center justify-center gap-4 z-40 w-full px-4">
+          <div className="absolute -bottom-24 md:-bottom-20 flex items-center justify-center gap-4 z-40 w-full px-4">
               
               <button 
                   onClick={handleRewind} 
@@ -214,6 +224,7 @@ export default function CardStack() {
         </>
       )}
 
+      {/* MODALES EXTRAS... */}
       <AnimatePresence>
         {showIcebreaker && (
           <motion.div 
@@ -257,19 +268,14 @@ export default function CardStack() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {selectedProfile && (
-            <ProfileDetailsModal profile={selectedProfile} onClose={() => setSelectedProfile(null)} />
-        )}
+        {selectedProfile && <ProfileDetailsModal profile={selectedProfile} onClose={() => setSelectedProfile(null)} />}
       </AnimatePresence>
-
       <AnimatePresence>
         {showPrime && <PrimeModal onClose={() => setShowPrime(false)} />}
       </AnimatePresence>
-
       <AnimatePresence>
         {showBoost && <BoostModal onClose={() => setShowBoost(false)} />}
       </AnimatePresence>
-
       <AnimatePresence>
         {matchData && (
             <MatchModal 
@@ -285,10 +291,12 @@ export default function CardStack() {
   );
 }
 
-function Card({ data, isFront, onSwipe, onInfo }) {
+// ✅ COMPONENTE CARD MEJORADO
+function Card({ data, isFront, onSwipe, onInfo, swipeDir }) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
-  const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.5, 1, 1, 1, 0.5]);
+  // Mantenemos la opacidad completa en la foto de adelante, y atenuada si está en el fondo
+  const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0.8, 1, 1, 1, 0.8]);
 
   const [activePhoto, setActivePhoto] = useState(0);
 
@@ -304,10 +312,26 @@ function Card({ data, isFront, onSwipe, onInfo }) {
 
   return (
     <motion.div
-      style={{ x, rotate, opacity, zIndex: isFront ? 20 : 0 }}
-      drag={isFront ? "x" : false} dragConstraints={{ left: 0, right: 0 }}
-      onDragEnd={(e, i) => { if (i.offset.x > 100) onSwipe(data.id, "right"); else if (i.offset.x < -100) onSwipe(data.id, "left"); }}
-      className={`absolute w-[92%] md:w-[380px] h-full bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-[2.5rem] overflow-hidden shadow-glass-light dark:shadow-glass-dark border border-gray-200 dark:border-white/10 ${!isFront && 'pointer-events-none'} cursor-grab active:cursor-grabbing`}
+      style={{ x, rotate, opacity: isFront ? opacity : 1, zIndex: isFront ? 20 : 0 }}
+      drag={isFront ? "x" : false} 
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.7} // Le da una sensación de peso más natural
+      onDragEnd={(e, i) => { 
+          if (i.offset.x > 100) onSwipe(data.id, "right"); 
+          else if (i.offset.x < -100) onSwipe(data.id, "left"); 
+      }}
+      // Efecto Stacking (Pila): La carta de atrás está un poco más pequeña y baja
+      initial={{ scale: 0.95, y: 15 }}
+      animate={{ scale: isFront ? 1 : 0.95, y: isFront ? 0 : 15 }}
+      // ✅ ANIMACIÓN DE SALIDA: La carta vuela en la dirección que seleccionaste
+      exit={{ 
+          x: swipeDir === "right" ? 600 : -600, 
+          opacity: 0, 
+          rotate: swipeDir === "right" ? 20 : -20,
+          transition: { duration: 0.3, ease: "easeOut" } 
+      }}
+      // ✅ CAMBIO DE TAMAÑO: Cartas más anchas (hasta 420px) para lucir las fotos
+      className={`absolute w-[95%] md:w-[420px] max-w-[450px] h-full bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-[2.5rem] overflow-hidden shadow-glass-light dark:shadow-glass-dark border border-gray-200 dark:border-white/10 ${!isFront && 'pointer-events-none opacity-80'} cursor-grab active:cursor-grabbing`}
     >
       <img src={data.photos[activePhoto]} alt={data.name} className="w-full h-full object-cover pointer-events-none" />
       
@@ -346,7 +370,6 @@ function Card({ data, isFront, onSwipe, onInfo }) {
             {data.name} <span className="text-2xl text-white/90 font-medium">{data.age}</span>
         </h2>
         
-        {/* ✅ CAMBIO VIP APLICADO */}
         {data.is_prime && (
             <div className="flex items-center gap-1.5 text-yellow-400 mb-2 drop-shadow-sm">
                 <Crown size={16} fill="currentColor"/> 
