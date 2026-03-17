@@ -7,11 +7,23 @@ import { api } from "@/utils/api";
 import { useConfirm } from "@/context/ConfirmContext";
 import { useToast } from "@/context/ToastContext";
 
-export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, isOwner }) {
+export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }) {
   const { confirm } = useConfirm();
   const { showToast } = useToast();
   
-  const [currentIndex, setCurrentIndex] = useState(initialStoryIndex);
+  // ✅ ESTADOS DE LISTA DE REPRODUCCIÓN MULTI-USUARIO
+  const [currentGroupIdx, setCurrentGroupIdx] = useState(initialGroupIndex);
+  
+  // Empezar inteligentemente desde la primera historia NO VISTA de este usuario
+  const [currentStoryIdx, setCurrentStoryIdx] = useState(() => {
+      const group = playlist[initialGroupIndex];
+      if (group && group.stories) {
+          const firstUnseen = group.stories.findIndex(s => !s.seen);
+          return firstUnseen !== -1 ? firstUnseen : 0;
+      }
+      return 0;
+  });
+
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   
@@ -20,30 +32,12 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
   const [loadingViewers, setLoadingViewers] = useState(false);
   const [liveViewsCount, setLiveViewsCount] = useState(0);
 
-  // ✅ NUEVO: Estado para almacenar tus propios datos en caso de que sea tu historia
-  const [me, setMe] = useState(null);
-
-  useEffect(() => {
-      // Si estamos viendo nuestra propia historia, extraemos nuestros datos del navegador
-      if (typeof window !== "undefined") {
-          const userStr = localStorage.getItem("user");
-          if (userStr) {
-              try { setMe(JSON.parse(userStr)); } 
-              catch (e) { console.error("Error leyendo usuario del localStorage:", e); }
-          }
-      }
-  }, []);
-
-  // Si la historia desaparece mientras la vemos (eliminada por socket), ajustamos el índice
-  useEffect(() => {
-      if (stories && stories.length > 0) {
-          if (currentIndex >= stories.length) {
-              setCurrentIndex(stories.length - 1);
-          }
-      }
-  }, [stories, currentIndex]);
-
-  const currentStory = stories[currentIndex];
+  // Variables calculadas
+  const currentGroup = playlist[currentGroupIdx];
+  const stories = currentGroup?.stories || [];
+  const isOwner = currentGroup?.isOwner || false;
+  const currentStory = stories[currentStoryIdx];
+  const displayUser = currentGroup?.user;
 
   useEffect(() => {
       if (currentStory) {
@@ -51,13 +45,23 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
       }
   }, [currentStory]);
 
+  // Si alguien nos elimina una historia mientras la vemos, evitamos que crashee
+  useEffect(() => {
+    if (stories && stories.length > 0) {
+        if (currentStoryIdx >= stories.length) {
+            setCurrentStoryIdx(stories.length - 1);
+        }
+    } else if (playlist.length === 0) {
+        onClose(true);
+    }
+  }, [stories, currentStoryIdx, playlist, onClose]);
+
   // ==========================================
   // 🚀 VISTAS EN TIEMPO REAL (WEBSOCKETS)
   // ==========================================
   useEffect(() => {
       const handleSocket = (e) => {
           const { type, payload } = e.detail;
-          
           if (type === "story_seen_by" && currentStory && String(payload.story_id) === String(currentStory.id)) {
               if (showViewers) {
                   api.get(`/social/stories/${currentStory.id}/viewers`)
@@ -71,7 +75,6 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
               }
           }
       };
-
       window.addEventListener("socket_event", handleSocket);
       return () => window.removeEventListener("socket_event", handleSocket);
   }, [currentStory, showViewers]);
@@ -85,14 +88,31 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
     markAsRead();
   }, [currentStory, isOwner]);
 
+  // ✅ NAVEGACIÓN INTELIGENTE ESTILO INSTAGRAM
   const handleNext = useCallback(() => {
-      if (currentIndex < stories.length - 1) setCurrentIndex(prev => prev + 1);
-      else onClose(true); 
-  }, [currentIndex, stories.length, onClose]);
+      if (currentStoryIdx < stories.length - 1) {
+          // Siguiente foto de la MISMA persona
+          setCurrentStoryIdx(prev => prev + 1);
+      } else if (currentGroupIdx < playlist.length - 1) {
+          // Saltamos a la SIGUIENTE persona
+          setCurrentGroupIdx(prev => prev + 1);
+          setCurrentStoryIdx(0);
+      } else {
+          // Ya vimos a todos
+          onClose(true); 
+      }
+  }, [currentStoryIdx, currentGroupIdx, stories.length, playlist.length, onClose]);
 
   const handlePrev = useCallback(() => {
-      if (currentIndex > 0) setCurrentIndex(prev => prev - 1);
-  }, [currentIndex]);
+      if (currentStoryIdx > 0) {
+          // Foto anterior de la MISMA persona
+          setCurrentStoryIdx(prev => prev - 1);
+      } else if (currentGroupIdx > 0) {
+          // Saltamos a la ÚLTIMA foto de la persona ANTERIOR
+          setCurrentGroupIdx(prev => prev - 1);
+          setCurrentStoryIdx(playlist[currentGroupIdx - 1].stories.length - 1);
+      }
+  }, [currentStoryIdx, currentGroupIdx, playlist]);
 
   useEffect(() => {
     if (!currentStory || isPaused || showViewers) return;
@@ -109,7 +129,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
     }, intervalTime);
 
     return () => clearInterval(timer);
-  }, [currentIndex, isPaused, currentStory, showViewers]);
+  }, [currentStoryIdx, currentGroupIdx, isPaused, currentStory, showViewers]);
 
   useEffect(() => {
       if (progress >= 100 && !showViewers) handleNext();
@@ -123,7 +143,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
           try {
               await api.delete(`/social/stories/${currentStory.id}`);
               showToast("Historia eliminada", "success");
-              onClose(true); // Cierra automáticamente
+              onClose(true); 
           } catch (error) { 
               showToast("Error al eliminar", "error"); 
               setIsPaused(false); 
@@ -153,23 +173,19 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
       return `${baseUrl}${url}`;
   };
 
-  if (!currentStory) return null;
-
-  // ✅ SOLUCIÓN: Si es mi historia (isOwner) y tengo el 'me' cargado, uso mis propios datos. 
-  // En cualquier otro caso, uso los datos que vengan con la historia.
-  const displayUser = (isOwner && me) ? me : currentStory.user;
+  if (!currentGroup || !currentStory) return null;
 
   return (
     <div className="fixed inset-0 z-[70] bg-black flex items-center justify-center">
         
-        {/* BARRAS DE PROGRESO */}
+        {/* BARRAS DE PROGRESO (Solo de la persona que estamos viendo) */}
         <div className="absolute top-4 left-0 w-full px-2 flex gap-1 z-20">
             {stories.map((story, idx) => (
                 <div key={story.id} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
                     <motion.div 
-                        initial={{ width: idx < currentIndex ? "100%" : "0%" }}
-                        animate={{ width: idx === currentIndex ? `${progress}%` : idx < currentIndex ? "100%" : "0%" }}
-                        transition={{ ease: "linear", duration: idx === currentIndex ? 0.05 : 0 }}
+                        initial={{ width: idx < currentStoryIdx ? "100%" : "0%" }}
+                        animate={{ width: idx === currentStoryIdx ? `${progress}%` : idx < currentStoryIdx ? "100%" : "0%" }}
+                        transition={{ ease: "linear", duration: idx === currentStoryIdx ? 0.05 : 0 }}
                         className="h-full bg-white"
                     />
                 </div>
@@ -185,7 +201,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
                     alt="Perfil"
                 />
                 <span className="text-white font-bold text-sm shadow-black drop-shadow-md">
-                    {displayUser?.name || "Tú"}
+                    {displayUser?.name || "Usuario"}
                 </span>
                 <span className="text-white/70 text-xs shadow-black drop-shadow-md">
                     {new Date(currentStory.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}

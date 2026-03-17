@@ -94,8 +94,20 @@ export default function SocialFeed({ onUploadClick }) {
 
           if (type === "story_seen_by") {
               setMyStories(prev => prev.map(s => String(s.id) === String(payload.story_id) ? { ...s, views_count: (s.views_count || 0) + 1 } : s));
+              
               setViewingUserStories(prev => {
-                  if (prev && prev.isOwner) return { ...prev, list: prev.list.map(s => String(s.id) === String(payload.story_id) ? { ...s, views_count: (s.views_count || 0) + 1 } : s) };
+                  if (prev && prev.playlist) {
+                      const newPlaylist = prev.playlist.map(group => {
+                          if (group.isOwner) {
+                              return {
+                                  ...group,
+                                  stories: group.stories.map(s => String(s.id) === String(payload.story_id) ? { ...s, views_count: (s.views_count || 0) + 1 } : s)
+                              };
+                          }
+                          return group;
+                      });
+                      return { ...prev, playlist: newPlaylist };
+                  }
                   return prev;
               });
           }
@@ -110,11 +122,18 @@ export default function SocialFeed({ onUploadClick }) {
                       return group;
                   }).filter(group => group.stories.length > 0));
               }
+
               setViewingUserStories(prev => {
                   if (!prev) return null;
-                  const newList = prev.list.filter(s => String(s.id) !== String(story_id));
-                  if (newList.length === 0) return null;
-                  return { ...prev, list: newList };
+                  const newPlaylist = prev.playlist.map(group => {
+                      return {
+                          ...group,
+                          stories: group.stories.filter(s => String(s.id) !== String(story_id))
+                      };
+                  }).filter(group => group.stories.length > 0);
+
+                  if (newPlaylist.length === 0) return null;
+                  return { ...prev, playlist: newPlaylist };
               });
           }
       };
@@ -126,31 +145,56 @@ export default function SocialFeed({ onUploadClick }) {
   const handleRefresh = () => { setRefreshing(true); fetchData(activeTab, true); };
   const handlePostDeleted = (deletedPostId) => { setPosts(prev => prev.filter(p => p.id !== deletedPostId)); };
 
+  // ✅ NUEVO: Lógica de Playlist para las Historias
   const handleViewStory = (targetUserId) => {
-      if (currentUser && targetUserId === currentUser.id) {
-          if (myStories.length > 0) setViewingUserStories({ list: myStories, isOwner: true });
-      } else {
-          const targetGroup = stories.find(g => g.user.id === targetUserId);
-          if (targetGroup && targetGroup.stories.length > 0) setViewingUserStories({ list: targetGroup.stories, isOwner: false });
+      let fullPlaylist = [];
+
+      // 1. Agregamos nuestra propia historia primero (si tenemos)
+      if (myStories && myStories.length > 0) {
+          fullPlaylist.push({
+              user: currentUser,
+              stories: myStories,
+              isOwner: true
+          });
+      }
+
+      // 2. Agregamos las historias de los demás usuarios
+      if (stories && stories.length > 0) {
+          stories.forEach(group => {
+              if (group.stories && group.stories.length > 0) {
+                  fullPlaylist.push({
+                      user: group.user,
+                      stories: group.stories,
+                      isOwner: false
+                  });
+              }
+          });
+      }
+
+      // 3. Buscamos dónde hizo clic el usuario para empezar desde ahí
+      const targetIndex = fullPlaylist.findIndex(g => String(g.user?.id) === String(targetUserId));
+
+      if (targetIndex !== -1) {
+          setViewingUserStories({
+              playlist: fullPlaylist,
+              initialGroupIndex: targetIndex
+          });
       }
   };
 
   return (
     <div className="w-full h-full relative overflow-y-auto pb-28 no-scrollbar scroll-smooth">
       
-      {/* HEADER SUPERIOR */}
       <SocialHeader 
         unreadCount={unreadNotifsCount} 
         onSearchClick={() => setShowSearchModal(true)} 
         onNotifClick={() => setShowNotifModal(true)} 
       />
 
-      {/* HISTORIAS */}
       <div className="mb-4 pt-[10px] px-2 md:px-6">
           <StoriesBar stories={stories} myStories={myStories} currentUser={currentUser} onViewStory={handleViewStory} onRefresh={() => fetchData(activeTab, true)} />
       </div>
 
-      {/* TABS DE NAVEGACIÓN */}
       <div className="flex justify-center mb-6 px-4">
           <div className="flex bg-black/5 dark:bg-white/5 p-1.5 rounded-2xl w-full max-w-[320px] shadow-inner">
               <button onClick={() => setActiveTab("for_you")} className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all duration-300 ${activeTab === "for_you" ? "bg-white dark:bg-cuadralo-cardDark text-cuadralo-pink shadow-md" : "text-cuadralo-textMutedLight dark:text-gray-400 hover:text-cuadralo-textLight dark:hover:text-white"}`}>Para ti</button>
@@ -158,7 +202,6 @@ export default function SocialFeed({ onUploadClick }) {
           </div>
       </div>
 
-      {/* BANNER PREMIUM */}
       {!isPrime && !loading && (
           <div className="flex justify-center mb-8 px-4">
               <motion.button initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} onClick={() => setShowPrime(true)} className="group w-full max-w-md flex items-center justify-center gap-3 px-6 py-3 rounded-2xl bg-white/40 dark:bg-black/40 border border-yellow-500/30 hover:border-yellow-400 shadow-glass-light dark:shadow-glass-dark backdrop-blur-lg transition-all">
@@ -169,7 +212,6 @@ export default function SocialFeed({ onUploadClick }) {
           </div>
       )}
 
-      {/* FEED DE POSTS */}
       {loading ? (
          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" size={40} /></div>
       ) : (
@@ -212,15 +254,14 @@ export default function SocialFeed({ onUploadClick }) {
               />
           )}
 
-          {/* ✅ SOLUCIÓN: Atrapamos la señal 'needsRefresh' y actualizamos la barra de historias a tiempo real */}
-          {viewingUserStories && (
+          {/* ✅ NUEVO: Pasamos la Playlist al visor de historias */}
+          {viewingUserStories && viewingUserStories.playlist && (
               <StoryViewer 
-                  stories={viewingUserStories.list} 
-                  isOwner={viewingUserStories.isOwner} 
+                  playlist={viewingUserStories.playlist} 
+                  initialGroupIndex={viewingUserStories.initialGroupIndex}
                   onClose={(needsRefresh) => {
                       setViewingUserStories(null);
                       if (needsRefresh) {
-                          // Se eliminó una historia o terminó de verlas todas, recargamos solo la barra
                           api.get("/social/stories").then(res => {
                               if (res) { 
                                   setStories(res.feed || []); 
