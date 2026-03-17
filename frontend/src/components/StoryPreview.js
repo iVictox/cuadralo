@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { X, Type, Smile, Sparkles, ChevronRight, Loader2, Trash2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { X, Type, Smile, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker from 'emoji-picker-react';
 
@@ -23,7 +23,15 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
     const [filterIndex, setFilterIndex] = useState(0);
     const containerRef = useRef(null);
 
-    const [imagePreview] = useState(URL.createObjectURL(file));
+    const [imagePreview, setImagePreview] = useState("");
+
+    useEffect(() => {
+        if (file) {
+            const objectUrl = URL.createObjectURL(file);
+            setImagePreview(objectUrl);
+            return () => URL.revokeObjectURL(objectUrl); 
+        }
+    }, [file]);
 
     const handleAddText = () => {
         setTexts(prev => [
@@ -69,10 +77,7 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
         setShowEmojis(false);
     };
 
-    const toggleFilter = () => {
-        setFilterIndex((prev) => (prev + 1) % FILTERS.length);
-    };
-
+    // ✅ SOLUCIÓN: Recorte perfecto idéntico a la pantalla (object-cover replicado en el Canvas)
     const generateFinalImage = async () => {
         return new Promise((resolve, reject) => {
             const canvas = document.createElement("canvas");
@@ -82,35 +87,64 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
             img.src = imagePreview;
 
             img.onload = () => {
-                canvas.width = img.width;
-                canvas.height = img.height;
+                const containerRect = containerRef.current.getBoundingClientRect();
+                const screenRatio = containerRect.width / containerRect.height;
+                const imgRatio = img.width / img.height;
 
+                // Definimos una resolución base alta para que no pierda calidad (ej. 1080px de ancho)
+                const targetWidth = 1080;
+                const targetHeight = targetWidth / screenRatio; 
+
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+
+                // Matemáticas para recortar la foto idénticamente a como se ve en el celular
+                let sx, sy, sw, sh;
+                if (imgRatio > screenRatio) {
+                    // La imagen original es más ancha que la pantalla, cortamos los lados
+                    sh = img.height;
+                    sw = img.height * screenRatio;
+                    sx = (img.width - sw) / 2;
+                    sy = 0;
+                } else {
+                    // La imagen original es más alta que la pantalla, cortamos arriba/abajo
+                    sw = img.width;
+                    sh = img.width / screenRatio;
+                    sx = 0;
+                    sy = (img.height - sh) / 2;
+                }
+
+                // 1. Aplicamos filtro
                 ctx.filter = FILTERS[filterIndex].css;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                // 2. Dibujamos solo la porción recortada de la imagen para que llene el canvas
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
 
+                // 3. Reseteamos filtros para los textos
                 ctx.filter = "none";
 
-                const containerRect = containerRef.current.getBoundingClientRect();
-                const scaleX = canvas.width / containerRect.width;
-                const scaleY = canvas.height / containerRect.height;
+                // Como el canvas es idéntico en proporción a la pantalla, 
+                // la escala es directa y los textos quedarán exactamente donde los pusiste.
+                const scale = targetWidth / containerRect.width;
 
                 texts.forEach(t => {
-                    ctx.font = `bold ${t.fontSize * scaleX}px ${t.fontFamily}`;
+                    const finalFontSize = t.fontSize * scale;
+                    ctx.font = `bold ${finalFontSize}px ${t.fontFamily}`;
                     ctx.fillStyle = t.color;
                     ctx.textAlign = "left";
                     ctx.textBaseline = "top";
                     
                     const padding = 8;
-                    const realX = (t.x + padding) * scaleX;
-                    const realY = (t.y + padding) * scaleY;
+                    const realX = (t.x + padding) * scale;
+                    const realY = (t.y + padding) * scale;
 
                     const lines = t.text.split('\n');
                     lines.forEach((line, index) => {
-                        ctx.fillText(line, realX, realY + (index * (t.fontSize * scaleX * 1.15)));
+                        ctx.fillText(line, realX, realY + (index * (finalFontSize * 1.15)));
                     });
                 });
 
-                resolve(canvas.toDataURL("image/jpeg", 0.9));
+                resolve(canvas.toDataURL("image/jpeg", 0.95)); // Alta calidad
             };
 
             img.onerror = (err) => {
@@ -121,7 +155,6 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
     };
 
     const handlePublish = async () => {
-        // Bloqueamos el botón para evitar clics dobles rápidos
         setIsPublishing(true);
         try {
             const finalImageDataUrl = await generateFinalImage();
@@ -129,21 +162,22 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
             const blob = await res.blob();
             const finalFile = new File([blob], "story.jpg", { type: "image/jpeg" });
 
-            // Llamamos la función onPublish inmediatamente sin el 'await'. 
-            // El componente padre cerrará esta ventana en milisegundos y mostrará el overlay de carga.
             if (typeof onPublish === "function") {
                 onPublish(finalFile);
             }
         } catch (error) {
             console.error("Error generando historia:", error);
             alert("Ocurrió un error al procesar tu foto. Inténtalo de nuevo.");
-            setIsPublishing(false); // Solo habilitamos si hubo un error local
+            setIsPublishing(false); 
         }
     };
+
+    if (!imagePreview) return null;
 
     return (
         <div className="fixed inset-0 z-[500] bg-black text-white flex flex-col h-[100dvh] overflow-hidden">
             
+            {/* CABECERA */}
             <div className="absolute top-0 w-full flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent z-[600]">
                 <button onClick={onCancel} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors cursor-pointer shadow-lg active:scale-95">
                     <X size={24} />
@@ -154,10 +188,6 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                     </button>
                     <button onClick={() => setShowEmojis(!showEmojis)} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
                         <Smile size={22} />
-                    </button>
-                    <button onClick={toggleFilter} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95 flex items-center gap-2">
-                        <Sparkles size={22} className={filterIndex > 0 ? "text-cuadralo-pink" : "text-yellow-400"} />
-                        {filterIndex > 0 && <span className="text-[10px] font-bold uppercase tracking-widest">{FILTERS[filterIndex].name}</span>}
                     </button>
                 </div>
             </div>
@@ -170,6 +200,7 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                 )}
             </AnimatePresence>
 
+            {/* CONTENEDOR PRINCIPAL */}
             <div 
                 ref={containerRef}
                 className="relative flex-1 w-full h-full bg-black flex items-center justify-center overflow-hidden touch-none"
@@ -232,6 +263,31 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                 ))}
             </div>
 
+            {/* CARRUSEL HORIZONTAL DE FILTROS */}
+            <div 
+                className="absolute bottom-[88px] w-full flex items-center gap-4 px-4 overflow-x-auto pb-4 pt-2 z-[600]"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+                {FILTERS.map((filter, index) => (
+                    <button
+                        key={index}
+                        onClick={() => setFilterIndex(index)}
+                        className={`flex flex-col items-center gap-1 transition-all duration-300 min-w-[70px] ${filterIndex === index ? "scale-110 opacity-100" : "scale-100 opacity-60 hover:opacity-100"}`}
+                    >
+                        <div className={`w-14 h-14 rounded-full overflow-hidden border-2 shadow-lg ${filterIndex === index ? "border-cuadralo-pink shadow-cuadralo-pink/50" : "border-white/20"}`}>
+                            <img 
+                                src={imagePreview} 
+                                style={{ filter: filter.css }} 
+                                className="w-full h-full object-cover pointer-events-none" 
+                                alt={filter.name} 
+                            />
+                        </div>
+                        <span className="text-[10px] font-bold tracking-wider drop-shadow-md">{filter.name}</span>
+                    </button>
+                ))}
+            </div>
+
+            {/* BOTÓN DE PUBLICAR */}
             <div className="absolute bottom-0 w-full p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex justify-end z-[600]">
                 <button 
                     onClick={handlePublish}
