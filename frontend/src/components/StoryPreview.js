@@ -3,7 +3,6 @@
 import { useState, useRef } from "react";
 import { X, Type, Smile, Sparkles, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Draggable from "react-draggable";
 import EmojiPicker from 'emoji-picker-react';
 
 export default function StoryPreview({ file, onPublish, onCancel }) {
@@ -34,11 +33,6 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
         setTexts(prev => prev.map(t => t.id === id ? { ...t, text: newText } : t));
     };
 
-    // ✅ OPTIMIZACIÓN DE RENDIMIENTO: Solo actualizamos el estado cuando el usuario SUELTA el elemento
-    const handleStop = (id, e, data) => {
-        setTexts(prev => prev.map(t => t.id === id ? { ...t, x: data.x, y: data.y } : t));
-    };
-
     const handleDeleteText = (id) => {
         setTexts(prev => prev.filter(t => t.id !== id));
         if (activeTextId === id) setActiveTextId(null);
@@ -64,6 +58,7 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
         setShowEmojis(false);
     };
 
+    // FUSIONADOR MATEMÁTICO (Convierte DOM a Canvas)
     const generateFinalImage = async () => {
         return new Promise((resolve, reject) => {
             const canvas = document.createElement("canvas");
@@ -89,12 +84,14 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                     ctx.textAlign = "left";
                     ctx.textBaseline = "top";
                     
-                    const realX = t.x * scaleX;
-                    const realY = t.y * scaleY;
+                    // El p-2 (padding) de Tailwind equivale a 8px exactos, lo compensamos para máxima precisión
+                    const padding = 8;
+                    const realX = (t.x + padding) * scaleX;
+                    const realY = (t.y + padding) * scaleY;
 
                     const lines = t.text.split('\n');
                     lines.forEach((line, index) => {
-                        ctx.fillText(line, realX, realY + (index * (t.fontSize * scaleX * 1.2)));
+                        ctx.fillText(line, realX, realY + (index * (t.fontSize * scaleX * 1.15)));
                     });
                 });
 
@@ -160,40 +157,55 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                 <img src={imagePreview} className="w-full h-full object-cover pointer-events-none select-none" alt="Fondo de Historia" />
 
                 {texts.map(t => (
-                    <Draggable 
+                    /* ✅ REEMPLAZAMOS LA LIBRERÍA VIEJA POR EL MOTOR GRÁFICO DE FRAMER MOTION */
+                    <motion.div 
                         key={t.id} 
-                        // ✅ OPTIMIZACIÓN CLAVE: Cambiamos "position" por "defaultPosition" y "onDrag" por "onStop"
-                        defaultPosition={{ x: t.x, y: t.y }} 
-                        onStop={(e, data) => handleStop(t.id, e, data)}
-                        bounds="parent"
+                        id={`story-elem-${t.id}`}
+                        drag 
+                        dragConstraints={containerRef}
+                        dragMomentum={false} // Evita que siga resbalando cuando sueltas el dedo
+                        dragElastic={0} // Elimina el efecto de "liga" o "rebote"
+                        initial={{ x: t.x, y: t.y }} 
+                        onDragEnd={() => {
+                            // Cuando el dedo suelta la pantalla, calculamos la ubicación exacta en la memoria
+                            const el = document.getElementById(`story-elem-${t.id}`);
+                            const container = containerRef.current;
+                            if (!el || !container) return;
+
+                            const containerRect = container.getBoundingClientRect();
+                            const elRect = el.getBoundingClientRect();
+
+                            // Obtenemos la posición perfecta relativa al cuadro de la foto
+                            const newX = elRect.left - containerRect.left;
+                            const newY = elRect.top - containerRect.top;
+
+                            setTexts(prev => prev.map(item => item.id === t.id ? { ...item, x: newX, y: newY } : item));
+                        }}
+                        className={`absolute top-0 left-0 cursor-move inline-block p-2 touch-none ${activeTextId === t.id ? 'ring-2 ring-white/50 rounded-xl bg-black/20 backdrop-blur-sm z-50' : 'z-40'}`}
+                        onClick={(e) => { e.stopPropagation(); setActiveTextId(t.id); }}
+                        style={{ color: t.color, fontSize: `${t.fontSize}px`, fontFamily: t.fontFamily, textShadow: "0px 2px 10px rgba(0,0,0,0.8)" }}
                     >
-                        <div 
-                            className={`absolute cursor-move inline-block p-2 ${activeTextId === t.id ? 'ring-2 ring-white/50 rounded-xl bg-black/20 backdrop-blur-sm' : ''}`}
-                            onClick={(e) => { e.stopPropagation(); setActiveTextId(t.id); }}
-                            style={{ color: t.color, fontSize: `${t.fontSize}px`, fontFamily: t.fontFamily, textShadow: "0px 2px 10px rgba(0,0,0,0.8)" }}
-                        >
-                            {activeTextId === t.id ? (
-                                <div className="relative">
-                                    <textarea
-                                        autoFocus
-                                        value={t.text}
-                                        onChange={(e) => handleTextChange(t.id, e.target.value)}
-                                        className="bg-transparent border-none outline-none resize-none overflow-hidden block w-full text-center font-bold"
-                                        style={{ color: t.color, minWidth: "150px", height: `${t.fontSize * 2}px` }}
-                                    />
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleDeleteText(t.id); }}
-                                        // ✅ Separamos visualmente el botón de eliminar usando touch-none para que no interfiera con el arrastre
-                                        className="absolute -top-12 right-0 p-2.5 bg-red-600 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all text-white border border-white/20 touch-none cursor-pointer"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            ) : (
-                                <span className="font-bold whitespace-pre-wrap">{t.text}</span>
-                            )}
-                        </div>
-                    </Draggable>
+                        {activeTextId === t.id ? (
+                            <div className="relative">
+                                <textarea
+                                    autoFocus
+                                    value={t.text}
+                                    onChange={(e) => handleTextChange(t.id, e.target.value)}
+                                    className="bg-transparent border-none outline-none resize-none overflow-hidden block w-full text-left font-bold"
+                                    style={{ color: t.color, minWidth: "150px", height: `${t.fontSize * 2.5}px` }}
+                                />
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteText(t.id); }}
+                                    className="absolute -top-12 right-0 p-2.5 bg-red-600 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all text-white border border-white/20 z-50 cursor-pointer"
+                                    onPointerDown={(e) => e.stopPropagation()} // Bloquea el arrastre si le das click a borrar
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        ) : (
+                            <span className="font-bold whitespace-pre-wrap leading-tight block">{t.text}</span>
+                        )}
+                    </motion.div>
                 ))}
             </div>
 
