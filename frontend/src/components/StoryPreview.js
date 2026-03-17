@@ -79,6 +79,7 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
         setShowEmojis(false);
     };
 
+    // ✅ SOLUCIÓN: Generación de imagen en ALTA RESOLUCIÓN
     const generateFinalImage = async () => {
         return new Promise((resolve, reject) => {
             const canvas = document.createElement("canvas");
@@ -88,6 +89,7 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
             img.src = imagePreview;
 
             img.onload = () => {
+                // 1. El canvas toma el tamaño REAL de la imagen de alta calidad, no el de la pantalla
                 canvas.width = img.width;
                 canvas.height = img.height;
 
@@ -98,27 +100,52 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                 // Resetear el filtro para que los textos no se vean afectados
                 ctx.filter = "none";
 
+                // 2. Factor de escala: Comparamos el tamaño de la pantalla del cel vs el tamaño real de la foto
+                // Para saber cuánto hay que agrandar los textos para que se vean proporcionados
                 const containerRect = containerRef.current.getBoundingClientRect();
-                const scaleX = canvas.width / containerRect.width;
-                const scaleY = canvas.height / containerRect.height;
+                
+                // La imagen de fondo tiene 'object-cover', calculamos cómo se está mostrando en pantalla
+                const imageAspectRatio = img.width / img.height;
+                const containerAspectRatio = containerRect.width / containerRect.height;
+                
+                let renderWidth, renderHeight;
+                let offsetX = 0, offsetY = 0;
+
+                // Matemáticas para replicar object-cover y hallar las coordenadas exactas
+                if (imageAspectRatio > containerAspectRatio) {
+                    renderHeight = containerRect.height;
+                    renderWidth = img.width * (containerRect.height / img.height);
+                    offsetX = (containerRect.width - renderWidth) / 2;
+                } else {
+                    renderWidth = containerRect.width;
+                    renderHeight = img.height * (containerRect.width / img.width);
+                    offsetY = (containerRect.height - renderHeight) / 2;
+                }
+
+                // Relación real (alta resolución) vs renderizada (pantalla)
+                const scale = img.width / renderWidth; 
 
                 texts.forEach(t => {
-                    ctx.font = `bold ${t.fontSize * scaleX}px ${t.fontFamily}`;
+                    // Calculamos el tamaño de fuente real
+                    const finalFontSize = t.fontSize * scale;
+                    ctx.font = `bold ${finalFontSize}px ${t.fontFamily}`;
                     ctx.fillStyle = t.color;
                     ctx.textAlign = "left";
                     ctx.textBaseline = "top";
                     
                     const padding = 8;
-                    const realX = (t.x + padding) * scaleX;
-                    const realY = (t.y + padding) * scaleY;
+                    // Proyectamos la posición X e Y de la pantalla a la imagen gigante
+                    const realX = (t.x - offsetX + padding) * scale;
+                    const realY = (t.y - offsetY + padding) * scale;
 
                     const lines = t.text.split('\n');
                     lines.forEach((line, index) => {
-                        ctx.fillText(line, realX, realY + (index * (t.fontSize * scaleX * 1.15)));
+                        ctx.fillText(line, realX, realY + (index * (finalFontSize * 1.15)));
                     });
                 });
 
-                resolve(canvas.toDataURL("image/jpeg", 0.9));
+                // Extraemos en JPEG calidad casi máxima
+                resolve(canvas.toDataURL("image/jpeg", 0.95));
             };
 
             img.onerror = (err) => {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Trash2, Eye } from "lucide-react";
-import { api } from "@/utils/api";
+import { api, API_URL } from "@/utils/api"; // Asegúrate de tener API_URL o ajusta según tu utils
 import { useConfirm } from "@/context/ConfirmContext";
 import { useToast } from "@/context/ToastContext";
 
@@ -73,7 +73,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
 
   const handleNext = useCallback(() => {
       if (currentIndex < stories.length - 1) setCurrentIndex(prev => prev + 1);
-      else onClose(true); 
+      else onClose(true); // El 'true' puede indicar que terminó para refrescar
   }, [currentIndex, stories.length, onClose]);
 
   const handlePrev = useCallback(() => {
@@ -107,9 +107,11 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
 
       if (ok) {
           try {
-              // El backend se encarga de emitir el evento socket que limpiará la lista automáticamente
+              // 1. Borramos la historia
               await api.delete(`/social/stories/${currentStory.id}`);
               showToast("Historia eliminada", "success");
+              // 2. Cerramos el visor y forzamos un refresh para que desaparezca
+              onClose(true); 
           } catch (error) { 
               showToast("Error al eliminar", "error"); 
               setIsPaused(false); 
@@ -130,6 +132,15 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
           setLiveViewsCount(data ? data.length : 0);
       } catch (error) { console.error(error); } 
       finally { setLoadingViewers(false); }
+  };
+
+  // ✅ SOLUCIÓN: Helper para asegurar que las fotos de perfil siempre tengan el dominio correcto
+  const getProfilePic = (url) => {
+      if (!url) return "https://via.placeholder.com/40";
+      if (url.startsWith("http")) return url;
+      // Ajusta esto si tu backend sirve las imágenes desde otro lugar
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "https://cuadralo.club"; 
+      return `${baseUrl}${url}`;
   };
 
   if (!currentStory) return null;
@@ -154,7 +165,12 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
         {/* HEADER */}
         <div className="absolute top-8 left-0 w-full px-4 flex justify-between items-center z-20 pt-2">
             <div className="flex items-center gap-3">
-                <img src={currentStory.user?.photo || "https://via.placeholder.com/40"} className="w-8 h-8 rounded-full border border-white/50 object-cover" />
+                {/* ✅ SOLUCIÓN APLICADA: Usamos la función getProfilePic */}
+                <img 
+                    src={getProfilePic(currentStory.user?.photo)} 
+                    className="w-8 h-8 rounded-full border border-white/50 object-cover" 
+                    alt="Perfil"
+                />
                 <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{currentStory.user?.name}</span>
                 <span className="text-white/70 text-xs shadow-black drop-shadow-md">
                     {new Date(currentStory.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -164,7 +180,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
                 {isOwner && (
                     <button onClick={handleDelete} className="text-white/80 hover:text-red-500 transition-colors p-2"><Trash2 size={20} /></button>
                 )}
-                <button onClick={() => onClose(true)} className="text-white p-2"><X size={28} /></button>
+                <button onClick={() => onClose(false)} className="text-white p-2"><X size={28} /></button>
             </div>
         </div>
 
@@ -178,7 +194,8 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
                 <motion.img 
                     key={currentStory.id}
                     initial={{ opacity: 0.8, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0.8 }} transition={{ duration: 0.2 }}
-                    src={currentStory.image_url} className="absolute inset-0 w-full h-full object-contain bg-black" alt="Story"
+                    src={getProfilePic(currentStory.image_url)} // También aplicamos corrección de URL a la historia por si acaso
+                    className="absolute inset-0 w-full h-full object-contain bg-black" alt="Story"
                 />
             </AnimatePresence>
             <div className="absolute inset-y-0 left-0 w-1/3 z-10" onClick={(e) => { e.stopPropagation(); handlePrev(); }} />
@@ -218,7 +235,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
                         : (
                             viewersList.map((view) => (
                                 <div key={view.user_id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-xl transition-colors">
-                                    <img src={view.user?.photo || "https://via.placeholder.com/40"} alt={view.user?.name} className="w-10 h-10 rounded-full object-cover border border-white/20" />
+                                    <img src={getProfilePic(view.user?.photo)} alt={view.user?.name} className="w-10 h-10 rounded-full object-cover border border-white/20" />
                                     <div className="flex-1">
                                         <h4 className="text-white font-medium text-sm">{view.user?.name}</h4>
                                         <p className="text-white/40 text-xs">{new Date(view.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
