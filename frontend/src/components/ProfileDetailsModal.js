@@ -7,14 +7,13 @@ import {
 } from "lucide-react";
 import { api } from "@/utils/api";
 import { getInterestInfo } from "@/utils/interests"; 
-import ChatWindow from "@/components/ChatWindow"; // ✅ Importamos el ChatWindow
+import ChatWindow from "@/components/ChatWindow"; 
 
 export default function ProfileDetailsModal({ profile, onClose }) {
     const [fullProfile, setFullProfile] = useState(profile);
     const [loading, setLoading] = useState(false);
     const [activePhoto, setActivePhoto] = useState(0);
     
-    // ✅ Estado para manejar la apertura del Chat directo
     const [showDirectChat, setShowDirectChat] = useState(false);
 
     useEffect(() => {
@@ -228,7 +227,7 @@ export default function ProfileDetailsModal({ profile, onClose }) {
                 </motion.div>
             </motion.div>
 
-            {/* ✅ VENTANA DE CHAT DIRECTO SUPERPUESTA */}
+            {/* ✅ CORRECCIÓN: VENTANA DE CHAT AHORA VERIFICA SI ES MATCH */}
             <AnimatePresence>
                 {showDirectChat && (
                     <div className="fixed inset-0 z-[400] bg-black/90">
@@ -237,8 +236,8 @@ export default function ProfileDetailsModal({ profile, onClose }) {
                                 id: fullProfile.id, 
                                 name: fullProfile.name, 
                                 photo: photos[0],
-                                // Pasamos una bandera especial para que la ventana sepa que esto es "Directo"
-                                isDirect: true 
+                                // ✅ Si es match, no será Rompehielo, será gratis.
+                                isDirect: !fullProfile.is_match 
                             }} 
                             onBack={() => setShowDirectChat(false)} 
                         />

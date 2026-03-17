@@ -41,7 +41,7 @@ func UpdateMe(c *fiber.Ctx) error {
 
 	var input struct {
 		Name      string   `json:"name"`
-		Username  string   `json:"username"` // ✅ AÑADIDO
+		Username  string   `json:"username"`
 		Bio       string   `json:"bio"`
 		Location  string   `json:"location"`
 		Photos    []string `json:"photos"`
@@ -56,7 +56,6 @@ func UpdateMe(c *fiber.Ctx) error {
 		user.Name = input.Name
 	}
 
-	// ✅ SE GUARDA EL NUEVO USERNAME SI SE ENVIÓ
 	if input.Username != "" {
 		user.Username = strings.ToLower(strings.ReplaceAll(input.Username, " ", ""))
 	}
@@ -71,7 +70,6 @@ func UpdateMe(c *fiber.Ctx) error {
 		}
 	}
 
-	// ✅ SE MANEJA EL ERROR SI EL USUARIO YA ESTÁ OCUPADO
 	if err := database.DB.Save(&user).Error; err != nil {
 		if strings.Contains(err.Error(), "username") {
 			return c.Status(400).JSON(fiber.Map{"error": "Ese nombre de usuario ya está ocupado."})
@@ -79,17 +77,13 @@ func UpdateMe(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Error al guardar el perfil"})
 	}
 
-	// ✅ MAGIA DE INTERESES (A prueba de balas)
 	if input.Interests != nil {
 		var newInterests []models.Interest
 
 		for _, slug := range input.Interests {
 			var interest models.Interest
-
-			// Buscamos
 			result := database.DB.Where("slug = ?", slug).First(&interest)
 
-			// Si no existe, lo forzamos a crearse
 			if result.RowsAffected == 0 {
 				interest = models.Interest{
 					Name:     slug,
@@ -101,12 +95,9 @@ func UpdateMe(c *fiber.Ctx) error {
 
 			newInterests = append(newInterests, interest)
 		}
-
-		// Reemplazamos todos los intereses anteriores por los nuevos
 		database.DB.Model(&user).Association("Interests").Replace(newInterests)
 	}
 
-	// Recargamos al usuario
 	database.DB.Preload("Interests").First(&user, userId)
 
 	var followersCount, followingCount int64
@@ -123,9 +114,12 @@ func UpdateMe(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
+// ✅ CORRECCIÓN APLICADA: Ahora GetUser también comprueba y envía si es un match
 func GetUser(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
 	id := c.Params("id")
 	var user models.User
+
 	if err := database.DB.Preload("Interests").First(&user, id).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "No encontrado"})
 	}
@@ -135,7 +129,32 @@ func GetUser(c *fiber.Ctx) error {
 		user.InterestsList = append(user.InterestsList, i.Slug)
 	}
 
-	return c.JSON(user)
+	// Comprobar si ya son un Match oficial
+	var match models.Match
+	isMatch := false
+	if database.DB.Where("(user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)", myId, user.ID, user.ID, myId).First(&match).RowsAffected > 0 {
+		isMatch = true
+	}
+
+	return c.JSON(fiber.Map{
+		"id":               user.ID,
+		"name":             user.Name,
+		"username":         user.Username,
+		"bio":              user.Bio,
+		"gender":           user.Gender,
+		"birth_date":       user.BirthDate,
+		"location":         user.Location,
+		"photo":            user.Photo,
+		"photos":           user.Photos,
+		"followers_count":  user.FollowersCount,
+		"following_count":  user.FollowingCount,
+		"is_prime":         user.IsPrime,
+		"interestsList":    user.InterestsList,
+		"is_following":     user.IsFollowing,
+		"has_story":        user.HasStory,
+		"has_unseen_story": user.HasUnseenStory,
+		"is_match":         isMatch, // <- Enviamos si es match o no
+	})
 }
 
 func ChangePassword(c *fiber.Ctx) error {
@@ -151,12 +170,10 @@ func ChangePassword(c *fiber.Ctx) error {
 	var user models.User
 	database.DB.First(&user, userId)
 
-	// Verificar vieja
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data.OldPassword)); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Contraseña actual incorrecta"})
 	}
 
-	// Encriptar nueva con costo 14 (idéntico al registro)
 	hashed, _ := bcrypt.GenerateFromPassword([]byte(data.NewPassword), 14)
 
 	database.DB.Model(&user).Update("password", string(hashed))
@@ -166,7 +183,6 @@ func ChangePassword(c *fiber.Ctx) error {
 func DeleteAccount(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	tx := database.DB.Begin()
-	// Limpieza total
 	tx.Where("user_id = ?", userId).Delete(&models.Post{})
 	tx.Where("follower_id = ? OR following_id = ?", userId, userId).Delete(&models.Follow{})
 	tx.Where("from_user_id = ? OR to_user_id = ?", userId, userId).Delete(&models.Like{})
@@ -178,15 +194,12 @@ func DeleteAccount(c *fiber.Ctx) error {
 func SearchUsers(c *fiber.Ctx) error {
 	query := c.Query("q")
 	if query == "" {
-		return c.JSON([]models.User{}) // Si no hay query, devuelve lista vacía
+		return c.JSON([]models.User{})
 	}
 
 	var users []models.User
-
-	// Usamos LOWER para que la búsqueda ignore mayúsculas y minúsculas
 	searchTerm := "%" + query + "%"
 
-	// Buscamos coincidencias en el nombre O en el nombre de usuario, limitamos a 20 resultados
 	database.DB.Select("id, name, username, photo").
 		Where("LOWER(name) LIKE LOWER(?) OR LOWER(username) LIKE LOWER(?)", searchTerm, searchTerm).
 		Limit(20).

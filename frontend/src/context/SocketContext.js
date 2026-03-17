@@ -16,7 +16,7 @@ export const SocketProvider = ({ children }) => {
     const pathname = usePathname();
 
     useEffect(() => {
-        // 1. Evitar conectar en login/registro
+        // Evitar conectar en login/registro
         if (pathname === "/login" || pathname === "/register") {
             if (socketRef.current) {
                 console.log("🔒 Cerrando sesión de chat");
@@ -24,6 +24,7 @@ export const SocketProvider = ({ children }) => {
                 socketRef.current = null;
                 setSocket(null);
                 setIsConnected(false);
+                setOnlineUsers(new Set()); // Limpiamos la lista al salir
             }
             return;
         }
@@ -43,17 +44,10 @@ export const SocketProvider = ({ children }) => {
                 const me = JSON.parse(userStr);
                 if (!me || !me.id) return;
 
-                // ✅ SOLUCIÓN: Detección dinámica de Entorno (Local vs Producción)
                 const isSecure = window.location.protocol === "https:";
                 const wsProtocol = isSecure ? "wss" : "ws";
-                
-                // Si estás en local usamos localhost:8080.
-                // Si estás en producción, usamos el host actual (cuadralo.club).
-                // Nota importante: En producción, Nginx/Cloudflare suele manejar el SSL en el puerto 443,
-                // así que NO le ponemos el puerto :8080 a la URL de producción a menos que lo hayas expuesto directamente con SSL.
                 const wsHost = window.location.hostname === "localhost" ? "localhost:8080" : window.location.host;
                 
-                // Conectamos el WebSocket
                 const wsUrl = `${wsProtocol}://${wsHost}/ws/${me.id}`;
                 const ws = new WebSocket(wsUrl);
 
@@ -65,17 +59,31 @@ export const SocketProvider = ({ children }) => {
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
                     
+                    // Disparamos el evento global para otros componentes
                     const eventCustom = new CustomEvent("socket_event", { detail: data });
                     window.dispatchEvent(eventCustom);
                     
                     if (data.type === "new_message") {
                         setMessages((prev) => [...prev, data.payload]);
-                    } else if (data.type === "user_status") {
+                    } 
+                    // ✅ SOLUCIÓN: Carga inicial de todos los usuarios online
+                    else if (data.type === "online_users") {
+                        // Convertimos todo a String de forma segura
+                        const initialOnline = data.payload ? data.payload.map(id => String(id)) : [];
+                        setOnlineUsers(new Set(initialOnline));
+                    }
+                    // ✅ SOLUCIÓN: Estandarización estricta a String (Texto) al añadir o eliminar
+                    else if (data.type === "user_status") {
                         const { user_id, status } = data.payload;
+                        const safeUserId = String(user_id); // Forzamos a String
+
                         setOnlineUsers((prev) => {
                             const newSet = new Set(prev);
-                            if (status === "online") newSet.add(user_id);
-                            else newSet.delete(user_id);
+                            if (status === "online") {
+                                newSet.add(safeUserId);
+                            } else {
+                                newSet.delete(safeUserId);
+                            }
                             return newSet;
                         });
                     }
@@ -86,6 +94,7 @@ export const SocketProvider = ({ children }) => {
                     setIsConnected(false);
                     socketRef.current = null;
                     setSocket(null);
+                    setOnlineUsers(new Set()); // Limpiamos si se cae el servidor
                 };
 
                 ws.onerror = (error) => {
@@ -134,8 +143,13 @@ export const SocketProvider = ({ children }) => {
         }
     }
 
+    // ✅ Helper ultra-seguro para que cualquier componente sepa si alguien está conectado
+    const checkIsOnline = (userId) => {
+        return onlineUsers.has(String(userId));
+    };
+
     return (
-        <SocketContext.Provider value={{ socket, isConnected, onlineUsers, messages, sendMessage, markViewed, toggleSave }}>
+        <SocketContext.Provider value={{ socket, isConnected, onlineUsers, checkIsOnline, messages, sendMessage, markViewed, toggleSave }}>
             {children}
         </SocketContext.Provider>
     );
