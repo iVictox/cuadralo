@@ -5,11 +5,24 @@ import { X, Type, Smile, Sparkles, ChevronRight, Loader2, Trash2 } from "lucide-
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker from 'emoji-picker-react';
 
+// ✅ LISTA DE FILTROS CSS
+const FILTERS = [
+    { name: "Normal", css: "none" },
+    { name: "Clásico", css: "contrast(1.2) saturate(1.2)" },
+    { name: "Cálido", css: "sepia(0.5) contrast(1.1) brightness(1.1)" },
+    { name: "Frío", css: "saturate(1.5) hue-rotate(180deg)" },
+    { name: "B&N", css: "grayscale(1) contrast(1.2)" },
+    { name: "Vintage", css: "sepia(0.8) hue-rotate(-30deg) contrast(1.2)" }
+];
+
 export default function StoryPreview({ file, onPublish, onCancel }) {
     const [texts, setTexts] = useState([]);
     const [activeTextId, setActiveTextId] = useState(null);
     const [isPublishing, setIsPublishing] = useState(false);
     const [showEmojis, setShowEmojis] = useState(false);
+    
+    // ✅ ESTADO DEL FILTRO
+    const [filterIndex, setFilterIndex] = useState(0);
     const containerRef = useRef(null);
 
     const [imagePreview] = useState(URL.createObjectURL(file));
@@ -58,21 +71,30 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
         setShowEmojis(false);
     };
 
-    // FUSIONADOR MATEMÁTICO (Convierte DOM a Canvas)
+    // ✅ FUNCIÓN PARA CAMBIAR FILTROS
+    const toggleFilter = () => {
+        setFilterIndex((prev) => (prev + 1) % FILTERS.length);
+    };
+
     const generateFinalImage = async () => {
         return new Promise((resolve, reject) => {
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
             const img = new Image();
             
-            img.crossOrigin = "anonymous"; 
+            // ❌ QUITAMOS img.crossOrigin porque la URL es un 'blob:' local y el navegador lo bloqueaba
             img.src = imagePreview;
 
             img.onload = () => {
                 canvas.width = img.width;
                 canvas.height = img.height;
 
+                // ✅ APLICAMOS EL FILTRO AL CANVAS ANTES DE DIBUJAR LA FOTO
+                ctx.filter = FILTERS[filterIndex].css;
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                // ✅ RESETEAMOS EL FILTRO PARA QUE LOS TEXTOS NO SE VEAN CON FILTRO
+                ctx.filter = "none";
 
                 const containerRect = containerRef.current.getBoundingClientRect();
                 const scaleX = canvas.width / containerRect.width;
@@ -84,7 +106,6 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                     ctx.textAlign = "left";
                     ctx.textBaseline = "top";
                     
-                    // El p-2 (padding) de Tailwind equivale a 8px exactos, lo compensamos para máxima precisión
                     const padding = 8;
                     const realX = (t.x + padding) * scaleX;
                     const realY = (t.y + padding) * scaleY;
@@ -98,7 +119,8 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                 resolve(canvas.toDataURL("image/jpeg", 0.9));
             };
 
-            img.onerror = () => {
+            img.onerror = (err) => {
+                console.error("Error cargando la imagen de fondo en el canvas:", err);
                 reject(new Error("No se pudo cargar la imagen para procesarla."));
             };
         });
@@ -122,52 +144,59 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
     };
 
     return (
-        <div className="fixed inset-0 z-[200] bg-black text-white flex flex-col h-[100dvh] overflow-hidden">
+        <div className="fixed inset-0 z-[500] bg-black text-white flex flex-col h-[100dvh] overflow-hidden">
             
-            <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent absolute top-0 w-full z-30 pointer-events-none">
-                <button onClick={onCancel} className="pointer-events-auto p-2 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors">
+            {/* ✅ CABECERA ARREGLADA: Z-Index ultra alto, sin pointer-events-none, botones clickeables */}
+            <div className="absolute top-0 w-full flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent z-[600]">
+                <button onClick={onCancel} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors cursor-pointer shadow-lg active:scale-95">
                     <X size={24} />
                 </button>
-                <div className="flex gap-3 pointer-events-auto">
-                    <button onClick={handleAddText} className="p-2.5 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
+                <div className="flex gap-3">
+                    <button onClick={handleAddText} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
                         <Type size={22} />
                     </button>
-                    <button onClick={() => setShowEmojis(!showEmojis)} className="p-2.5 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
+                    <button onClick={() => setShowEmojis(!showEmojis)} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
                         <Smile size={22} />
                     </button>
-                    <button className="p-2.5 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
-                        <Sparkles size={22} className="text-yellow-400" />
+                    <button onClick={toggleFilter} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95 flex items-center gap-2">
+                        <Sparkles size={22} className={filterIndex > 0 ? "text-cuadralo-pink" : "text-yellow-400"} />
+                        {filterIndex > 0 && <span className="text-[10px] font-bold uppercase tracking-widest">{FILTERS[filterIndex].name}</span>}
                     </button>
                 </div>
             </div>
 
             <AnimatePresence>
                 {showEmojis && (
-                    <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }} className="absolute top-20 right-4 z-50 shadow-2xl">
+                    <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }} className="absolute top-24 right-4 z-[600] shadow-2xl">
                         <EmojiPicker onEmojiClick={onEmojiClick} theme="dark" width={300} height={400} />
                     </motion.div>
                 )}
             </AnimatePresence>
 
+            {/* CONTENEDOR PRINCIPAL */}
             <div 
                 ref={containerRef}
                 className="relative flex-1 w-full h-full bg-black flex items-center justify-center overflow-hidden touch-none"
                 onClick={() => setActiveTextId(null)}
             >
-                <img src={imagePreview} className="w-full h-full object-cover pointer-events-none select-none" alt="Fondo de Historia" />
+                {/* ✅ FOTO CON FILTRO CSS APLICADO */}
+                <img 
+                    src={imagePreview} 
+                    style={{ filter: FILTERS[filterIndex].css }}
+                    className="w-full h-full object-cover pointer-events-none select-none transition-all duration-300" 
+                    alt="Fondo de Historia" 
+                />
 
                 {texts.map(t => (
-                    /* ✅ REEMPLAZAMOS LA LIBRERÍA VIEJA POR EL MOTOR GRÁFICO DE FRAMER MOTION */
                     <motion.div 
                         key={t.id} 
                         id={`story-elem-${t.id}`}
                         drag 
                         dragConstraints={containerRef}
-                        dragMomentum={false} // Evita que siga resbalando cuando sueltas el dedo
-                        dragElastic={0} // Elimina el efecto de "liga" o "rebote"
+                        dragMomentum={false} 
+                        dragElastic={0} 
                         initial={{ x: t.x, y: t.y }} 
                         onDragEnd={() => {
-                            // Cuando el dedo suelta la pantalla, calculamos la ubicación exacta en la memoria
                             const el = document.getElementById(`story-elem-${t.id}`);
                             const container = containerRef.current;
                             if (!el || !container) return;
@@ -175,13 +204,12 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                             const containerRect = container.getBoundingClientRect();
                             const elRect = el.getBoundingClientRect();
 
-                            // Obtenemos la posición perfecta relativa al cuadro de la foto
                             const newX = elRect.left - containerRect.left;
                             const newY = elRect.top - containerRect.top;
 
                             setTexts(prev => prev.map(item => item.id === t.id ? { ...item, x: newX, y: newY } : item));
                         }}
-                        className={`absolute top-0 left-0 cursor-move inline-block p-2 touch-none ${activeTextId === t.id ? 'ring-2 ring-white/50 rounded-xl bg-black/20 backdrop-blur-sm z-50' : 'z-40'}`}
+                        className={`absolute top-0 left-0 cursor-move inline-block p-2 touch-none ${activeTextId === t.id ? 'ring-2 ring-white/50 rounded-xl bg-black/40 backdrop-blur-sm z-50' : 'z-40'}`}
                         onClick={(e) => { e.stopPropagation(); setActiveTextId(t.id); }}
                         style={{ color: t.color, fontSize: `${t.fontSize}px`, fontFamily: t.fontFamily, textShadow: "0px 2px 10px rgba(0,0,0,0.8)" }}
                     >
@@ -196,10 +224,10 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                                 />
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); handleDeleteText(t.id); }}
-                                    className="absolute -top-12 right-0 p-2.5 bg-red-600 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all text-white border border-white/20 z-50 cursor-pointer"
-                                    onPointerDown={(e) => e.stopPropagation()} // Bloquea el arrastre si le das click a borrar
+                                    className="absolute -top-12 right-0 p-3 bg-red-600 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all text-white border border-white/20 z-50 cursor-pointer"
+                                    onPointerDown={(e) => e.stopPropagation()} 
                                 >
-                                    <Trash2 size={16} />
+                                    <Trash2 size={18} />
                                 </button>
                             </div>
                         ) : (
@@ -209,11 +237,12 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                 ))}
             </div>
 
-            <div className="absolute bottom-0 w-full p-6 bg-gradient-to-t from-black/90 to-transparent flex justify-end z-30 pointer-events-none">
+            {/* ✅ PIE DE PÁGINA ARREGLADO: Z-Index superior para que sea clickeable */}
+            <div className="absolute bottom-0 w-full p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex justify-end z-[600]">
                 <button 
                     onClick={handlePublish}
                     disabled={isPublishing}
-                    className="pointer-events-auto bg-cuadralo-pink text-white font-black uppercase tracking-widest text-sm px-6 py-4 rounded-full shadow-[0_0_20px_rgba(255,41,117,0.5)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                    className="bg-cuadralo-pink text-white font-black uppercase tracking-widest text-sm px-6 py-4 rounded-full shadow-[0_0_20px_rgba(255,41,117,0.5)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                     {isPublishing ? (
                         <><Loader2 size={18} className="animate-spin" /> Procesando...</>
