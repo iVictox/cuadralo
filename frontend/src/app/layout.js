@@ -6,7 +6,6 @@ import { ToastProvider } from "@/context/ToastContext";
 import { SocketProvider } from "@/context/SocketContext";
 import { ConfirmProvider } from "@/context/ConfirmContext";
 import { useEffect, useState } from "react";
-// ✅ IMPORTACIÓN NUEVA
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
 const inter = Inter({ subsets: ["latin"] });
@@ -22,8 +21,10 @@ export default function RootLayout({ children }) {
     if (savedTheme === "light") setTheme("light");
   }, []);
 
+  // ✅ SOLUCIÓN: Agregamos suppressHydrationWarning aquí abajo en la etiqueta html
+  // para ignorar las inyecciones de extensiones del navegador
   return (
-    <html lang="es" className={theme}>
+    <html lang="es" className={theme} suppressHydrationWarning>
       <head>
         <meta name="theme-color" content={theme === "dark" ? "#0f0518" : "#ffffff"} />
       </head>
