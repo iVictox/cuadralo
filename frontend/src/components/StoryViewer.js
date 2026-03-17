@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Trash2, Eye } from "lucide-react";
-import { api, API_URL } from "@/utils/api"; // Asegúrate de tener API_URL o ajusta según tu utils
+import { api } from "@/utils/api"; 
 import { useConfirm } from "@/context/ConfirmContext";
 import { useToast } from "@/context/ToastContext";
 
@@ -19,6 +19,20 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
   const [viewersList, setViewersList] = useState([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
   const [liveViewsCount, setLiveViewsCount] = useState(0);
+
+  // ✅ NUEVO: Estado para almacenar tus propios datos en caso de que sea tu historia
+  const [me, setMe] = useState(null);
+
+  useEffect(() => {
+      // Si estamos viendo nuestra propia historia, extraemos nuestros datos del navegador
+      if (typeof window !== "undefined") {
+          const userStr = localStorage.getItem("user");
+          if (userStr) {
+              try { setMe(JSON.parse(userStr)); } 
+              catch (e) { console.error("Error leyendo usuario del localStorage:", e); }
+          }
+      }
+  }, []);
 
   // Si la historia desaparece mientras la vemos (eliminada por socket), ajustamos el índice
   useEffect(() => {
@@ -73,7 +87,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
 
   const handleNext = useCallback(() => {
       if (currentIndex < stories.length - 1) setCurrentIndex(prev => prev + 1);
-      else onClose(true); // El 'true' puede indicar que terminó para refrescar
+      else onClose(true); 
   }, [currentIndex, stories.length, onClose]);
 
   const handlePrev = useCallback(() => {
@@ -107,11 +121,9 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
 
       if (ok) {
           try {
-              // 1. Borramos la historia
               await api.delete(`/social/stories/${currentStory.id}`);
               showToast("Historia eliminada", "success");
-              // 2. Cerramos el visor y forzamos un refresh para que desaparezca
-              onClose(true); 
+              onClose(true); // Cierra automáticamente
           } catch (error) { 
               showToast("Error al eliminar", "error"); 
               setIsPaused(false); 
@@ -134,16 +146,18 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
       finally { setLoadingViewers(false); }
   };
 
-  // ✅ SOLUCIÓN: Helper para asegurar que las fotos de perfil siempre tengan el dominio correcto
   const getProfilePic = (url) => {
       if (!url) return "https://via.placeholder.com/40";
       if (url.startsWith("http")) return url;
-      // Ajusta esto si tu backend sirve las imágenes desde otro lugar
       const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "https://cuadralo.club"; 
       return `${baseUrl}${url}`;
   };
 
   if (!currentStory) return null;
+
+  // ✅ SOLUCIÓN: Si es mi historia (isOwner) y tengo el 'me' cargado, uso mis propios datos. 
+  // En cualquier otro caso, uso los datos que vengan con la historia.
+  const displayUser = (isOwner && me) ? me : currentStory.user;
 
   return (
     <div className="fixed inset-0 z-[70] bg-black flex items-center justify-center">
@@ -165,13 +179,14 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
         {/* HEADER */}
         <div className="absolute top-8 left-0 w-full px-4 flex justify-between items-center z-20 pt-2">
             <div className="flex items-center gap-3">
-                {/* ✅ SOLUCIÓN APLICADA: Usamos la función getProfilePic */}
                 <img 
-                    src={getProfilePic(currentStory.user?.photo)} 
-                    className="w-8 h-8 rounded-full border border-white/50 object-cover" 
+                    src={getProfilePic(displayUser?.photo)} 
+                    className="w-8 h-8 rounded-full border border-white/50 object-cover bg-[#1a0b2e]" 
                     alt="Perfil"
                 />
-                <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{currentStory.user?.name}</span>
+                <span className="text-white font-bold text-sm shadow-black drop-shadow-md">
+                    {displayUser?.name || "Tú"}
+                </span>
                 <span className="text-white/70 text-xs shadow-black drop-shadow-md">
                     {new Date(currentStory.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                 </span>
@@ -194,7 +209,7 @@ export default function StoryViewer({ stories, initialStoryIndex = 0, onClose, i
                 <motion.img 
                     key={currentStory.id}
                     initial={{ opacity: 0.8, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0.8 }} transition={{ duration: 0.2 }}
-                    src={getProfilePic(currentStory.image_url)} // También aplicamos corrección de URL a la historia por si acaso
+                    src={getProfilePic(currentStory.image_url)} 
                     className="absolute inset-0 w-full h-full object-contain bg-black" alt="Story"
                 />
             </AnimatePresence>
