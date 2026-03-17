@@ -5,204 +5,212 @@ import { X, Type, Smile, Sparkles, ChevronRight, Loader2, Trash2 } from "lucide-
 import { motion, AnimatePresence } from "framer-motion";
 import Draggable from "react-draggable";
 import EmojiPicker from 'emoji-picker-react';
-// ✅ CAMBIO CLAVE: Usamos toJpeg en lugar de toPng para comprimir la imagen
-import { toJpeg } from 'html-to-image'; 
 
-export default function StoryPreview({ file, onClose, onUpload, isUploading }) {
-    const [previewUrl, setPreviewUrl] = useState(URL.createObjectURL(file));
+export default function StoryPreview({ file, onPublish, onCancel }) {
+    const [texts, setTexts] = useState([]);
+    const [activeTextId, setActiveTextId] = useState(null);
+    const [isPublishing, setIsPublishing] = useState(false);
+    const [showEmojis, setShowEmojis] = useState(false);
     const containerRef = useRef(null);
 
-    // Herramientas
-    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [textMode, setTextMode] = useState(false);
-    const [currentText, setCurrentText] = useState("");
+    const [imagePreview] = useState(URL.createObjectURL(file));
 
-    // Elementos y Estado de Arrastre
-    const [stickers, setStickers] = useState([]); 
-    const [filterIndex, setFilterIndex] = useState(0);
-    const [isDragging, setIsDragging] = useState(false); 
-
-    // Filtros CSS
-    const filters = [
-        { name: "Normal", class: "" },
-        { name: "B&N", class: "grayscale" },
-        { name: "Sepia", class: "sepia" },
-        { name: "Vívido", class: "saturate-150 contrast-110" },
-        { name: "Frío", class: "hue-rotate-180" },
-    ];
-
-    const toggleFilter = () => setFilterIndex((prev) => (prev + 1) % filters.length);
-
-    const addSticker = (emojiData) => {
-        const newSticker = { id: Date.now(), content: emojiData.emoji, type: 'emoji' };
-        setStickers([...stickers, newSticker]);
-        setShowEmojiPicker(false);
+    const handleAddText = () => {
+        setTexts(prev => [
+            ...prev,
+            {
+                id: Date.now(), 
+                text: "Escribe aquí...",
+                x: 50 + (prev.length * 30), 
+                y: 100 + (prev.length * 30),
+                color: "#FFFFFF",
+                fontSize: 32,
+                fontFamily: "Arial",
+            }
+        ]);
     };
 
-    const addText = () => {
-        if (!currentText.trim()) { setTextMode(false); return; }
-        const newText = { id: Date.now(), content: currentText, type: 'text' };
-        setStickers([...stickers, newText]);
-        setCurrentText("");
-        setTextMode(false);
+    const handleTextChange = (id, newText) => {
+        setTexts(prev => prev.map(t => t.id === id ? { ...t, text: newText } : t));
     };
 
-    const removeElement = (id) => {
-        setStickers(prev => prev.filter(s => s.id !== id));
-        setIsDragging(false);
+    // ✅ OPTIMIZACIÓN DE RENDIMIENTO: Solo actualizamos el estado cuando el usuario SUELTA el elemento
+    const handleStop = (id, e, data) => {
+        setTexts(prev => prev.map(t => t.id === id ? { ...t, x: data.x, y: data.y } : t));
     };
 
-    // --- CORRECCIÓN EN EL GUARDADO ---
-    const handleFinalUpload = async () => {
-        if (!containerRef.current) return;
+    const handleDeleteText = (id) => {
+        setTexts(prev => prev.filter(t => t.id !== id));
+        if (activeTextId === id) setActiveTextId(null);
+    };
+
+    const onEmojiClick = (emojiObject) => {
+        if (activeTextId) {
+            setTexts(prev => prev.map(t => t.id === activeTextId ? { ...t, text: t.text + emojiObject.emoji } : t));
+        } else {
+             setTexts(prev => [
+                ...prev,
+                {
+                    id: Date.now(),
+                    text: emojiObject.emoji,
+                    x: 100, 
+                    y: 150,
+                    color: "#FFFFFF",
+                    fontSize: 45,
+                    fontFamily: "Arial",
+                }
+            ]);
+        }
+        setShowEmojis(false);
+    };
+
+    const generateFinalImage = async () => {
+        return new Promise((resolve, reject) => {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            const img = new Image();
+            
+            img.crossOrigin = "anonymous"; 
+            img.src = imagePreview;
+
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                const containerRect = containerRef.current.getBoundingClientRect();
+                const scaleX = canvas.width / containerRect.width;
+                const scaleY = canvas.height / containerRect.height;
+
+                texts.forEach(t => {
+                    ctx.font = `bold ${t.fontSize * scaleX}px ${t.fontFamily}`;
+                    ctx.fillStyle = t.color;
+                    ctx.textAlign = "left";
+                    ctx.textBaseline = "top";
+                    
+                    const realX = t.x * scaleX;
+                    const realY = t.y * scaleY;
+
+                    const lines = t.text.split('\n');
+                    lines.forEach((line, index) => {
+                        ctx.fillText(line, realX, realY + (index * (t.fontSize * scaleX * 1.2)));
+                    });
+                });
+
+                resolve(canvas.toDataURL("image/jpeg", 0.9));
+            };
+
+            img.onerror = () => {
+                reject(new Error("No se pudo cargar la imagen para procesarla."));
+            };
+        });
+    };
+
+    const handlePublish = async () => {
+        setIsPublishing(true);
         try {
-            // ✅ AHORA COMPRIMIMOS LA IMAGEN
-            // Usamos quality: 0.8 (80%) para reducir el peso de 15MB a unos ~800KB
-            const dataUrl = await toJpeg(containerRef.current, { 
-                quality: 0.8,
-                cacheBust: false, 
-                pixelRatio: 2,
-                skipAutoScale: true
-            });
-            
-            const res = await fetch(dataUrl);
+            const finalImageDataUrl = await generateFinalImage();
+            const res = await fetch(finalImageDataUrl);
             const blob = await res.blob();
-            // Guardamos como JPEG
-            const processedFile = new File([blob], `story_${Date.now()}.jpg`, { type: "image/jpeg" });
-            
-            onUpload(processedFile);
-        } catch (err) {
-            console.error("Error generando imagen", err);
-            // Fallback
-            onUpload(file);
+            const finalFile = new File([blob], "story.jpg", { type: "image/jpeg" });
+
+            await onPublish(finalFile);
+        } catch (error) {
+            console.error("Error generando historia:", error);
+            alert("Ocurrió un error al procesar tu foto. Inténtalo de nuevo.");
+        } finally {
+            setIsPublishing(false);
         }
     };
 
     return (
-        <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }} 
-            animate={{ opacity: 1, scale: 1 }} 
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="fixed inset-0 z-[120] bg-black flex flex-col"
-        >
-            {/* HEADER */}
-            {!isDragging && (
-                <div className="absolute top-0 left-0 w-full p-4 pt-6 flex justify-between items-start z-50 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
-                    <button onClick={onClose} className="p-2 rounded-full text-white hover:bg-white/10 transition-colors pointer-events-auto"><X size={28} /></button>
-                    <div className="flex gap-4 pr-2 pointer-events-auto">
-                        <button onClick={() => setTextMode(true)} className="p-2 rounded-full text-white hover:bg-white/10 transition-colors"><Type size={24} /></button>
-                        <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-full text-white hover:bg-white/10 transition-colors"><Smile size={24} /></button>
-                        <button onClick={toggleFilter} className="p-2 rounded-full text-white hover:bg-white/10 transition-colors flex flex-col items-center">
-                            <Sparkles size={24} />
-                            <span className="text-[9px] font-bold uppercase tracking-widest mt-0.5 text-yellow-400">{filters[filterIndex].name !== "Normal" ? filters[filterIndex].name : ""}</span>
-                        </button>
-                    </div>
+        <div className="fixed inset-0 z-[200] bg-black text-white flex flex-col h-[100dvh] overflow-hidden">
+            
+            <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent absolute top-0 w-full z-30 pointer-events-none">
+                <button onClick={onCancel} className="pointer-events-auto p-2 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors">
+                    <X size={24} />
+                </button>
+                <div className="flex gap-3 pointer-events-auto">
+                    <button onClick={handleAddText} className="p-2.5 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
+                        <Type size={22} />
+                    </button>
+                    <button onClick={() => setShowEmojis(!showEmojis)} className="p-2.5 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
+                        <Smile size={22} />
+                    </button>
+                    <button className="p-2.5 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
+                        <Sparkles size={22} className="text-yellow-400" />
+                    </button>
                 </div>
-            )}
-
-            {/* CANVAS DE EDICIÓN */}
-            <div ref={containerRef} className="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
-                <img src={previewUrl} alt="Preview" className={`w-full h-full object-cover transition-all duration-300 ${filters[filterIndex].class}`} />
-
-                {/* CAPA DE ELEMENTOS */}
-                <div className="absolute inset-0 z-10 overflow-hidden">
-                    {stickers.map((s) => (
-                        <DraggableItem 
-                            key={s.id} 
-                            s={s} 
-                            onDragStart={() => setIsDragging(true)}
-                            onDragStop={(shouldDelete) => {
-                                setIsDragging(false);
-                                if (shouldDelete) removeElement(s.id);
-                            }}
-                        />
-                    ))}
-                </div>
-
-                {/* MODAL INPUT TEXTO */}
-                {textMode && (
-                    <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-                        <input autoFocus type="text" value={currentText} onChange={(e) => setCurrentText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addText()} onBlur={addText} placeholder="Escribe algo..." className="bg-transparent text-white text-3xl font-bold text-center border-b-2 border-white focus:outline-none w-full" />
-                    </div>
-                )}
-
-                {/* OVERLAY CARGA */}
-                {isUploading && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-                        <Loader2 className="animate-spin text-cuadralo-pink mb-2" size={40} />
-                        <span className="text-white font-bold tracking-widest text-sm">PUBLICANDO...</span>
-                    </div>
-                )}
             </div>
 
-            {/* ZONA DE PAPELERA */}
             <AnimatePresence>
-                {isDragging && (
-                    <motion.div 
-                        initial={{ y: 100, opacity: 0 }} 
-                        animate={{ y: 0, opacity: 1 }} 
-                        exit={{ y: 100, opacity: 0 }}
-                        className="absolute bottom-10 left-0 w-full flex justify-center z-[60] pointer-events-none"
-                    >
-                        <div className="bg-red-500/80 backdrop-blur-md p-4 rounded-full shadow-lg border-2 border-white/20">
-                            <Trash2 size={32} className="text-white" />
-                        </div>
+                {showEmojis && (
+                    <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -50, opacity: 0 }} className="absolute top-20 right-4 z-50 shadow-2xl">
+                        <EmojiPicker onEmojiClick={onEmojiClick} theme="dark" width={300} height={400} />
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* FOOTER */}
-            {!isDragging && (
-                <div className="absolute bottom-0 left-0 w-full p-5 pb-8 flex items-center justify-end z-50 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none">
-                    <button onClick={handleFinalUpload} disabled={isUploading} className="pointer-events-auto flex items-center gap-2 bg-white text-black pl-5 pr-4 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50">
-                        <span>Tu historia</span>
-                        <div className="bg-black text-white rounded-full p-1"><ChevronRight size={16} /></div>
-                    </button>
-                </div>
-            )}
+            <div 
+                ref={containerRef}
+                className="relative flex-1 w-full h-full bg-black flex items-center justify-center overflow-hidden touch-none"
+                onClick={() => setActiveTextId(null)}
+            >
+                <img src={imagePreview} className="w-full h-full object-cover pointer-events-none select-none" alt="Fondo de Historia" />
 
-            {/* POPUP EMOJIS */}
-            {showEmojiPicker && (
-                <div className="absolute top-24 right-4 z-[150]">
-                    <EmojiPicker theme="dark" onEmojiClick={addSticker} width={300} height={400} searchDisabled />
-                </div>
-            )}
-        </motion.div>
+                {texts.map(t => (
+                    <Draggable 
+                        key={t.id} 
+                        // ✅ OPTIMIZACIÓN CLAVE: Cambiamos "position" por "defaultPosition" y "onDrag" por "onStop"
+                        defaultPosition={{ x: t.x, y: t.y }} 
+                        onStop={(e, data) => handleStop(t.id, e, data)}
+                        bounds="parent"
+                    >
+                        <div 
+                            className={`absolute cursor-move inline-block p-2 ${activeTextId === t.id ? 'ring-2 ring-white/50 rounded-xl bg-black/20 backdrop-blur-sm' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); setActiveTextId(t.id); }}
+                            style={{ color: t.color, fontSize: `${t.fontSize}px`, fontFamily: t.fontFamily, textShadow: "0px 2px 10px rgba(0,0,0,0.8)" }}
+                        >
+                            {activeTextId === t.id ? (
+                                <div className="relative">
+                                    <textarea
+                                        autoFocus
+                                        value={t.text}
+                                        onChange={(e) => handleTextChange(t.id, e.target.value)}
+                                        className="bg-transparent border-none outline-none resize-none overflow-hidden block w-full text-center font-bold"
+                                        style={{ color: t.color, minWidth: "150px", height: `${t.fontSize * 2}px` }}
+                                    />
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteText(t.id); }}
+                                        // ✅ Separamos visualmente el botón de eliminar usando touch-none para que no interfiera con el arrastre
+                                        className="absolute -top-12 right-0 p-2.5 bg-red-600 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all text-white border border-white/20 touch-none cursor-pointer"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <span className="font-bold whitespace-pre-wrap">{t.text}</span>
+                            )}
+                        </div>
+                    </Draggable>
+                ))}
+            </div>
+
+            <div className="absolute bottom-0 w-full p-6 bg-gradient-to-t from-black/90 to-transparent flex justify-end z-30 pointer-events-none">
+                <button 
+                    onClick={handlePublish}
+                    disabled={isPublishing}
+                    className="pointer-events-auto bg-cuadralo-pink text-white font-black uppercase tracking-widest text-sm px-6 py-4 rounded-full shadow-[0_0_20px_rgba(255,41,117,0.5)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                >
+                    {isPublishing ? (
+                        <><Loader2 size={18} className="animate-spin" /> Procesando...</>
+                    ) : (
+                        <>Publicar Historia <ChevronRight size={18} /></>
+                    )}
+                </button>
+            </div>
+            
+        </div>
     );
 }
-
-const DraggableItem = ({ s, onDragStart, onDragStop }) => {
-    const nodeRef = useRef(null);
-
-    const handleStop = (e, data) => {
-        const screenHeight = window.innerHeight;
-        const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-        const isOverTrash = clientY > screenHeight - 150;
-        onDragStop(isOverTrash);
-    };
-
-    return (
-        <Draggable 
-            nodeRef={nodeRef} 
-            bounds="parent"
-            onStart={onDragStart}
-            onStop={handleStop}
-        >
-            <div 
-                ref={nodeRef} 
-                className="absolute left-1/2 top-1/2 cursor-move inline-block touch-none select-none active:scale-110 transition-transform z-20"
-                style={{ marginLeft: "-20px", marginTop: "-20px" }}
-            >
-                {s.type === 'emoji' ? (
-                    <div className="text-6xl drop-shadow-lg filter">
-                        {s.content}
-                    </div>
-                ) : (
-                    <div className="bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-xl text-xl font-bold shadow-lg border border-white/20 whitespace-pre-wrap max-w-[80vw] -ml-[50%]">
-                        {s.content}
-                    </div>
-                )}
-            </div>
-        </Draggable>
-    );
-};
