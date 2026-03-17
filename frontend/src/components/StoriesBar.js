@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import StoryPreview from "./StoryPreview";
 
 export default function StoriesBar({ stories, myStories, currentUser, onViewStory, onRefresh }) {
@@ -25,12 +25,17 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
       const finalFile = fileToUpload || previewFile;
       if (!finalFile) return;
       
+      // 1. Cerramos el editor/cámara INMEDIATAMENTE
+      setPreviewFile(null); 
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      
+      // 2. Activamos la pantalla de carga "Publicando historia..."
       setUploading(true);
+      
       try {
           const imageUrl = await api.upload(finalFile);
           await api.post("/social/stories", { image_url: imageUrl });
           showToast("¡Historia subida con éxito! 🎉", "success");
-          setPreviewFile(null); 
           if(onRefresh) onRefresh(); 
       } catch (error) {
           showToast(error.message || "Error al subir historia", "error");
@@ -55,7 +60,7 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
           {/* MI HISTORIA */}
           <div className="flex flex-col items-center min-w-[70px] cursor-pointer group select-none relative mt-2">
               
-              {/* ✅ BADGE NUMÉRICO: Si hay más de 1 historia, lo mostramos */}
+              {/* BADGE NUMÉRICO */}
               {myStories && myStories.length > 1 && (
                   <span className="absolute -top-1 -right-1 bg-cuadralo-pink text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-cuadralo-bgLight dark:border-cuadralo-bgDark z-20 shadow-md">
                       {myStories.length}
@@ -65,7 +70,7 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
               <div 
                 className={`w-[74px] h-[74px] rounded-full flex items-center justify-center p-[2.5px] transition-all duration-300 ${
                     myStories && myStories.length > 0 
-                    ? "bg-gradient-to-tr from-yellow-400 via-cuadralo-pink to-purple-600 shadow-sm" // ✅ Anillo de color para ti también
+                    ? "bg-gradient-to-tr from-yellow-400 via-cuadralo-pink to-purple-600 shadow-sm" 
                     : "bg-transparent border-2 border-black/10 dark:border-white/20 border-dashed"
                 }`}
                 onClick={() => {
@@ -128,17 +133,30 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
           })}
         </div>
 
-        {/* ✅ AQUI ESTÁ LA SOLUCIÓN: Cambié onClose por onCancel y onUpload por onPublish */}
         <AnimatePresence>
+            {/* Modal de edición de historia */}
             {previewFile && (
                 <StoryPreview 
                     file={previewFile} 
-                    onCancel={() => { 
-                        setPreviewFile(null); 
-                        if(fileInputRef.current) fileInputRef.current.value = ""; 
-                    }} 
+                    onCancel={() => { setPreviewFile(null); if(fileInputRef.current) fileInputRef.current.value = ""; }} 
                     onPublish={handleConfirmUpload} 
                 />
+            )}
+
+            {/* OVERLAY PANTALLA DE CARGA GLOBAL */}
+            {uploading && (
+                <motion.div 
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }} 
+                    exit={{ opacity: 0 }} 
+                    className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center text-white"
+                >
+                    <Loader2 size={60} className="animate-spin text-cuadralo-pink mb-6" />
+                    <h2 className="text-2xl font-black tracking-widest uppercase animate-pulse drop-shadow-[0_0_15px_rgba(255,41,117,0.8)]">
+                        Publicando historia...
+                    </h2>
+                    <p className="text-white/60 mt-2 text-sm">Esto tomará solo un segundo</p>
+                </motion.div>
             )}
         </AnimatePresence>
     </>
