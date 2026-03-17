@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { X, Type, Smile, Sparkles, ChevronRight, Loader2, Trash2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { X, Type, Smile, Loader2, Trash2, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker from 'emoji-picker-react';
 
-// ✅ LISTA DE FILTROS CSS
+// Lista de filtros CSS
 const FILTERS = [
     { name: "Normal", css: "none" },
     { name: "Clásico", css: "contrast(1.2) saturate(1.2)" },
@@ -21,11 +21,19 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
     const [isPublishing, setIsPublishing] = useState(false);
     const [showEmojis, setShowEmojis] = useState(false);
     
-    // ✅ ESTADO DEL FILTRO
     const [filterIndex, setFilterIndex] = useState(0);
     const containerRef = useRef(null);
 
-    const [imagePreview] = useState(URL.createObjectURL(file));
+    // Evita crashes si file viene nulo por accidente
+    const [imagePreview, setImagePreview] = useState("");
+
+    useEffect(() => {
+        if (file) {
+            const objectUrl = URL.createObjectURL(file);
+            setImagePreview(objectUrl);
+            return () => URL.revokeObjectURL(objectUrl); // Limpieza de memoria
+        }
+    }, [file]);
 
     const handleAddText = () => {
         setTexts(prev => [
@@ -71,29 +79,23 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
         setShowEmojis(false);
     };
 
-    // ✅ FUNCIÓN PARA CAMBIAR FILTROS
-    const toggleFilter = () => {
-        setFilterIndex((prev) => (prev + 1) % FILTERS.length);
-    };
-
     const generateFinalImage = async () => {
         return new Promise((resolve, reject) => {
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
             const img = new Image();
             
-            // ❌ QUITAMOS img.crossOrigin porque la URL es un 'blob:' local y el navegador lo bloqueaba
             img.src = imagePreview;
 
             img.onload = () => {
                 canvas.width = img.width;
                 canvas.height = img.height;
 
-                // ✅ APLICAMOS EL FILTRO AL CANVAS ANTES DE DIBUJAR LA FOTO
+                // Aplicar el filtro actual al canvas
                 ctx.filter = FILTERS[filterIndex].css;
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-                // ✅ RESETEAMOS EL FILTRO PARA QUE LOS TEXTOS NO SE VEAN CON FILTRO
+                // Resetear el filtro para que los textos no se vean afectados
                 ctx.filter = "none";
 
                 const containerRect = containerRef.current.getBoundingClientRect();
@@ -127,6 +129,13 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
     };
 
     const handlePublish = async () => {
+        // Validación de seguridad por si el padre no pasa la función
+        if (typeof onPublish !== "function") {
+            console.error("Error: onPublish no fue provisto como una función por el componente padre.");
+            alert("Error de configuración: no se puede publicar. Revisa el código del componente padre.");
+            return;
+        }
+
         setIsPublishing(true);
         try {
             const finalImageDataUrl = await generateFinalImage();
@@ -143,24 +152,34 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
         }
     };
 
+    const handleCancel = () => {
+        // Validación de seguridad para onCancel
+        if (typeof onCancel === "function") {
+            onCancel();
+        } else {
+            console.warn("La función onCancel no ha sido provista por el padre.");
+        }
+    };
+
+    if (!imagePreview) return null; // Evita renderizados en blanco mientras carga la URL
+
     return (
-        <div className="fixed inset-0 z-[500] bg-black text-white flex flex-col h-[100dvh] overflow-hidden">
+        <div className="fixed inset-0 z-[1000] bg-black text-white flex flex-col h-[100dvh] overflow-hidden">
             
-            {/* ✅ CABECERA ARREGLADA: Z-Index ultra alto, sin pointer-events-none, botones clickeables */}
-            <div className="absolute top-0 w-full flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent z-[600]">
-                <button onClick={onCancel} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors cursor-pointer shadow-lg active:scale-95">
+            {/* CABECERA */}
+            <div className="absolute top-0 w-full flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent z-[600] pointer-events-none">
+                <button 
+                    onClick={handleCancel} 
+                    className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95 pointer-events-auto"
+                >
                     <X size={24} />
                 </button>
-                <div className="flex gap-3">
+                <div className="flex gap-3 pointer-events-auto">
                     <button onClick={handleAddText} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
                         <Type size={22} />
                     </button>
                     <button onClick={() => setShowEmojis(!showEmojis)} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
                         <Smile size={22} />
-                    </button>
-                    <button onClick={toggleFilter} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95 flex items-center gap-2">
-                        <Sparkles size={22} className={filterIndex > 0 ? "text-cuadralo-pink" : "text-yellow-400"} />
-                        {filterIndex > 0 && <span className="text-[10px] font-bold uppercase tracking-widest">{FILTERS[filterIndex].name}</span>}
                     </button>
                 </div>
             </div>
@@ -179,7 +198,6 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                 className="relative flex-1 w-full h-full bg-black flex items-center justify-center overflow-hidden touch-none"
                 onClick={() => setActiveTextId(null)}
             >
-                {/* ✅ FOTO CON FILTRO CSS APLICADO */}
                 <img 
                     src={imagePreview} 
                     style={{ filter: FILTERS[filterIndex].css }}
@@ -209,7 +227,7 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
 
                             setTexts(prev => prev.map(item => item.id === t.id ? { ...item, x: newX, y: newY } : item));
                         }}
-                        className={`absolute top-0 left-0 cursor-move inline-block p-2 touch-none ${activeTextId === t.id ? 'ring-2 ring-white/50 rounded-xl bg-black/40 backdrop-blur-sm z-50' : 'z-40'}`}
+                        className={`absolute top-0 left-0 cursor-move inline-block p-2 touch-none ${activeTextId === t.id ? 'ring-2 ring-white/50 rounded-xl bg-black/40 backdrop-blur-sm z-[550]' : 'z-[500]'}`}
                         onClick={(e) => { e.stopPropagation(); setActiveTextId(t.id); }}
                         style={{ color: t.color, fontSize: `${t.fontSize}px`, fontFamily: t.fontFamily, textShadow: "0px 2px 10px rgba(0,0,0,0.8)" }}
                     >
@@ -224,7 +242,7 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                                 />
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); handleDeleteText(t.id); }}
-                                    className="absolute -top-12 right-0 p-3 bg-red-600 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all text-white border border-white/20 z-50 cursor-pointer"
+                                    className="absolute -top-12 right-0 p-3 bg-red-600 rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all text-white border border-white/20 z-[600] cursor-pointer"
                                     onPointerDown={(e) => e.stopPropagation()} 
                                 >
                                     <Trash2 size={18} />
@@ -237,12 +255,36 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                 ))}
             </div>
 
-            {/* ✅ PIE DE PÁGINA ARREGLADO: Z-Index superior para que sea clickeable */}
-            <div className="absolute bottom-0 w-full p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex justify-end z-[600]">
+            {/* NUEVO DISEÑO DE FILTROS (CARRUSEL HORIZONTAL) */}
+            <div 
+                className="absolute bottom-[88px] w-full flex items-center gap-4 px-4 overflow-x-auto pb-4 pt-2 z-[600]"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }} // Oculta la barra de scroll nativa
+            >
+                {FILTERS.map((filter, index) => (
+                    <button
+                        key={index}
+                        onClick={() => setFilterIndex(index)}
+                        className={`flex flex-col items-center gap-1 transition-all duration-300 min-w-[70px] ${filterIndex === index ? "scale-110 opacity-100" : "scale-100 opacity-60 hover:opacity-100"}`}
+                    >
+                        <div className={`w-14 h-14 rounded-full overflow-hidden border-2 shadow-lg ${filterIndex === index ? "border-cuadralo-pink shadow-cuadralo-pink/50" : "border-white/20"}`}>
+                            <img 
+                                src={imagePreview} 
+                                style={{ filter: filter.css }} 
+                                className="w-full h-full object-cover" 
+                                alt={filter.name} 
+                            />
+                        </div>
+                        <span className="text-[10px] font-bold tracking-wider drop-shadow-md">{filter.name}</span>
+                    </button>
+                ))}
+            </div>
+
+            {/* PIE DE PÁGINA */}
+            <div className="absolute bottom-0 w-full p-6 bg-gradient-to-t from-black via-black/80 to-transparent flex justify-end z-[600] pointer-events-none">
                 <button 
                     onClick={handlePublish}
                     disabled={isPublishing}
-                    className="bg-cuadralo-pink text-white font-black uppercase tracking-widest text-sm px-6 py-4 rounded-full shadow-[0_0_20px_rgba(255,41,117,0.5)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                    className="bg-cuadralo-pink text-white font-black uppercase tracking-widest text-sm px-6 py-4 rounded-full shadow-[0_0_20px_rgba(255,41,117,0.5)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer pointer-events-auto"
                 >
                     {isPublishing ? (
                         <><Loader2 size={18} className="animate-spin" /> Procesando...</>
