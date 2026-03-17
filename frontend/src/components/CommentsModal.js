@@ -54,11 +54,19 @@ export default function CommentsModal({ onClose, postId, postAuthor, postOwnerId
 
       try {
           const payload = { content: newComment };
-          if (replyingTo) payload.parent_id = replyingTo.id;
+          if (replyingTo) payload.parent_id = Number(replyingTo.id);
 
           const comment = await api.post(`/social/posts/${postId}/comments`, payload);
           
-          setComments([...comments, comment]);
+          // ✅ SOLUCIÓN: Aseguramos que el parent_id esté inyectado y atado correctamente 
+          // a la respuesta para que React lo coloque en el árbol instantáneamente.
+          const newCommentObj = {
+              ...comment,
+              parent_id: payload.parent_id || comment.parent_id,
+              user: comment.user || currentUser 
+          };
+
+          setComments([...comments, newCommentObj]);
           setNewComment("");
           setReplyingTo(null); 
           
@@ -76,17 +84,15 @@ export default function CommentsModal({ onClose, postId, postAuthor, postOwnerId
       }
   };
 
-  // --- BORRAR (El filtro asegura eliminar padre e hijos visualmente) ---
   const handleDelete = async (commentId) => {
       const ok = await confirm({ title: "¿Borrar comentario?", message: "Se borrarán también las respuestas.", confirmText: "Borrar", variant: "danger" });
       if (!ok) return;
 
       try {
           await api.delete(`/social/comments/${commentId}`);
-          // Eliminamos el comentario Y cualquiera que sea su hijo
           setComments(comments.filter(c => c.id !== commentId && c.parent_id !== commentId));
-          showToast("Eliminado");
-      } catch (error) { showToast("Error", "error"); }
+          showToast("Eliminado", "success");
+      } catch (error) { showToast("Error al eliminar", "error"); }
   };
 
   const handleLikeComment = async (commentId) => {

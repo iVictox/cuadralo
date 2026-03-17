@@ -8,9 +8,14 @@ import { es } from "date-fns/locale";
 import CommentsModal from "./CommentsModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/context/ConfirmContext";
+import { useToast } from "@/context/ToastContext";
 
 export default function FeedPost({ post, onDelete, onViewStory, isModal = false }) {
   const router = useRouter();
+  const { confirm } = useConfirm();
+  const { showToast } = useToast();
+
   const [liked, setLiked] = useState(post.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
@@ -45,11 +50,36 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
     catch (error) { setLiked(prevLiked); setLikesCount(prevCount); }
   };
 
+  // ✅ SOLUCIÓN: Función real para eliminar el post de la base de datos
+  const handleDeletePost = async () => {
+      setShowMenu(false); // Ocultar el menú al hacer clic
+      
+      const ok = await confirm({ 
+          title: "¿Eliminar publicación?", 
+          message: "Esta acción no se puede deshacer y desaparecerá de tu perfil.", 
+          confirmText: "Eliminar", 
+          variant: "danger" 
+      });
+
+      if (ok) {
+          try {
+              // Borrar de la base de datos
+              await api.delete(`/social/posts/${post.id}`);
+              showToast("Publicación eliminada", "success");
+              // Avisar al Feed que lo quite de la pantalla
+              if (onDelete) onDelete(post.id);
+          } catch (error) {
+              console.error(error);
+              showToast("Error al eliminar la publicación", "error");
+          }
+      }
+  };
+
   return (
     <>
         <div className="w-full bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-3xl overflow-hidden shadow-glass-light dark:shadow-glass-dark border border-gray-100 dark:border-white/5 transition-colors duration-500">
             
-            {/* CABECERA (Minimalista) */}
+            {/* CABECERA */}
             <div className="flex justify-between items-center p-4">
                 <div className="flex items-center gap-3">
                     <img 
@@ -82,7 +112,7 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                                 className="absolute right-0 top-10 w-40 bg-white dark:bg-[#1a0b2e] border border-gray-100 dark:border-white/10 rounded-2xl shadow-xl z-20 overflow-hidden py-2"
                             >
                                 {isMyPost ? (
-                                    <button onClick={onDelete} className="w-full text-left px-4 py-2 text-red-500 hover:bg-gray-50 dark:hover:bg-white/5 text-sm flex items-center gap-2 transition-colors">
+                                    <button onClick={handleDeletePost} className="w-full text-left px-4 py-2 text-red-500 hover:bg-gray-50 dark:hover:bg-white/5 text-sm flex items-center gap-2 transition-colors">
                                         <Trash2 size={16} /> Eliminar
                                     </button>
                                 ) : (
@@ -96,13 +126,12 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                 </div>
             </div>
 
-            {/* IMAGEN (Sin bordes internos, ocupa el 100% del ancho) */}
+            {/* IMAGEN */}
             <div className="relative w-full aspect-square md:aspect-[4/5] bg-gray-100 dark:bg-black">
                 <img 
                     src={post.image_url} 
                     alt="Post content" 
                     onDoubleClick={handleLike}
-                    // ✅ AÑADIDO: Si le das un solo clic, se abre en vista completa
                     onClick={() => {
                         if (!window.location.pathname.includes('/post/')) {
                             router.push(`/post/${post.id}`);
@@ -135,12 +164,13 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                     {likesCount} Me gusta
                 </div>
 
-                {post.description && (
+                {/* ✅ SOLUCIÓN: Cambiado de post.description a post.content */}
+                {post.content && (
                     <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-2">
                         <span className="font-semibold text-cuadralo-textLight dark:text-cuadralo-textDark mr-2 cursor-pointer hover:underline" onClick={() => router.push(`/u/${post.user.username}`)}>
                             {post.user?.name}
                         </span>
-                        {post.description}
+                        {post.content}
                     </p>
                 )}
 
