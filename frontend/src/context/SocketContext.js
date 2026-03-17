@@ -35,8 +35,6 @@ export const SocketProvider = ({ children }) => {
             }
 
             try {
-                // ✅ MAGIA: Leemos el ID del usuario del disco duro (instantáneo), 
-                // sin hacer peticiones "fetch" que bloqueen la carga del navegador.
                 const token = localStorage.getItem("token");
                 const userStr = localStorage.getItem("user");
                 
@@ -45,12 +43,22 @@ export const SocketProvider = ({ children }) => {
                 const me = JSON.parse(userStr);
                 if (!me || !me.id) return;
 
+                // ✅ SOLUCIÓN: Detección dinámica de Entorno (Local vs Producción)
+                const isSecure = window.location.protocol === "https:";
+                const wsProtocol = isSecure ? "wss" : "ws";
+                
+                // Si estás en local usamos localhost:8080.
+                // Si estás en producción, usamos el host actual (cuadralo.club).
+                // Nota importante: En producción, Nginx/Cloudflare suele manejar el SSL en el puerto 443,
+                // así que NO le ponemos el puerto :8080 a la URL de producción a menos que lo hayas expuesto directamente con SSL.
+                const wsHost = window.location.hostname === "localhost" ? "localhost:8080" : window.location.host;
+                
                 // Conectamos el WebSocket
-                const wsUrl = `ws://cuadralo.club:8080/ws/${me.id}`;
+                const wsUrl = `${wsProtocol}://${wsHost}/ws/${me.id}`;
                 const ws = new WebSocket(wsUrl);
 
                 ws.onopen = () => {
-                    console.log("🟢 Conectado al Chat Server");
+                    console.log(`🟢 Conectado al Chat Server via ${wsProtocol.toUpperCase()}`);
                     setIsConnected(true);
                 };
 
@@ -91,17 +99,10 @@ export const SocketProvider = ({ children }) => {
             }
         };
 
-        // ========================================================
-        // 🚀 DESVINCULACIÓN TOTAL DEL HILO DE CARGA (SPINNER FIX)
-        // Usamos setTimeout para conectarnos *después* de que React
-        // termine de dibujar la pantalla. Esto le dice al navegador:
-        // "Ya terminé, apaga la ruedita". Y luego el socket se conecta en silencio.
-        // ========================================================
         const timer = setTimeout(() => {
             connectSocket();
-        }, 1000); // 1 segundo de retraso intencional
+        }, 1000); 
 
-        // Cleanup: si el usuario cambia de pestaña rápido, cancelamos el timer.
         return () => clearTimeout(timer);
 
     }, [pathname]);
