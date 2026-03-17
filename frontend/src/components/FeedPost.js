@@ -50,9 +50,8 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
     catch (error) { setLiked(prevLiked); setLikesCount(prevCount); }
   };
 
-  // ✅ SOLUCIÓN: Función real para eliminar el post de la base de datos
   const handleDeletePost = async () => {
-      setShowMenu(false); // Ocultar el menú al hacer clic
+      setShowMenu(false); 
       
       const ok = await confirm({ 
           title: "¿Eliminar publicación?", 
@@ -63,10 +62,8 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
 
       if (ok) {
           try {
-              // Borrar de la base de datos
               await api.delete(`/social/posts/${post.id}`);
               showToast("Publicación eliminada", "success");
-              // Avisar al Feed que lo quite de la pantalla
               if (onDelete) onDelete(post.id);
           } catch (error) {
               console.error(error);
@@ -164,13 +161,13 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                     {likesCount} Me gusta
                 </div>
 
-                {/* ✅ SOLUCIÓN: Cambiado de post.description a post.content */}
-                {post.content && (
+                {/* ✅ SOLUCIÓN: Cambiamos a post.caption, que es la variable real que envía el backend */}
+                {post.caption && (
                     <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-2">
                         <span className="font-semibold text-cuadralo-textLight dark:text-cuadralo-textDark mr-2 cursor-pointer hover:underline" onClick={() => router.push(`/u/${post.user.username}`)}>
                             {post.user?.name}
                         </span>
-                        {post.content}
+                        {post.caption}
                     </p>
                 )}
 
