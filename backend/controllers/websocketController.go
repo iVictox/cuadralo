@@ -18,9 +18,8 @@ func HandleWebSocket(c *websocket.Conn) {
 	uID := uint(userId)
 
 	websockets.MainHub.Register <- &websockets.ClientConnect{UserID: uID, Conn: c}
-
 	defer func() {
-		websockets.MainHub.Unregister <- uID
+		websockets.MainHub.Unregister <- &websockets.ClientDisconnect{UserID: uID, Conn: c}
 		c.Close()
 	}()
 

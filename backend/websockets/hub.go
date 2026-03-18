@@ -5,30 +5,34 @@ import (
 	"log"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gofiber/contrib/websocket"
 )
 
-// Tipos de mensajes que viajan por el Socket
 const (
 	TypeMessage     = "new_message"
 	TypeOnlineUsers = "online_users"
-	TypeUserStatus  = "user_status" // Un usuario se conectó/desconectó
+	TypeUserStatus  = "user_status"
 	TypeMsgViewed   = "message_viewed"
 	TypeMsgSaved    = "message_saved"
 )
 
-// Estructura del paquete WebSocket
 type WSMessage struct {
 	Type    string      `json:"type"`
 	Payload interface{} `json:"payload"`
 }
 
-// Hub mantiene el estado de los clientes conectados
+// NUEVO: Estructura para desconectar con seguridad
+type ClientDisconnect struct {
+	UserID uint
+	Conn   *websocket.Conn
+}
+
 type Hub struct {
-	Clients    map[uint]*websocket.Conn // Mapa: UserID -> Conexión
+	Clients    map[uint]*websocket.Conn
 	Register   chan *ClientConnect
-	Unregister chan uint
+	Unregister chan *ClientDisconnect // Usamos la nueva estructura
 	Broadcast  chan WSMessage
 	Mutex      sync.Mutex
 }
@@ -41,7 +45,7 @@ type ClientConnect struct {
 var MainHub = Hub{
 	Clients:    make(map[uint]*websocket.Conn),
 	Register:   make(chan *ClientConnect),
-	Unregister: make(chan uint),
+	Unregister: make(chan *ClientDisconnect),
 	Broadcast:  make(chan WSMessage),
 }
 
@@ -52,7 +56,6 @@ func (h *Hub) Run() {
 			h.Mutex.Lock()
 			h.Clients[client.UserID] = client.Conn
 
-			// ✅ SOLUCIÓN: Antes de soltar el Mutex, creamos una lista de todos los que están online
 			var onlineUserIDs []uint
 			for uid := range h.Clients {
 				onlineUserIDs = append(onlineUserIDs, uid)
@@ -61,31 +64,35 @@ func (h *Hub) Run() {
 
 			log.Printf("Usuario %d conectado", client.UserID)
 
-			// ✅ SOLUCIÓN: Enviamos a ESTE usuario recién conectado la lista completa de online
 			msgList := WSMessage{
 				Type:    TypeOnlineUsers,
 				Payload: onlineUserIDs,
 			}
+
+			// Límite de tiempo para evitar congelar el hilo
+			client.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			if err := client.Conn.WriteJSON(msgList); err != nil {
 				log.Println("Error enviando lista inicial de online:", err)
 			}
 
-			// Y luego notificamos al RESTO que este usuario se conectó
 			h.notifyUserStatus(client.UserID, true)
 
-		case userID := <-h.Unregister:
+		case client := <-h.Unregister:
 			h.Mutex.Lock()
-			if _, ok := h.Clients[userID]; ok {
-				delete(h.Clients, userID)
+			// ✅ SOLUCIÓN: Solo borramos del mapa si la conexión que se cierra es la ACTUAL.
+			// Evita que un F5/Recarga rápida borre la nueva conexión activa.
+			if conn, ok := h.Clients[client.UserID]; ok && conn == client.Conn {
+				delete(h.Clients, client.UserID)
+				h.Mutex.Unlock() // Soltamos el Mutex rápido
+				log.Printf("Usuario %d desconectado", client.UserID)
+				h.notifyUserStatus(client.UserID, false)
+			} else {
+				h.Mutex.Unlock()
 			}
-			h.Mutex.Unlock()
-			log.Printf("Usuario %d desconectado", userID)
-			h.notifyUserStatus(userID, false)
 		}
 	}
 }
 
-// Notifica a todos (o a los amigos) que alguien cambió su estado
 func (h *Hub) notifyUserStatus(userID uint, isOnline bool) {
 	status := "offline"
 	if isOnline {
@@ -98,44 +105,46 @@ func (h *Hub) notifyUserStatus(userID uint, isOnline bool) {
 			"status":  status,
 		},
 	}
-	// Enviar a todos los conectados
+
+	// ✅ SOLUCIÓN: Copiamos los clientes y soltamos el Mutex.
+	// Si un WriteJSON se bloquea por internet lento de un cliente, no congela a todo el servidor.
 	h.Mutex.Lock()
-	defer h.Mutex.Unlock()
-	for _, conn := range h.Clients {
+	clientsCopy := make(map[uint]*websocket.Conn)
+	for k, v := range h.Clients {
+		clientsCopy[k] = v
+	}
+	h.Mutex.Unlock()
+
+	for _, conn := range clientsCopy {
+		conn.SetWriteDeadline(time.Now().Add(3 * time.Second))
 		conn.WriteJSON(msg)
 	}
 }
 
-// Enviar mensaje privado en tiempo real (Chat)
 func SendPrivateMessage(senderID, receiverID uint, msgData models.Message) {
 	MainHub.Mutex.Lock()
 	recipientConn, ok := MainHub.Clients[receiverID]
+	senderConn, okSender := MainHub.Clients[senderID]
 	MainHub.Mutex.Unlock()
 
-	// Payload para el socket
 	packet := WSMessage{
 		Type:    TypeMessage,
 		Payload: msgData,
 	}
 
-	// 1. Enviar al receptor si está conectado
 	if ok {
+		recipientConn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		if err := recipientConn.WriteJSON(packet); err != nil {
 			log.Println("Error enviando WS:", err)
 		}
 	}
 
-	// 2. Enviar confirmación al remitente
-	MainHub.Mutex.Lock()
-	senderConn, okSender := MainHub.Clients[senderID]
-	MainHub.Mutex.Unlock()
 	if okSender {
+		senderConn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		senderConn.WriteJSON(packet)
 	}
 }
 
-// ✅ NUEVO: Función para enviar evento a TODOS (Broadcast)
-// Usado para: "new_story"
 func BroadcastEvent(eventType string, payload interface{}) {
 	packet := WSMessage{
 		Type:    eventType,
@@ -143,21 +152,21 @@ func BroadcastEvent(eventType string, payload interface{}) {
 	}
 
 	MainHub.Mutex.Lock()
-	defer MainHub.Mutex.Unlock()
+	clientsCopy := make(map[uint]*websocket.Conn)
+	for k, v := range MainHub.Clients {
+		clientsCopy[k] = v
+	}
+	MainHub.Mutex.Unlock()
 
-	for _, conn := range MainHub.Clients {
-		// Ignoramos errores individuales para no romper el bucle
+	for _, conn := range clientsCopy {
+		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		conn.WriteJSON(packet)
 	}
 }
 
-// ✅ NUEVO: Función para enviar evento a UN USUARIO ESPECÍFICO
-// Usado para: "story_viewed"
 func SendToUser(userIDStr string, eventType string, payload interface{}) {
-	// Convertir string ID a uint
 	uid, err := strconv.ParseUint(userIDStr, 10, 64)
 	if err != nil {
-		log.Println("Error parseando UserID en socket:", err)
 		return
 	}
 	userID := uint(uid)
@@ -167,10 +176,7 @@ func SendToUser(userIDStr string, eventType string, payload interface{}) {
 	MainHub.Mutex.Unlock()
 
 	if ok {
-		packet := WSMessage{
-			Type:    eventType,
-			Payload: payload,
-		}
-		conn.WriteJSON(packet)
+		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+		conn.WriteJSON(WSMessage{Type: eventType, Payload: payload})
 	}
 }
