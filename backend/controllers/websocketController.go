@@ -7,19 +7,16 @@ import (
 	"encoding/json"
 	"log"
 	"strconv"
-	"time"
+	"time" // <-- Asegúrate de importar time
 
 	"github.com/gofiber/contrib/websocket"
 )
 
-// HandleWebSocket gestiona la conexión individual de cada usuario
 func HandleWebSocket(c *websocket.Conn) {
-	// Obtener ID del usuario desde params o locals (middleware previo)
 	userIdStr := c.Params("id")
 	userId, _ := strconv.Atoi(userIdStr)
 	uID := uint(userId)
 
-	// Registrar en el Hub
 	websockets.MainHub.Register <- &websockets.ClientConnect{UserID: uID, Conn: c}
 
 	defer func() {
@@ -27,14 +24,20 @@ func HandleWebSocket(c *websocket.Conn) {
 		c.Close()
 	}()
 
-	// Loop principal de escucha de mensajes desde el Cliente
+	// Definimos el tiempo máximo que esperaremos un mensaje del cliente
+	pongWait := 60 * time.Second
+
 	for {
+		// Renueva el contador cada vez que el ciclo vuelve a empezar
+		c.SetReadDeadline(time.Now().Add(pongWait))
+
 		_, msg, err := c.ReadMessage()
 		if err != nil {
+			// Si no hay mensajes en 60 seg, o el proxy corta la conexión, err no será nil
+			// El loop se rompe, se ejecuta el defer, y el usuario pasa a "offline"
 			break
 		}
 
-		// Parsear mensaje entrante
 		var incoming struct {
 			Type    string          `json:"type"`
 			Payload json.RawMessage `json:"payload"`
@@ -46,42 +49,36 @@ func HandleWebSocket(c *websocket.Conn) {
 		}
 
 		switch incoming.Type {
+		case "ping":
+			// El cliente enviará un ping constantemente.
+			// No necesitamos hacer nada extra, al recibir este mensaje
+			// el loop vuelve arriba y renueva el SetReadDeadline de 60 segundos.
+			continue
+
 		case "send_message":
 			var msgData models.Message
 			json.Unmarshal(incoming.Payload, &msgData)
 
-			// Forzar IDs correctos y defaults
 			msgData.SenderID = uID
 			msgData.CreatedAt = time.Now()
-
-			// Guardar en BD
 			database.DB.Create(&msgData)
 
-			// Enviar por Socket
 			websockets.SendPrivateMessage(uID, msgData.ReceiverID, msgData)
 
 		case "view_once_opened":
-			// El cliente avisa que abrió una foto efímera
 			var payload struct {
 				MessageID uint `json:"message_id"`
 			}
 			json.Unmarshal(incoming.Payload, &payload)
-
-			// Marcar como visto en BD
 			database.DB.Model(&models.Message{}).Where("id = ?", payload.MessageID).Update("is_viewed", true)
 
 		case "save_message":
-			// Toggle para guardar mensaje (evitar borrado 24h)
 			var payload struct {
 				MessageID uint `json:"message_id"`
 				IsSaved   bool `json:"is_saved"`
 			}
 			json.Unmarshal(incoming.Payload, &payload)
-
 			database.DB.Model(&models.Message{}).Where("id = ?", payload.MessageID).Update("is_saved", payload.IsSaved)
-
-			// Notificar al otro usuario que el mensaje fue guardado (opcional, estilo Snapchat)
-			// ...
 		}
 	}
 }

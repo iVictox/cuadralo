@@ -29,8 +29,7 @@ export const SocketProvider = ({ children }) => {
             return;
         }
 
-        const connectSocket = () => {
-            // Evitar doble conexión
+const connectSocket = () => {
             if (socketRef.current && (socketRef.current.readyState === WebSocket.OPEN || socketRef.current.readyState === WebSocket.CONNECTING)) {
                 return;
             }
@@ -44,38 +43,52 @@ export const SocketProvider = ({ children }) => {
                 const me = JSON.parse(userStr);
                 if (!me || !me.id) return;
 
-                const isSecure = window.location.protocol === "https:";
-                const wsProtocol = isSecure ? "wss" : "ws";
-                const wsHost = window.location.hostname === "localhost" ? "localhost:8080" : window.location.host;
-                
-                const wsUrl = `${wsProtocol}://${wsHost}/ws/${me.id}`;
+                // MEJORA: Construir la URL del WebSocket basándonos en la del API REST para evitar errores en Coolify
+                let wsUrl = "";
+                const apiUrlStr = process.env.NEXT_PUBLIC_API_URL;
+                if (apiUrlStr) {
+                    const apiUrlObj = new URL(apiUrlStr);
+                    const isSecure = apiUrlObj.protocol === "https:";
+                    const wsProtocol = isSecure ? "wss" : "ws";
+                    wsUrl = `${wsProtocol}://${apiUrlObj.host}/ws/${me.id}`;
+                } else {
+                    const isSecure = window.location.protocol === "https:";
+                    const wsProtocol = isSecure ? "wss" : "ws";
+                    const wsHost = window.location.hostname === "localhost" ? "localhost:8080" : window.location.host;
+                    wsUrl = `${wsProtocol}://${wsHost}/ws/${me.id}`;
+                }
+
                 const ws = new WebSocket(wsUrl);
+                let pingInterval; // Guardaremos aquí el latido
 
                 ws.onopen = () => {
-                    console.log(`🟢 Conectado al Chat Server via ${wsProtocol.toUpperCase()}`);
+                    console.log(`🟢 Conectado al Chat Server via WebSocket`);
                     setIsConnected(true);
+
+                    // HEARTBEAT: Enviamos un ping cada 30 segundos para evitar que Coolify lo cierre
+                    pingInterval = setInterval(() => {
+                        if (ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ type: "ping", payload: {} }));
+                        }
+                    }, 30000);
                 };
 
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
                     
-                    // Disparamos el evento global para otros componentes
                     const eventCustom = new CustomEvent("socket_event", { detail: data });
                     window.dispatchEvent(eventCustom);
                     
                     if (data.type === "new_message") {
                         setMessages((prev) => [...prev, data.payload]);
                     } 
-                    // ✅ SOLUCIÓN: Carga inicial de todos los usuarios online
                     else if (data.type === "online_users") {
-                        // Convertimos todo a String de forma segura
                         const initialOnline = data.payload ? data.payload.map(id => String(id)) : [];
                         setOnlineUsers(new Set(initialOnline));
                     }
-                    // ✅ SOLUCIÓN: Estandarización estricta a String (Texto) al añadir o eliminar
                     else if (data.type === "user_status") {
                         const { user_id, status } = data.payload;
-                        const safeUserId = String(user_id); // Forzamos a String
+                        const safeUserId = String(user_id); 
 
                         setOnlineUsers((prev) => {
                             const newSet = new Set(prev);
@@ -94,7 +107,16 @@ export const SocketProvider = ({ children }) => {
                     setIsConnected(false);
                     socketRef.current = null;
                     setSocket(null);
-                    setOnlineUsers(new Set()); // Limpiamos si se cae el servidor
+                    setOnlineUsers(new Set());
+                    
+                    // Limpiamos el heartbeat para que no siga corriendo sin conexión
+                    if (pingInterval) clearInterval(pingInterval);
+
+                    // RECONEXIÓN AUTOMÁTICA: Si el socket se cae, intentar reconectar en 3 segundos
+                    setTimeout(() => {
+                        console.log("🔄 Intentando reconectar WebSocket...");
+                        connectSocket();
+                    }, 3000);
                 };
 
                 ws.onerror = (error) => {
