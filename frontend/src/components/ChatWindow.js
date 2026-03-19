@@ -193,12 +193,16 @@ export default function ChatWindow({ chat, onBack }) {
       const handleReadReceipt = (e) => {
           const data = e.detail;
           if (data.type === "messages_read" && String(data.payload.chat_id) === String(chat.id)) {
-              setMessages(prev => prev.map(m => m.sender_id === myId ? { ...m, is_read: true } : m));
+              // Usamos String(chat.id) para asegurarnos de que el tipo de dato coincida
+              setMessages(prev => prev.map(m => 
+                  String(m.sender_id) !== String(chat.id) ? { ...m, is_read: true } : m
+              ));
           }
       };
+      
       window.addEventListener("socket_event", handleReadReceipt);
       return () => window.removeEventListener("socket_event", handleReadReceipt);
-  }, [chat.id, myId]);
+  }, [chat.id]); // Ya no dependemos de myId aquí
 
   useEffect(() => {
       if (scrollContainerRef.current) {

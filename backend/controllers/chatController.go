@@ -198,9 +198,17 @@ func GetMessages(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	targetId := c.Params("id")
 
-	database.DB.Model(&models.Message{}).
+	// Guardamos el resultado en "result" para saber cuántos mensajes se actualizaron
+	result := database.DB.Model(&models.Message{}).
 		Where("sender_id = ? AND receiver_id = ? AND is_read = ?", targetId, myId, false).
 		Update("is_read", true)
+
+	// ✅ SOLUCIÓN: Si entras al chat y habían mensajes sin leer, avisa a la otra persona al instante
+	if result.RowsAffected > 0 {
+		websockets.SendToUser(targetId, "messages_read", map[string]interface{}{
+			"chat_id": myId,
+		})
+	}
 
 	var messages []models.Message
 	database.DB.Where(
