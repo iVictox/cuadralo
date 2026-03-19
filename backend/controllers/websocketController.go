@@ -7,10 +7,9 @@ import (
 	"encoding/json"
 	"log"
 	"strconv"
-	"time" // <-- Asegúrate de importar time
+	"time"
 
 	"github.com/gofiber/contrib/websocket"
-	"github.com/gofiber/fiber/v2"
 )
 
 func HandleWebSocket(c *websocket.Conn) {
@@ -24,17 +23,13 @@ func HandleWebSocket(c *websocket.Conn) {
 		c.Close()
 	}()
 
-	// Definimos el tiempo máximo que esperaremos un mensaje del cliente
 	pongWait := 60 * time.Second
 
 	for {
-		// Renueva el contador cada vez que el ciclo vuelve a empezar
 		c.SetReadDeadline(time.Now().Add(pongWait))
 
 		_, msg, err := c.ReadMessage()
 		if err != nil {
-			// Si no hay mensajes en 60 seg, o el proxy corta la conexión, err no será nil
-			// El loop se rompe, se ejecuta el defer, y el usuario pasa a "offline"
 			break
 		}
 
@@ -50,9 +45,6 @@ func HandleWebSocket(c *websocket.Conn) {
 
 		switch incoming.Type {
 		case "ping":
-			// El cliente enviará un ping constantemente.
-			// No necesitamos hacer nada extra, al recibir este mensaje
-			// el loop vuelve arriba y renueva el SetReadDeadline de 60 segundos.
 			continue
 
 		case "send_message":
@@ -64,6 +56,23 @@ func HandleWebSocket(c *websocket.Conn) {
 			database.DB.Create(&msgData)
 
 			websockets.SendPrivateMessage(uID, msgData.ReceiverID, msgData)
+
+		// ✅ NUEVO: Marcar chat como leído en tiempo real
+		case "mark_chat_read":
+			var payload struct {
+				ChatID uint `json:"chat_id"`
+			}
+			json.Unmarshal(incoming.Payload, &payload)
+
+			// Actualizar en base de datos
+			database.DB.Model(&models.Message{}).
+				Where("sender_id = ? AND receiver_id = ? AND is_read = ?", payload.ChatID, uID, false).
+				Update("is_read", true)
+
+			// Avisar al remitente que sus mensajes fueron leídos (para el doble check azul)
+			websockets.SendToUser(strconv.Itoa(int(payload.ChatID)), "messages_read", map[string]interface{}{
+				"chat_id": uID,
+			})
 
 		case "view_once_opened":
 			var payload struct {
@@ -81,22 +90,4 @@ func HandleWebSocket(c *websocket.Conn) {
 			database.DB.Model(&models.Message{}).Where("id = ?", payload.MessageID).Update("is_saved", payload.IsSaved)
 		}
 	}
-}
-
-// Agregar al final de backend/controllers/websocketController.go
-
-func DebugWebSockets(c *fiber.Ctx) error {
-	websockets.MainHub.Mutex.Lock()
-	defer websockets.MainHub.Mutex.Unlock()
-
-	var onlineUsers []uint
-	for uid := range websockets.MainHub.Clients {
-		onlineUsers = append(onlineUsers, uid)
-	}
-
-	return c.JSON(fiber.Map{
-		"total_conectados": len(onlineUsers),
-		"usuarios_ids":     onlineUsers,
-		"mensaje":          "Esta es la memoria RAM real del servidor en este momento",
-	})
 }

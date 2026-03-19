@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MoreVertical, MessageCircle, UserPlus, Zap, Crown } from "lucide-react";
+import { Search, MessageCircle, Zap, Crown } from "lucide-react";
 import { api } from "@/utils/api";
 import BoostModal from "@/components/BoostModal";
 import PrimeModal from "@/components/PrimeModal";
@@ -16,8 +16,19 @@ export default function ChatList({ onChatSelect }) {
   const [showBoost, setShowBoost] = useState(false);
   const [showPrime, setShowPrime] = useState(false);
 
+  // ✅ NUEVO: La lista se actualiza automáticamente si entra un mensaje o leen uno tuyo
   useEffect(() => {
     fetchData();
+
+    const handleSocketEvent = (e) => {
+        const data = e.detail;
+        if (data.type === "new_message" || data.type === "messages_read") {
+            fetchData();
+        }
+    };
+    
+    window.addEventListener("socket_event", handleSocketEvent);
+    return () => window.removeEventListener("socket_event", handleSocketEvent);
   }, []);
 
   const fetchData = async () => {
@@ -47,7 +58,6 @@ export default function ChatList({ onChatSelect }) {
 
   return (
     <div className="flex flex-col h-full bg-cuadralo-bgLight dark:bg-cuadralo-bgDark text-cuadralo-textLight dark:text-cuadralo-textDark transition-colors duration-300">
-      {/* Header Fijo */}
       <div className="px-6 pt-16 pb-4 flex justify-between items-center bg-cuadralo-bgLight/95 dark:bg-cuadralo-bgDark/95 backdrop-blur-md sticky top-0 z-10 border-b border-black/5 dark:border-white/5">
         <h1 className="text-3xl font-black tracking-tighter uppercase italic">Chats</h1>
         <button onClick={() => setShowPrime(true)} className="p-2 bg-yellow-500/10 rounded-full hover:bg-yellow-500/20 transition-colors border border-yellow-500/20">
@@ -57,7 +67,6 @@ export default function ChatList({ onChatSelect }) {
 
       <div className="flex-1 overflow-y-auto pb-24 scrollbar-hide">
         
-        {/* BUSCADOR */}
         <div className="px-6 py-4">
             <div className="relative">
                 <Search className="absolute left-4 top-3.5 text-cuadralo-textMutedLight dark:text-gray-500" size={18} />
@@ -71,7 +80,6 @@ export default function ChatList({ onChatSelect }) {
             </div>
         </div>
         
-        {/* 🔥 BANNER PROMO BOOST */}
         {conversations.length < 5 && (
             <div 
                 onClick={() => setShowBoost(true)}
@@ -87,7 +95,6 @@ export default function ChatList({ onChatSelect }) {
             </div>
         )}
 
-        {/* SECCIÓN: NUEVOS MATCHES */}
         {filteredNewMatches.length > 0 && (
             <div className="px-6 mb-8">
                 <h2 className="text-[10px] font-black text-cuadralo-pink uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
@@ -113,7 +120,6 @@ export default function ChatList({ onChatSelect }) {
             </div>
         )}
 
-        {/* SECCIÓN: MENSAJES */}
         <div className="px-2">
             <h2 className="text-[10px] font-black text-cuadralo-textMutedLight dark:text-gray-500 uppercase tracking-[0.2em] mb-3 px-4">Conversaciones</h2>
             
