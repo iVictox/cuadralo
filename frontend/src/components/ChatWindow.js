@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
+import { useSocket } from "@/context/SocketContext"; // ✅ IMPORTADO
 import ProfileDetailsModal from "@/components/ProfileDetailsModal";
 import CheckoutModal from "@/components/CheckoutModal"; 
 
@@ -114,6 +115,7 @@ const MessageItem = ({ msg, isMe, onDelete, onOpenImage, onToggleSave }) => {
 
 export default function ChatWindow({ chat, onBack }) {
   const { showToast } = useToast();
+  const { checkIsOnline } = useSocket(); // ✅ EXTRAEMOS LA FUNCIÓN DEL SOCKET
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -127,6 +129,9 @@ export default function ChatWindow({ chat, onBack }) {
   const [fullscreenImage, setFullscreenImage] = useState(null); 
   const scrollContainerRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // ✅ USAMOS LA FUNCIÓN PARA SABER EL ESTADO REAL
+  const isOnline = checkIsOnline(chat.id);
 
   const rompehieloProduct = {
       id: "rompehielos_5",
@@ -163,6 +168,22 @@ export default function ChatWindow({ chat, onBack }) {
     return () => clearInterval(interval);
   }, [chat.id]);
 
+  // ✅ NUEVO: Escuchar mensajes en tiempo real directamente del WebSocket
+  useEffect(() => {
+      const handleNewMessage = (e) => {
+          const data = e.detail;
+          if (data.type === "new_message" && (data.payload.sender_id === chat.id || data.payload.receiver_id === chat.id)) {
+              setMessages(prev => {
+                  // Evitar duplicados
+                  if (prev.find(m => m.id === data.payload.id)) return prev;
+                  return [...prev, data.payload];
+              });
+          }
+      };
+      window.addEventListener("socket_event", handleNewMessage);
+      return () => window.removeEventListener("socket_event", handleNewMessage);
+  }, [chat.id]);
+
   // Hacer scroll automático al último mensaje
   useEffect(() => {
       if (scrollContainerRef.current) {
@@ -178,8 +199,8 @@ export default function ChatWindow({ chat, onBack }) {
     setNewMessage("");
     
     try {
-        await api.post("/messages", { receiver_id: chat.id, content: msg, type: "text" });
-        fetchMessages();
+        const sentMsg = await api.post("/messages", { receiver_id: chat.id, content: msg, type: "text" });
+        setMessages(prev => [...prev, sentMsg]); // Mostrar al instante localmente
         
         if (chat.isDirect) {
             setRompehielosCount(prev => prev > 0 ? prev - 1 : 0);
@@ -200,8 +221,8 @@ export default function ChatWindow({ chat, onBack }) {
       setIsUploading(true);
       try {
           const imageUrl = await api.upload(file);
-          await api.post("/messages", { receiver_id: chat.id, content: imageUrl, type: "image" });
-          fetchMessages();
+          const sentMsg = await api.post("/messages", { receiver_id: chat.id, content: imageUrl, type: "image" });
+          setMessages(prev => [...prev, sentMsg]); // Mostrar al instante
           if (chat.isDirect) setRompehielosCount(prev => prev > 0 ? prev - 1 : 0);
       } catch (error) { 
           if (error.needs_purchase) {
@@ -215,10 +236,9 @@ export default function ChatWindow({ chat, onBack }) {
 
   return (
     <>
-        {/* ✅ CAMBIO CLAVE: h-[100dvh] md:h-full y overflow-hidden para bloquear los saltos del navegador */}
         <div className="flex flex-col h-[100dvh] md:h-full bg-cuadralo-bgLight dark:bg-cuadralo-bgDark relative z-50 w-full max-w-2xl mx-auto border-x border-black/5 dark:border-white/5 transition-colors duration-300 overflow-hidden">
         
-        {/* HEADER: shrink-0 ancla la cabecera */}
+        {/* HEADER */}
         <div className="px-4 py-4 flex items-center justify-between bg-cuadralo-bgLight/90 dark:bg-cuadralo-bgDark/90 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-20 shrink-0">
             <div className="flex items-center gap-3">
                 <button onClick={onBack} className="p-2 -ml-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full"><ArrowLeft size={22} /></button>
@@ -226,7 +246,10 @@ export default function ChatWindow({ chat, onBack }) {
                     <div className="w-10 h-10 rounded-2xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm"><img src={chat.photo || "https://via.placeholder.com/150"} className="w-full h-full object-cover" /></div>
                     <div>
                         <h3 className="font-black text-sm">{chat.name}</h3>
-                        <span className="text-[9px] uppercase font-black tracking-widest text-green-500">Online</span>
+                        {/* ✅ CORRECCIÓN: ESTADO DINÁMICO AQUÍ */}
+                        <span className={`text-[9px] uppercase font-black tracking-widest transition-colors ${isOnline ? "text-green-500" : "text-gray-400"}`}>
+                            {isOnline ? "Online" : "Offline"}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -247,14 +270,14 @@ export default function ChatWindow({ chat, onBack }) {
             </div>
         )}
 
-        {/* MESSAGES: flex-1 permite que esta sea la única zona que haga scroll interno */}
+        {/* MESSAGES */}
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
             {loading ? <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-cuadralo-pink border-t-transparent animate-spin rounded-full"/></div> : messages.map((msg) => (
                 <MessageItem key={msg.id} msg={msg} isMe={msg.sender_id === myId} onDelete={() => {}} onOpenImage={setFullscreenImage} onToggleSave={() => {}} />
             ))}
         </div>
 
-        {/* ✅ ZONA DE INPUT: shrink-0 y mt-auto la clavan absolutamente al fondo de la pantalla real */}
+        {/* ZONA DE INPUT */}
         <div className="bg-cuadralo-bgLight dark:bg-cuadralo-bgDark border-t border-black/5 dark:border-white/5 p-3 pb-6 md:pb-4 transition-colors relative z-20 shrink-0 mt-auto">
             
             {chat.isDirect && rompehielosCount <= 0 && (

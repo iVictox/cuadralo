@@ -16,6 +16,8 @@ func Setup(app *fiber.App) {
 	api.Post("/upload", controllers.UploadFile)
 	api.Get("/interests", controllers.GetAllInterests)
 
+	api.Get("/debug/ws", controllers.DebugWebSockets)
+
 	// MIDDLEWARE
 	api.Use(middleware.IsAuthenticated)
 

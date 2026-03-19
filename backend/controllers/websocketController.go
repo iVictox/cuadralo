@@ -10,6 +10,7 @@ import (
 	"time" // <-- Asegúrate de importar time
 
 	"github.com/gofiber/contrib/websocket"
+	"github.com/gofiber/fiber/v2"
 )
 
 func HandleWebSocket(c *websocket.Conn) {
@@ -80,4 +81,22 @@ func HandleWebSocket(c *websocket.Conn) {
 			database.DB.Model(&models.Message{}).Where("id = ?", payload.MessageID).Update("is_saved", payload.IsSaved)
 		}
 	}
+}
+
+// Agregar al final de backend/controllers/websocketController.go
+
+func DebugWebSockets(c *fiber.Ctx) error {
+	websockets.MainHub.Mutex.Lock()
+	defer websockets.MainHub.Mutex.Unlock()
+
+	var onlineUsers []uint
+	for uid := range websockets.MainHub.Clients {
+		onlineUsers = append(onlineUsers, uid)
+	}
+
+	return c.JSON(fiber.Map{
+		"total_conectados": len(onlineUsers),
+		"usuarios_ids":     onlineUsers,
+		"mensaje":          "Esta es la memoria RAM real del servidor en este momento",
+	})
 }

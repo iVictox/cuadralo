@@ -3,6 +3,7 @@ package controllers
 import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
+	"cuadralo-backend/websockets" // ✅ IMPORTADO
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -78,12 +79,6 @@ func GetMatches(c *fiber.Ctx) error {
 	return c.JSON(results)
 }
 
-type MessageDTO struct {
-	ReceiverID uint   `json:"receiver_id"`
-	Content    string `json:"content"`
-	Type       string `json:"type"`
-}
-
 func SendMessage(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
@@ -120,12 +115,10 @@ func SendMessage(c *fiber.Ctx) error {
 		sender.RompehielosCount--
 		database.DB.Save(&sender)
 
-		// ✅ CORRECCIÓN: Insertar en la tabla Likes para que aparezca en el Inbox del receptor
 		var existingLike models.Like
 		errLike := database.DB.Where("from_user_id = ? AND to_user_id = ?", myId, data.ReceiverID).First(&existingLike).Error
 
 		if errLike != nil {
-			// No había interacción previa, creamos el rompehielo
 			newLike := models.Like{
 				FromUserID: myId,
 				ToUserID:   data.ReceiverID,
@@ -137,7 +130,6 @@ func SendMessage(c *fiber.Ctx) error {
 			}
 			database.DB.Create(&newLike)
 		} else {
-			// Ya existía interacción previa, actualizamos el texto para que el Inbox muestre el último mensaje
 			existingLike.Action = "rompehielo"
 			existingLike.Message = data.Content
 			if data.Type == "image" {
@@ -169,6 +161,9 @@ func SendMessage(c *fiber.Ctx) error {
 		}
 		return c.Status(500).JSON(fiber.Map{"error": "Error enviando"})
 	}
+
+	// ✅ NUEVO: DISPARA EL WEBSOCKET PARA EL RECEPTOR PARA QUE EL MENSAJE SEA INMEDIATO
+	websockets.SendPrivateMessage(myId, data.ReceiverID, msg)
 
 	return c.JSON(msg)
 }
