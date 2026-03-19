@@ -244,7 +244,7 @@ export default function ChatWindow({ chat, onBack }) {
 
     return (
         <>
-            <div className="flex flex-col h-[100dvh] md:h-full bg-cuadralo-bgLight dark:bg-cuadralo-bgDark relative z-50 w-full max-w-2xl mx-auto border-x border-black/5 dark:border-white/5 transition-colors duration-300 overflow-hidden">
+            <div className="flex flex-col h-[100dvh] max-h-[100dvh] bg-cuadralo-bgLight dark:bg-cuadralo-bgDark relative z-50 w-full max-w-2xl mx-auto border-x border-black/5 dark:border-white/5 transition-colors duration-300 overflow-hidden">
 
                 {/* HEADER */}
                 <div className="px-4 py-4 flex items-center justify-between bg-cuadralo-bgLight/90 dark:bg-cuadralo-bgDark/90 backdrop-blur-md border-b border-black/5 dark:border-white/5 z-20 shrink-0">
@@ -278,11 +278,17 @@ export default function ChatWindow({ chat, onBack }) {
                     </div>
                 )}
 
-                {/* MESSAGES */}
-                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
-                    {loading ? <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-cuadralo-pink border-t-transparent animate-spin rounded-full" /></div> : messages.map((msg) => (
-                        <MessageItem key={msg.id} msg={msg} isMe={msg.sender_id === myId} onDelete={() => { }} onOpenImage={setFullscreenImage} onToggleSave={() => { }} />
-                    ))}
+                {/* ✅ CAMBIO: Agregamos min-h-0 para que Flexbox permita el scroll interno sin estirar el padre */}
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar min-h-0">
+                    {loading ? (
+                        <div className="flex justify-center py-10">
+                            <div className="w-6 h-6 border-2 border-cuadralo-pink border-t-transparent animate-spin rounded-full" />
+                        </div>
+                    ) : (
+                        messages.map((msg) => (
+                            <MessageItem key={msg.id} msg={msg} isMe={msg.sender_id === myId} onDelete={() => { }} onOpenImage={setFullscreenImage} onToggleSave={() => { }} />
+                        ))
+                    )}
                 </div>
 
                 {/* ZONA DE INPUT */}
