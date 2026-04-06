@@ -4,15 +4,15 @@ import { useState, useEffect } from "react";
 import { X, Save, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "@/utils/api";
+import { INTERESTS_LIST } from "@/utils/interests"; // ✅ AÑADIDO: Importamos la lista oficial de la app
 
 export default function FilterModal({ onClose }) {
   const [loading, setLoading] = useState(false);
-  const [allInterests, setAllInterests] = useState([]);
   const [prefs, setPrefs] = useState({
     distance: 50,
     show: "Todos",
     ageRange: [18, 30],
-    interests: [] // Añadido campo intereses
+    interests: []
   });
 
   useEffect(() => {
@@ -23,10 +23,8 @@ export default function FilterModal({ onClose }) {
           const savedPrefs = typeof user.preferences === 'string' ? JSON.parse(user.preferences) : user.preferences;
           setPrefs(prev => ({ ...prev, ...savedPrefs, interests: savedPrefs.interests || [] }));
         }
-        
-        // Obtener la lista de intereses de la BD
-        const ints = await api.get("/interests");
-        if (Array.isArray(ints)) setAllInterests(ints);
+        // ✅ ELIMINADO: Ya no hacemos fetch a la BD para no traer intereses basura.
+        // Usaremos directamente INTERESTS_LIST de utils/interests.js
       } catch (error) { console.error(error); }
     };
     fetchData();
@@ -106,15 +104,17 @@ export default function FilterModal({ onClose }) {
             <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-4 block">Intereses en Común (Opcional)</label>
                 <div className="flex flex-wrap gap-2">
-                    {allInterests.map(interest => {
+                    {/* ✅ MODIFICADO: Ahora mapeamos directamente la lista oficial para tener los iconos */}
+                    {INTERESTS_LIST.map(interest => {
                         const isSelected = prefs.interests?.includes(interest.slug);
                         return (
                             <button
                                 key={interest.slug}
                                 onClick={() => toggleInterest(interest.slug)}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all border ${isSelected ? 'bg-cuadralo-pink text-white border-cuadralo-pink shadow-md shadow-cuadralo-pink/30' : 'bg-transparent text-gray-500 border-gray-300 dark:border-white/10 dark:text-white/60 hover:border-cuadralo-pink'}`}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full transition-all border ${isSelected ? 'bg-cuadralo-pink text-white border-cuadralo-pink shadow-md shadow-cuadralo-pink/30' : 'bg-transparent text-gray-500 border-gray-300 dark:border-white/10 dark:text-white/60 hover:border-cuadralo-pink hover:text-cuadralo-pink'}`}
                             >
-                                {interest.name}
+                                {interest.icon}
+                                <span>{interest.name}</span>
                             </button>
                         )
                     })}
