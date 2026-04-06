@@ -55,7 +55,6 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
   const [receiptFile, setReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState(null);
 
-  // ✅ BLOQUEO DE SCROLL GLOBAL
   useEffect(() => {
       document.body.style.overflow = "hidden";
       return () => {
@@ -122,14 +121,12 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
   };
 
   return (
-    // ✅ Z-INDEX EXTREMO (z-[9999]) Y ALINEACIÓN DE BOTTOM SHEET (items-end)
     <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center p-0 md:p-6 bg-zinc-950/80 backdrop-blur-md">
       <motion.div 
         initial={{ opacity: 0, y: 100 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 100 }}
         transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
-        // ✅ ALTURA MASIVA (h-[95vh]) Y MÁXIMO ANCHO EXPANDIDO (max-w-5xl)
         className="relative w-full max-w-5xl h-[95vh] md:h-[90vh] bg-white rounded-t-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.5)] md:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] text-zinc-900 flex flex-col"
       >
         {/* Header Superior */}
@@ -150,7 +147,8 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
             </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-white relative">
+        {/* ✅ SOLUCIÓN AL SCROLLBAR: Se añadió 'overflow-x-hidden' al contenedor principal */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-white relative">
             <AnimatePresence mode="wait">
                 
                 {/* =========================================
