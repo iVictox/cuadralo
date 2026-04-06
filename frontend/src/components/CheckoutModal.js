@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ChevronRight, UploadCloud, CheckCircle, Smartphone, Building, Hash, Info, RefreshCw, Crown, Zap } from "lucide-react";
+import { 
+    X, ChevronRight, UploadCloud, CheckCircle, Smartphone, 
+    Building, Hash, Info, RefreshCw, Crown, Zap, 
+    Lock, ShieldCheck, Check, ArrowRight, CreditCard
+} from "lucide-react";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 
@@ -51,12 +55,10 @@ export default function CheckoutModal({ product, onClose }) {
   const [receiptFile, setReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState(null);
 
-  // ✅ AHORA LE PREGUNTAMOS A NUESTRO PROPIO BACKEND (Cero errores de CORS)
   useEffect(() => {
       const fetchRate = async () => {
           try {
               const res = await api.get("/premium/rate");
-              
               if (res.rate) {
                   setBcvRate(res.rate);
                   setAmountVES((product.price * res.rate).toFixed(2));
@@ -65,7 +67,6 @@ export default function CheckoutModal({ product, onClose }) {
               }
           } catch (error) {
               console.error("Fallo obteniendo la tasa del servidor:", error);
-              // La tasa 512.22 se mantiene como emergencia local por si acaso
               const emergencyRate = 512.22; 
               setBcvRate(emergencyRate); 
               setAmountVES((product.price * emergencyRate).toFixed(2));
@@ -113,172 +114,268 @@ export default function CheckoutModal({ product, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-md">
       <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-lg bg-[#0f0518] rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl text-white flex flex-col max-h-[90vh]"
+        initial={{ opacity: 0, y: 30, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.98 }}
+        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+        // ✅ Modal grande, fondo blanco, sombras suaves para generar confianza
+        className="relative w-full max-w-4xl bg-white rounded-[2rem] overflow-hidden shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] text-slate-800 flex flex-col max-h-[95vh]"
       >
-        <div className="bg-white/5 border-b border-white/10 p-4 flex items-center justify-between">
-            <h3 className="font-bold text-lg flex items-center gap-2">
-                {step === 1 ? "Resumen de Compra" : step === 2 ? "Pago Móvil" : "¡Recibido!"}
-            </h3>
-            <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-all">
-                <X size={18} />
+        {/* Header Superior - Seguridad */}
+        <div className="bg-white border-b border-slate-100 p-5 flex items-center justify-between shrink-0 z-10 relative">
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center text-green-600">
+                    <Lock size={20} strokeWidth={2.5} />
+                </div>
+                <div>
+                    <h3 className="font-black text-lg text-slate-900 leading-tight">Checkout Seguro</h3>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Cifrado de 256-bits</p>
+                </div>
+            </div>
+            <button onClick={onClose} className="p-2.5 bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-full transition-all">
+                <X size={20} />
             </button>
         </div>
 
-        <div className="p-6 overflow-y-auto scrollbar-hide">
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-white relative">
             <AnimatePresence mode="wait">
                 
-                {/* === PASO 1 === */}
+                {/* =========================================
+                    PASO 1: RESUMEN DE COMPRA (DISEÑO SAAS)
+                ============================================= */}
                 {step === 1 && (
-                    <motion.div key="step1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                    <motion.div key="step1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex flex-col md:flex-row min-h-full">
                         
-                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20">
-                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-lg text-black">
-                                {product.id === 'vip' ? <Crown size={32} /> : <Zap size={32} />}
-                            </div>
-                            <div>
-                                <h4 className="text-xl font-black text-yellow-400 tracking-tight">{product.name}</h4>
-                                <p className="text-white/60 text-sm">{product.desc || "Acceso premium a Cuadralo."}</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-black/50 rounded-2xl p-5 border border-white/5">
-                            <div className="flex justify-between items-center mb-3">
-                                <span className="text-white/60">Precio</span>
-                                <span className="text-xl font-black">{product.price.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between items-center pb-3 border-b border-white/10">
-                                <span className="text-white/60 flex items-center gap-1">Tasa BCV {!bcvRate && <RefreshCw size={12} className="animate-spin" />}</span>
-                                <span className="text-sm font-bold text-yellow-400">
-                                    Bs. {bcvRate ? bcvRate.toLocaleString('es-VE', { minimumFractionDigits: 2 }) : "Cargando..."}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center pt-3">
-                                <span className="text-white font-bold">Total a Pagar</span>
-                                <span className="text-2xl font-black text-green-400">
-                                    Bs. {amountVES ? parseFloat(amountVES).toLocaleString('es-VE', { minimumFractionDigits: 2 }) : "..."}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h4 className="text-sm font-bold text-white/50 uppercase tracking-widest mb-3">Método de Pago</h4>
-                            <button onClick={() => setStep(2)} className="w-full flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cuadralo-pink/50 transition-all group">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
-                                        <Smartphone size={20} />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="font-bold text-white">Pago Móvil (Venezuela)</p>
-                                        <p className="text-xs text-white/50">Aprobación manual rápida</p>
-                                    </div>
-                                </div>
-                                <ChevronRight className="text-white/30 group-hover:text-cuadralo-pink transition-colors" />
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-
-                {/* === PASO 2 === */}
-                {step === 2 && (
-                    <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-6">
-                        
-                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5">
-                            <div className="flex items-center gap-2 mb-3 text-blue-400">
-                                <Info size={16} />
-                                <span className="text-xs font-black uppercase tracking-widest">Datos para transferir</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div><span className="text-white/50 block text-xs">Banco</span><span className="font-bold">{MY_BANK_DETAILS.bank}</span></div>
-                                <div><span className="text-white/50 block text-xs">Teléfono</span><span className="font-bold">{MY_BANK_DETAILS.phone}</span></div>
-                                <div><span className="text-white/50 block text-xs">Cédula/RIF</span><span className="font-bold">{MY_BANK_DETAILS.rif}</span></div>
-                                <div><span className="text-white/50 block text-xs">Monto Exacto</span><span className="font-black text-green-400">Bs. {amountVES ? parseFloat(amountVES).toLocaleString('es-VE', { minimumFractionDigits: 2 }) : ""}</span></div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1 block">Banco Emisor</label>
-                                <div className="relative">
-                                    <Building size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30 pointer-events-none" />
-                                    <select 
-                                        value={formData.bank} 
-                                        onChange={(e) => setFormData({...formData, bank: e.target.value})} 
-                                        className="w-full bg-[#1a0f2e] border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm text-white focus:border-cuadralo-pink outline-none transition-colors appearance-none cursor-pointer"
-                                    >
-                                        <option value="" disabled>Selecciona tu banco...</option>
-                                        {VZLA_BANKS.map((b) => (
-                                            <option key={b.code} value={`${b.name} (${b.code})`}>
-                                                {b.name} ({b.code})
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <ChevronRight size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/30 rotate-90 pointer-events-none" />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1 block">Tu Teléfono</label>
-                                    <div className="relative">
-                                        <Smartphone size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30" />
-                                        <input type="text" placeholder="0412..." value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm focus:border-cuadralo-pink outline-none transition-colors" />
-                                    </div>
+                        {/* Columna Izquierda: Qué estás comprando y Beneficios */}
+                        <div className="w-full md:w-5/12 bg-slate-50 p-6 sm:p-8 md:p-10 flex flex-col border-r border-slate-100">
+                            <span className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 block">Estás comprando</span>
+                            
+                            <div className="flex items-start gap-4 mb-8">
+                                <div className="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-lg text-white">
+                                    {product.id === 'vip' ? <Crown size={32} strokeWidth={2.5} /> : <Zap size={32} strokeWidth={2.5} />}
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1 block">Referencia</label>
-                                    <div className="relative">
-                                        <Hash size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30" />
-                                        <input type="text" placeholder="Últimos 6 dígitos" value={formData.reference} onChange={(e) => setFormData({...formData, reference: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm focus:border-cuadralo-pink outline-none transition-colors" />
-                                    </div>
+                                    <h4 className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-2">{product.name}</h4>
+                                    <p className="text-slate-500 text-sm font-medium leading-relaxed">{product.desc}</p>
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-widest mb-2 block">Capture del Pago</label>
-                                <div 
-                                    onClick={() => fileInputRef.current.click()}
-                                    className="border-2 border-dashed border-white/20 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-white/5 hover:border-cuadralo-pink/50 transition-colors"
-                                >
-                                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-                                    {receiptPreview ? (
-                                        <img src={receiptPreview} alt="Comprobante" className="h-32 object-contain rounded-lg shadow-md" />
-                                    ) : (
+                            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm mb-6">
+                                <h5 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
+                                    <ShieldCheck size={18} className="text-green-500" /> Beneficios incluidos:
+                                </h5>
+                                <ul className="space-y-3">
+                                    {product.id === 'vip' ? (
                                         <>
-                                            <UploadCloud size={32} className="text-white/30 mb-2" />
-                                            <p className="text-sm font-bold text-white/80">Toca para subir el comprobante</p>
-                                            <p className="text-xs text-white/40 mt-1">JPG, PNG (Máx 5MB)</p>
+                                            <BenefitRow text="Acceso al Radar (Mira a quién le gustas)" />
+                                            <BenefitRow text="Likes y Swipes Ilimitados diarios" />
+                                            <BenefitRow text="Rebobinar perfiles ilimitadamente" />
+                                            <BenefitRow text="Bono: 1 Destello mensual gratis" />
+                                            <BenefitRow text="Bono: 3 Rompehielos mensuales gratis" />
                                         </>
+                                    ) : (
+                                        <BenefitRow text="Mejoras específicas del paquete" />
                                     )}
+                                </ul>
+                            </div>
+
+                            <div className="mt-auto pt-6">
+                                <div className="flex items-center gap-3 justify-center text-slate-400 text-sm">
+                                    <ShieldCheck size={20} />
+                                    <span className="font-medium">100% Garantía de Satisfacción</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex gap-3 pt-2">
-                            <button onClick={() => setStep(1)} className="px-6 py-4 rounded-xl bg-white/5 text-white font-bold hover:bg-white/10 transition-colors">Volver</button>
-                            <button onClick={handleSubmitPayment} disabled={loading} className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-black uppercase tracking-widest text-sm rounded-xl py-4 shadow-lg shadow-blue-500/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-                                {loading ? <RefreshCw className="animate-spin" size={18} /> : "Reportar Pago"}
-                            </button>
+                        {/* Columna Derecha: Precios y Pago */}
+                        <div className="w-full md:w-7/12 bg-white p-6 sm:p-8 md:p-10 flex flex-col relative">
+                            <h4 className="text-xl font-black text-slate-900 mb-6">Resumen del Pago</h4>
+
+                            {/* Ticket de Pago */}
+                            <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100 mb-8">
+                                <div className="flex justify-between items-center mb-4">
+                                    <span className="text-slate-500 font-medium">Subtotal ({product.name})</span>
+                                    <span className="text-lg font-bold text-slate-800">${product.price.toFixed(2)} USD</span>
+                                </div>
+                                <div className="flex justify-between items-center pb-4 border-b border-slate-200 border-dashed">
+                                    <span className="text-slate-500 font-medium flex items-center gap-2">
+                                        Tasa de cambio BCV
+                                        {!bcvRate && <RefreshCw size={14} className="animate-spin text-slate-400" />}
+                                    </span>
+                                    <span className="text-sm font-bold text-slate-600">
+                                        x {bcvRate ? bcvRate.toLocaleString('es-VE', { minimumFractionDigits: 2 }) : "..."} Bs.
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-end pt-5">
+                                    <div>
+                                        <span className="text-slate-900 font-black block text-lg">Total a Pagar</span>
+                                        <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">En Moneda Local</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-4xl font-black text-blue-600 tracking-tighter">
+                                            Bs. {amountVES ? parseFloat(amountVES).toLocaleString('es-VE', { minimumFractionDigits: 2 }) : "..."}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Selector de Pago */}
+                            <div>
+                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 block">Selecciona tu método</span>
+                                <button 
+                                    onClick={() => setStep(2)} 
+                                    className="w-full flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-white border-2 border-slate-100 hover:border-blue-500 hover:shadow-[0_8px_30px_rgba(59,130,246,0.15)] transition-all group cursor-pointer"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                                            <Smartphone size={24} strokeWidth={2.5} />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="font-black text-slate-900 text-lg">Pago Móvil Nacional</p>
+                                            <p className="text-sm text-slate-500 font-medium">Transferencia inmediata en Bolívares</p>
+                                        </div>
+                                    </div>
+                                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                                        <ArrowRight size={20} className="text-slate-400 group-hover:text-blue-600" />
+                                    </div>
+                                </button>
+                            </div>
+
+                            {/* Enlaces Legales */}
+                            <div className="mt-auto pt-8 flex flex-col items-center justify-center text-center">
+                                <p className="text-xs text-slate-400 mb-3">
+                                    Al procesar el pago, aceptas nuestras políticas de seguridad.
+                                </p>
+                                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs font-bold text-slate-500">
+                                    <a href="#" className="hover:text-blue-600 transition-colors">Términos de Servicio</a>
+                                    <span className="hidden sm:inline text-slate-300">•</span>
+                                    <a href="#" className="hover:text-blue-600 transition-colors">Política de Privacidad</a>
+                                    <span className="hidden sm:inline text-slate-300">•</span>
+                                    <a href="#" className="hover:text-blue-600 transition-colors">Reembolsos</a>
+                                </div>
+                            </div>
                         </div>
                     </motion.div>
                 )}
 
-                {/* === PASO 3 === */}
+                {/* =========================================
+                    PASO 2: FORMULARIO DE PAGO MÓVIL
+                ============================================= */}
+                {step === 2 && (
+                    <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="p-6 sm:p-8 md:p-10">
+                        <div className="flex items-center gap-3 mb-8">
+                            <button onClick={() => setStep(1)} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 transition-colors">
+                                <ChevronRight size={20} className="rotate-180" />
+                            </button>
+                            <h4 className="text-2xl font-black text-slate-900">Reportar Pago Móvil</h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+                            
+                            {/* Info del Banco */}
+                            <div>
+                                <div className="bg-blue-50 border border-blue-100 rounded-3xl p-6 sm:p-8 relative overflow-hidden h-full">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full" />
+                                    
+                                    <div className="flex items-center gap-2 mb-6 text-blue-700">
+                                        <Info size={20} />
+                                        <span className="text-sm font-black uppercase tracking-widest">Realiza tu pago aquí</span>
+                                    </div>
+                                    
+                                    <div className="space-y-5">
+                                        <div><span className="text-blue-600/70 block text-xs font-bold uppercase tracking-widest mb-1">Banco</span><span className="text-lg font-black text-blue-950">{MY_BANK_DETAILS.bank}</span></div>
+                                        <div><span className="text-blue-600/70 block text-xs font-bold uppercase tracking-widest mb-1">Teléfono</span><span className="text-lg font-black text-blue-950">{MY_BANK_DETAILS.phone}</span></div>
+                                        <div><span className="text-blue-600/70 block text-xs font-bold uppercase tracking-widest mb-1">Cédula / RIF</span><span className="text-lg font-black text-blue-950">{MY_BANK_DETAILS.rif}</span></div>
+                                        <div className="pt-4 border-t border-blue-200/50">
+                                            <span className="text-blue-600/70 block text-xs font-bold uppercase tracking-widest mb-1">Monto a Enviar</span>
+                                            <span className="text-3xl font-black text-blue-600 tracking-tighter">Bs. {amountVES ? parseFloat(amountVES).toLocaleString('es-VE', { minimumFractionDigits: 2 }) : ""}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Formulario */}
+                            <div className="space-y-5">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Banco Emisor</label>
+                                    <div className="relative">
+                                        <Building size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                        <select 
+                                            value={formData.bank} 
+                                            onChange={(e) => setFormData({...formData, bank: e.target.value})} 
+                                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-slate-700 focus:border-blue-500 focus:bg-white outline-none transition-all appearance-none cursor-pointer"
+                                        >
+                                            <option value="" disabled>Selecciona tu banco...</option>
+                                            {VZLA_BANKS.map((b) => (
+                                                <option key={b.code} value={`${b.name} (${b.code})`}>{b.name} ({b.code})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Tu Teléfono</label>
+                                        <div className="relative">
+                                            <Smartphone size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                                            <input type="text" placeholder="0412..." value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-slate-700 focus:border-blue-500 focus:bg-white outline-none transition-all" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Referencia</label>
+                                        <div className="relative">
+                                            <Hash size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                                            <input type="text" placeholder="Ej: 849302" value={formData.reference} onChange={(e) => setFormData({...formData, reference: e.target.value})} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-slate-700 focus:border-blue-500 focus:bg-white outline-none transition-all" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Comprobante (Capture)</label>
+                                    <div 
+                                        onClick={() => fileInputRef.current.click()}
+                                        className="border-2 border-dashed border-slate-200 bg-slate-50 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                                    >
+                                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+                                        {receiptPreview ? (
+                                            <img src={receiptPreview} alt="Comprobante" className="h-28 object-contain rounded-lg shadow-sm" />
+                                        ) : (
+                                            <>
+                                                <UploadCloud size={32} className="text-blue-500 mb-3" />
+                                                <p className="text-sm font-black text-slate-700">Subir imagen del pago</p>
+                                                <p className="text-xs text-slate-400 mt-1 font-medium">Formatos soportados: JPG, PNG</p>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <button onClick={handleSubmitPayment} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest text-sm rounded-2xl py-5 shadow-[0_10px_30px_-10px_rgba(37,99,235,0.6)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 mt-4">
+                                    {loading ? <RefreshCw className="animate-spin" size={20} /> : <><CheckCircle size={20} /> Enviar Reporte de Pago</>}
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* =========================================
+                    PASO 3: ÉXITO
+                ============================================= */}
                 {step === 3 && (
-                    <motion.div key="step3" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-10 text-center">
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", bounce: 0.5, delay: 0.2 }} className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center text-green-400 mb-6">
-                            <CheckCircle size={48} />
-                        </motion.div>
-                        <h2 className="text-2xl font-black text-white mb-2">¡Pago Recibido!</h2>
-                        <p className="text-white/60 text-sm max-w-xs mx-auto mb-8">
-                            Hemos recibido tu reporte de pago y comprobante. Nuestro equipo lo verificará y tu {product.name} se activará en breve.
+                    <motion.div key="step3" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-20 px-6 text-center h-full">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-green-500/20 blur-2xl rounded-full" />
+                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", bounce: 0.6, delay: 0.2 }} className="relative w-28 h-28 bg-green-100 rounded-full flex items-center justify-center text-green-500 mb-8 border-[6px] border-white shadow-xl">
+                                <CheckCircle size={56} strokeWidth={2.5} />
+                            </motion.div>
+                        </div>
+                        <h2 className="text-4xl font-black text-slate-900 mb-4 tracking-tight">¡Pago Recibido!</h2>
+                        <p className="text-slate-500 text-lg font-medium max-w-md mx-auto mb-10 leading-relaxed">
+                            Hemos recibido tu reporte de pago exitosamente. Nuestro equipo lo verificará y tu <span className="font-bold text-slate-800">{product.name}</span> se activará en tu cuenta en unos minutos.
                         </p>
-                        <button onClick={onClose} className="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-gray-200 transition-colors">
-                            Entendido, volver a la app
+                        <button onClick={onClose} className="px-10 py-4 bg-slate-900 text-white font-black uppercase tracking-widest text-sm rounded-2xl hover:bg-slate-800 hover:shadow-xl transition-all active:scale-95">
+                            Volver a Cuádralo
                         </button>
                     </motion.div>
                 )}
@@ -288,4 +385,16 @@ export default function CheckoutModal({ product, onClose }) {
       </motion.div>
     </div>
   );
+}
+
+// Componente visual para la lista de beneficios
+function BenefitRow({ text }) {
+    return (
+        <li className="flex items-center gap-3">
+            <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0">
+                <Check size={12} strokeWidth={3} />
+            </div>
+            <span className="text-slate-600 text-sm font-medium">{text}</span>
+        </li>
+    );
 }
