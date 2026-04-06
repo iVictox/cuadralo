@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Save, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "@/utils/api";
-import { INTERESTS_LIST } from "@/utils/interests"; // ✅ AÑADIDO: Importamos la lista oficial de la app
+import { INTERESTS_LIST } from "@/utils/interests"; // ✅ Usamos estrictamente tu lista oficial
 
 export default function FilterModal({ onClose }) {
   const [loading, setLoading] = useState(false);
@@ -23,8 +23,7 @@ export default function FilterModal({ onClose }) {
           const savedPrefs = typeof user.preferences === 'string' ? JSON.parse(user.preferences) : user.preferences;
           setPrefs(prev => ({ ...prev, ...savedPrefs, interests: savedPrefs.interests || [] }));
         }
-        // ✅ ELIMINADO: Ya no hacemos fetch a la BD para no traer intereses basura.
-        // Usaremos directamente INTERESTS_LIST de utils/interests.js
+        // ❌ Ya NO hacemos fetch a /interests de la base de datos.
       } catch (error) { console.error(error); }
     };
     fetchData();
@@ -38,7 +37,7 @@ export default function FilterModal({ onClose }) {
       await api.put("/me", { preferences: prefsToSend });
       window.location.reload(); 
       onClose();
-    } catch (error) { alert("Error"); } 
+    } catch (error) { alert("Error al guardar filtros"); } 
     finally { setLoading(false); }
   };
 
@@ -103,18 +102,19 @@ export default function FilterModal({ onClose }) {
 
             <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-4 block">Intereses en Común (Opcional)</label>
-                <div className="flex flex-wrap gap-2">
-                    {/* ✅ MODIFICADO: Ahora mapeamos directamente la lista oficial para tener los iconos */}
+                
+                {/* ✅ Mismo diseño visual que tu register/page.js */}
+                <div className="flex flex-wrap gap-2.5 max-h-[30vh] overflow-y-auto no-scrollbar pb-2 content-start">
                     {INTERESTS_LIST.map(interest => {
                         const isSelected = prefs.interests?.includes(interest.slug);
                         return (
                             <button
                                 key={interest.slug}
                                 onClick={() => toggleInterest(interest.slug)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-full transition-all border ${isSelected ? 'bg-cuadralo-pink text-white border-cuadralo-pink shadow-md shadow-cuadralo-pink/30' : 'bg-transparent text-gray-500 border-gray-300 dark:border-white/10 dark:text-white/60 hover:border-cuadralo-pink hover:text-cuadralo-pink'}`}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all border-2 text-xs font-bold tracking-wide ${isSelected ? 'bg-cuadralo-pink border-cuadralo-pink text-white shadow-md shadow-cuadralo-pink/30 scale-[1.02]' : 'bg-transparent border-black/5 dark:border-white/5 text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5 hover:border-cuadralo-pink/50'}`}
                             >
-                                {interest.icon}
-                                <span>{interest.name}</span>
+                                <span className={isSelected ? "text-white" : "text-gray-500"}>{interest.icon}</span>
+                                {interest.name}
                             </button>
                         )
                     })}

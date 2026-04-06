@@ -48,7 +48,6 @@ export default function CardStack({ onOpenFilters }) {
   const fetchFeed = async () => {
     try {
       setLoading(true);
-      // Descargamos el feed normal y nuestras preferencias a la vez
       const [users, me] = await Promise.all([
           api.get("/feed"),
           api.get("/me")
@@ -72,10 +71,8 @@ export default function CardStack({ onOpenFilters }) {
           is_prime: u.is_prime 
       }));
 
-      // 🚀 APLICACIÓN DE FILTROS EN TIEMPO REAL
       if (prefs) {
           formattedCards = formattedCards.filter(u => {
-              // 1. Filtrar Género
               if (prefs.show && prefs.show !== "Todos") {
                   const userGender = u.gender?.toLowerCase() || "";
                   const wantMen = prefs.show === "Hombres";
@@ -85,13 +82,11 @@ export default function CardStack({ onOpenFilters }) {
                   if (wantWomen && !["mujer", "femenino", "female"].includes(userGender)) return false;
               }
 
-              // 2. Filtrar Edad
               if (prefs.ageRange && prefs.ageRange.length === 2) {
                   const [minAge, maxAge] = prefs.ageRange;
                   if (u.age < minAge || u.age > maxAge) return false;
               }
 
-              // 3. Filtrar Intereses
               if (prefs.interests && prefs.interests.length > 0) {
                   const hasCommonInterest = u.interests.some(interest => prefs.interests.includes(interest));
                   if (!hasCommonInterest) return false;
@@ -188,9 +183,9 @@ export default function CardStack({ onOpenFilters }) {
   return (
     <div className="relative w-full h-[78vh] md:h-[84vh] max-h-[880px] flex flex-col justify-between items-center mt-2 md:mt-4 pb-2 md:pb-6">
       
-      {/* ✅ BOTÓN DE FILTROS EXCLUSIVO DE LA PANTALLA DE SWIPES */}
+      {/* ✅ BOTÓN DE FILTROS MOVIDO A LA IZQUIERDA (left-4 md:left-8) */}
       {onOpenFilters && (
-          <div className="absolute top-0 right-4 md:right-8 z-50">
+          <div className="absolute top-0 left-4 md:left-8 z-50">
               <button 
                   onClick={onOpenFilters}
                   className="p-3 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:text-cuadralo-pink hover:scale-110 active:scale-95 transition-all"
@@ -228,7 +223,6 @@ export default function CardStack({ onOpenFilters }) {
         </div>
       ) : (
         <>
-          {/* ✅ ZONA DE CARTAS */}
           <div className="relative w-full flex-1 flex justify-center items-center">
               <AnimatePresence>
                   {cards.map((card, index) => {
@@ -247,7 +241,6 @@ export default function CardStack({ onOpenFilters }) {
               </AnimatePresence>
           </div>
 
-          {/* ✅ ZONA DE BOTONES */}
           <div className="flex items-center justify-center gap-3 sm:gap-5 z-40 w-full px-4 mt-6 flex-shrink-0">
               
               <button 
@@ -276,7 +269,6 @@ export default function CardStack({ onOpenFilters }) {
         </>
       )}
 
-      {/* MODALES EXTRAS... */}
       <AnimatePresence>
         {showIcebreaker && (
           <motion.div 
@@ -343,7 +335,6 @@ export default function CardStack({ onOpenFilters }) {
   );
 }
 
-// ✅ COMPONENTE CARD 
 function Card({ data, isFront, onSwipe, onInfo, swipeDir }) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
