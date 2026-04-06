@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Crown, Sparkles, Eye, Infinity as InfinityIcon, RotateCcw, Gift, Zap, MessageCircle } from "lucide-react";
-import CheckoutModal from "@/components/CheckoutModal"; // ✅ IMPORTAMOS EL NUEVO COMPONENTE
+import { X, Crown, Eye, Infinity as InfinityIcon, RotateCcw, Zap, MessageCircle, Check } from "lucide-react";
+import CheckoutModal from "@/components/CheckoutModal"; 
 
 export default function PrimeModal({ onClose }) {
   const [showCheckout, setShowCheckout] = useState(false);
 
-  // Definimos el objeto que le pasaremos a la pasarela de pago
   const vipProduct = {
       id: "vip",
       name: "Cuadralo VIP",
@@ -19,108 +18,93 @@ export default function PrimeModal({ onClose }) {
 
   return (
     <>
-      {/* Si el checkout está activo, ocultamos visualmente la carta VIP o la dejamos de fondo */}
       {!showCheckout && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-all duration-300">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300">
             <motion.div 
-              initial={{ opacity: 0, y: 50, scale: 0.95 }}
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              transition={{ type: "spring", bounce: 0.4, duration: 0.6 }}
-              className="relative w-full max-w-sm md:max-w-4xl bg-gradient-to-br from-[#1c1c1c] via-[#0f0f0f] to-black rounded-[2.5rem] overflow-hidden border border-yellow-500/30 shadow-[0_0_80px_-15px_rgba(234,179,8,0.4)] text-white flex flex-col md:flex-row"
+              transition={{ type: "spring", bounce: 0.3, duration: 0.5 }}
+              // ✅ Reducido a max-w-sm para un diseño más compacto y vertical tipo "App"
+              className="relative w-full max-w-sm bg-[#121212] rounded-[2rem] overflow-hidden border border-yellow-500/20 shadow-2xl flex flex-col"
             >
-              <button onClick={onClose} className="absolute top-5 right-5 p-2 bg-white/5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-all z-50 backdrop-blur-sm border border-white/5">
+              
+              {/* Botón Cerrar */}
+              <button 
+                  onClick={onClose} 
+                  className="absolute top-4 right-4 p-2 bg-black/40 hover:bg-black/60 rounded-full text-white/60 hover:text-white transition-colors z-20 backdrop-blur-md"
+              >
                   <X size={20} />
               </button>
 
-              {/* Columna Izquierda */}
-              <div className="w-full md:w-5/12 relative flex flex-col items-center justify-center p-8 md:p-12 border-b md:border-b-0 md:border-r border-white/10 overflow-hidden min-h-[300px] md:min-h-full">
-                  <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-10 mix-blend-overlay pointer-events-none z-0" />
-                  <div className="absolute -top-20 -left-20 w-48 h-48 bg-yellow-500/20 blur-[60px] rounded-full pointer-events-none z-0" />
-                  <div className="absolute -bottom-20 -right-20 w-48 h-48 bg-amber-600/20 blur-[60px] rounded-full pointer-events-none z-0" />
+              {/* Cabecera VIP (Fondo sutil dorado) */}
+              <div className="relative pt-10 pb-8 flex flex-col items-center bg-gradient-to-b from-yellow-500/10 to-transparent">
+                  <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-yellow-500/50 to-transparent" />
                   
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-[120px] md:text-[180px] font-black text-white/[0.02] tracking-tighter select-none pointer-events-none z-0">
-                      VIP
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-300 to-amber-600 p-[2px] mb-4 shadow-[0_0_20px_rgba(234,179,8,0.2)]">
+                      <div className="w-full h-full bg-[#121212] rounded-full flex items-center justify-center">
+                          <Crown className="w-8 h-8 text-yellow-400" strokeWidth={2.5} />
+                      </div>
                   </div>
 
-                  <div className="relative z-10 flex flex-col items-center text-center">
-                      <motion.div 
-                          animate={{ rotateY: [0, 360] }}
-                          transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                          className="w-20 h-20 md:w-28 md:h-28 rounded-full bg-gradient-to-tr from-yellow-300 via-yellow-500 to-amber-700 flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.3)] mb-5 p-[2px] md:p-1"
-                      >
-                          <div className="w-full h-full bg-[#111] rounded-full flex items-center justify-center">
-                              <Crown className="w-8 h-8 md:w-12 md:h-12 text-yellow-400 drop-shadow-[0_2px_10px_rgba(234,179,8,0.8)]" strokeWidth={2.5} />
-                          </div>
-                      </motion.div>
+                  <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-2">
+                      Cuádralo <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500">VIP</span>
+                  </h2>
+                  <p className="text-gray-400 text-sm font-medium mt-2 px-6 text-center">
+                      Desbloquea todo el potencial. Conecta sin límites.
+                  </p>
+              </div>
 
-                      <h2 className="text-3xl md:text-4xl font-black mb-2 tracking-tight flex items-center justify-center gap-2 drop-shadow-lg w-full">
-                          Cuadralo <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-400 to-amber-500 uppercase tracking-widest text-4xl md:text-5xl">VIP</span>
-                      </h2>
-                      <p className="text-white/60 text-sm md:text-base font-medium max-w-[250px] md:max-w-[300px]">
-                          El pase de acceso total. Conecta más rápido, sin límites y destacando del resto.
-                      </p>
+              {/* Lista de Beneficios */}
+              <div className="px-8 pb-6 space-y-5">
+                  <BenefitItem icon={Eye} text="Mira a quién le gustas" />
+                  <BenefitItem icon={InfinityIcon} text="Likes Ilimitados" />
+                  <BenefitItem icon={RotateCcw} text="Rebobinar sin límites" />
+                  
+                  {/* Bono Mensual Compacto */}
+                  <div className="mt-6 p-4 rounded-2xl bg-[#1a1a1a] border border-white/5 flex flex-col gap-2 relative overflow-hidden">
+                      <div className="absolute -right-4 -top-4 w-16 h-16 bg-yellow-500/10 blur-xl rounded-full" />
+                      <span className="text-[10px] text-yellow-500 font-black uppercase tracking-widest">Incluye cada mes:</span>
+                      <div className="flex justify-between items-center text-sm font-bold text-gray-300">
+                          <span className="flex items-center gap-1.5"><Zap size={14} className="text-purple-400 fill-current"/> 1 Destello</span>
+                          <span className="text-white/10">|</span>
+                          <span className="flex items-center gap-1.5"><MessageCircle size={14} className="text-blue-400"/> 3 Rompehielos</span>
+                      </div>
                   </div>
               </div>
 
-              {/* Columna Derecha */}
-              <div className="w-full md:w-7/12 p-8 md:p-12 flex flex-col justify-center relative z-10 bg-black/40 md:bg-transparent">
-                  <div className="w-full space-y-3 mb-6">
-                      <BenefitItem icon={Eye} title="El Radar" desc="Mira a quién le gustas antes de deslizar." />
-                      <BenefitItem icon={InfinityIcon} title="Likes Ilimitados" desc="Desliza sin muros de pago diarios." />
-                      <BenefitItem icon={RotateCcw} title="Rebobinar" desc="Deshaz Swipes que diste por accidente." />
-                      
-                      <div className="mt-4 p-4 md:p-5 rounded-2xl bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20 relative overflow-hidden group hover:border-yellow-500/40 transition-colors">
-                          <div className="absolute top-0 right-0 w-20 h-20 bg-yellow-500/20 blur-2xl rounded-full pointer-events-none" />
-                          <div className="flex items-center gap-2 mb-3 relative z-10">
-                              <Gift size={18} className="text-yellow-400" />
-                              <span className="text-yellow-400 text-xs md:text-sm font-black uppercase tracking-widest">Bono Mensual Incluido</span>
-                          </div>
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 relative z-10">
-                              <div className="flex items-center gap-2 text-white/90 text-sm md:text-base font-bold bg-white/5 py-1.5 px-3 rounded-lg border border-white/10">
-                                  <Zap size={16} className="text-purple-400 fill-current" /> 1 Destello
-                              </div>
-                              <div className="flex items-center gap-2 text-white/90 text-sm md:text-base font-bold bg-white/5 py-1.5 px-3 rounded-lg border border-white/10">
-                                  <MessageCircle size={16} className="text-blue-400" /> 3 Rompehielos
-                              </div>
-                          </div>
+              {/* Pie de Tarjeta: Precio y Botón */}
+              <div className="p-6 bg-black/50 border-t border-white/5 mt-auto">
+                  <div className="flex justify-between items-end mb-5 px-2">
+                      <span className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Total mensual</span>
+                      <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-black text-white">${vipProduct.price}</span>
+                          <span className="text-gray-500 text-xs font-bold uppercase">/ mes</span>
                       </div>
                   </div>
 
-                  <div className="mt-auto">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                          <div className="flex flex-col items-center md:items-start">
-                              <span className="text-xs text-white/50 font-bold uppercase tracking-widest mb-1">Inversión mensual</span>
-                              <div className="flex items-baseline gap-1">
-                                  <span className="text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-white/70">${vipProduct.price}</span>
-                                  <span className="text-white/50 text-sm font-bold uppercase tracking-widest">/ mes</span>
-                              </div>
-                          </div>
-
-                          {/* ✅ AHORA ESTE BOTÓN ABRE EL CHECKOUT */}
-                          <button 
-                              onClick={() => setShowCheckout(true)}
-                              className="relative w-full md:w-auto md:flex-1 py-4 md:py-5 px-6 rounded-2xl bg-gradient-to-r from-yellow-300 via-yellow-500 to-amber-600 text-black font-black uppercase tracking-widest text-sm md:text-base hover:scale-[1.03] active:scale-95 transition-all shadow-[0_10px_30px_-10px_rgba(234,179,8,0.6)] flex items-center justify-center gap-2 overflow-hidden group"
-                          >
-                              <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-                              <Sparkles size={20} className="animate-pulse" />
-                              Continuar al Pago
-                          </button>
-                      </div>
-                  </div>
+                  <button 
+                      onClick={() => setShowCheckout(true)}
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-black uppercase tracking-widest text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-[0_5px_20px_-5px_rgba(234,179,8,0.4)]"
+                  >
+                      Continuar al Pago
+                  </button>
+                  <p className="text-center text-[10px] text-gray-600 mt-4 font-medium uppercase tracking-wider">
+                      Cancela cuando quieras
+                  </p>
               </div>
             </motion.div>
           </div>
       )}
 
-      {/* ✅ PASARELA DE PAGO: Solo se muestra si le dio click */}
+      {/* Pasarela de pago */}
       <AnimatePresence>
           {showCheckout && (
               <CheckoutModal 
                   product={vipProduct} 
                   onClose={() => {
                       setShowCheckout(false); 
-                      onClose(); // Cierra todo y vuelve a la app
+                      onClose(); 
                   }} 
               />
           )}
@@ -129,16 +113,15 @@ export default function PrimeModal({ onClose }) {
   );
 }
 
-function BenefitItem({ icon: Icon, title, desc }) {
+// ✅ Componente de ítem simplificado
+function BenefitItem({ icon: Icon, text }) {
     return (
-        <div className="flex items-start gap-3 md:gap-4 p-2.5 md:p-3 rounded-xl hover:bg-white/5 transition-colors">
-            <div className="p-2 md:p-2.5 rounded-lg bg-gradient-to-br from-yellow-400/20 to-amber-600/20 text-yellow-400 border border-yellow-500/20 shadow-inner mt-0.5">
-                <Icon className="w-4 h-4 md:w-5 md:h-5" strokeWidth={2.5} />
+        <div className="flex items-center gap-4 group">
+            <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white/5 text-yellow-500 group-hover:bg-yellow-500/10 group-hover:scale-110 transition-all">
+                <Icon size={16} strokeWidth={2.5} />
             </div>
-            <div className="flex flex-col">
-                <span className="text-white text-sm md:text-base font-black tracking-tight">{title}</span>
-                <span className="text-white/60 text-xs md:text-sm font-medium leading-tight mt-0.5">{desc}</span>
-            </div>
+            <span className="text-gray-200 text-sm font-semibold tracking-wide">{text}</span>
+            <Check size={16} className="ml-auto text-yellow-500/50" />
         </div>
     );
 }
