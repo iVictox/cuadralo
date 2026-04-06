@@ -12,11 +12,9 @@ import Image from "next/image";
 import { api } from "@/utils/api"; 
 import { INTERESTS_LIST } from "@/utils/interests";
 
-// ✅ Importaciones para los logins sociales
 import { useGoogleLogin } from '@react-oauth/google';
 import AppleSignin from 'react-apple-signin-auth';
 
-// ⚠️ RECUERDA: Este ID de Apple lo debes cambiar por el tuyo real de tu cuenta de desarrollador
 const APPLE_CLIENT_ID = "com.tuempresa.cuadralo.web"; 
 
 export default function RegisterPage() {
@@ -29,14 +27,13 @@ export default function RegisterPage() {
   const [formData, setFormData] = useState({
       name: "", username: "", email: "", password: "", confirmPassword: "",
       birthDate: "", gender: "", 
-      photos: [], // Array de fotos nativo
+      photos: [], 
       bio: "", interests: [], preferences: { ageRange: [18, 30], distance: 50, show: "Todos" }
   });
 
   const nextStep = () => { setError(""); setStep(prev => prev + 1); };
   const prevStep = () => { setError(""); setStep(prev => prev - 1); };
 
-  // --- LÓGICAS DE LOGIN SOCIAL ---
   const loginWithGoogle = useGoogleLogin({
     onSuccess: (codeResponse) => {
         setIsLoading(true);
@@ -76,7 +73,6 @@ export default function RegisterPage() {
       }
       try {
           setIsLoading(true);
-          // Decodificamos el JWT manualmente (sin usar la librería jwt-decode para evitar el error anterior)
           const base64Url = response.authorization.id_token.split('.')[1];
           const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
           const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
@@ -110,7 +106,6 @@ export default function RegisterPage() {
       }
   };
 
-  // --- LÓGICAS DEL FORMULARIO NORMAL ---
   const handleRegisterStart = (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) return setError("Las contraseñas no coinciden");
@@ -153,10 +148,26 @@ export default function RegisterPage() {
       navigator.geolocation.getCurrentPosition(
           async (position) => {
               try {
+                  const lat = position.coords.latitude;
+                  const lon = position.coords.longitude;
+                  
+                  // ✅ TRADUCIR COORDENADAS A CIUDAD Y PAÍS (Geocodificación Inversa)
+                  let locationString = "Ubicación Desconocida";
+                  try {
+                      const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`);
+                      const geoData = await geoRes.json();
+                      const city = geoData.city || geoData.locality || "Ciudad";
+                      const country = geoData.countryName || "País";
+                      locationString = `${city} (${country})`; // Ej: "Valencia (Venezuela)"
+                  } catch (e) {
+                      console.error("Error obteniendo ubicación:", e);
+                  }
+
                   const payload = { 
                       ...formData,
-                      latitude: position.coords.latitude,
-                      longitude: position.coords.longitude,
+                      latitude: lat,
+                      longitude: lon,
+                      location: locationString, // <- Se envía el texto generado automáticamente
                       photo: formData.photos.length > 0 ? formData.photos[0] : "", 
                       preferences: {
                           ...formData.preferences,
@@ -191,7 +202,6 @@ export default function RegisterPage() {
       });
   };
 
-  // Textos dinámicos
   const stepContent = [
       { title: "Comienza tu historia.", desc: "Crea tu cuenta en segundos y únete a la comunidad de Cuadralo." },
       { title: "Detalles básicos.", desc: "Queremos saber un poco más de ti para mostrarte a las personas correctas." },
@@ -204,7 +214,6 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen w-full flex bg-cuadralo-bgLight dark:bg-[#0f0518] overflow-hidden text-cuadralo-textLight dark:text-white transition-colors duration-500 relative">
       
-      {/* PANEL IZQUIERDO (Escritorio) */}
       <div className="hidden lg:flex w-[45%] relative bg-black items-center justify-center p-16 overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-cuadralo-pink/20 via-[#0f0518] to-purple-900/40 z-0" />
           <div className="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] bg-cuadralo-pink/30 rounded-full blur-[120px] animate-pulse" />
@@ -235,13 +244,11 @@ export default function RegisterPage() {
           </div>
       </div>
 
-      {/* FONDOS ANIMADOS MÓVIL */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none lg:hidden z-0">
           <div className="absolute top-[-10%] -left-[20%] w-[400px] h-[400px] bg-cuadralo-pink/20 rounded-full blur-[100px] animate-pulse" />
           <div className="absolute bottom-[-10%] -right-[20%] w-[400px] h-[400px] bg-purple-600/20 rounded-full blur-[100px] animate-pulse delay-1000" />
       </div>
 
-      {/* PANEL DERECHO (Formulario) */}
       <div className="w-full lg:w-[55%] flex flex-col items-center justify-center p-6 sm:p-12 md:p-20 relative z-10 bg-white/40 dark:bg-black/10 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none">
           
           {step > 0 && !isLoading && (
@@ -251,7 +258,6 @@ export default function RegisterPage() {
           )}
 
           <div className="w-full max-w-md mt-10 lg:mt-0">
-              {/* LOGO MÓVIL CENTRADO Y GRANDE */}
               <div className="flex justify-center mb-10 lg:hidden relative z-10">
                   <div className="w-56 h-16 relative">
                       <Image src="/logo.svg" fill className="object-contain dark:invert-0 invert" alt="Cuadralo" priority />
@@ -274,7 +280,6 @@ export default function RegisterPage() {
                  </AnimatePresence>
               </div>
               
-              {/* Barra de Progreso */}
               {step > 0 && (
                   <div className="flex gap-2 mb-12">
                      {[1,2,3,4,5].map(i => (
@@ -284,7 +289,6 @@ export default function RegisterPage() {
               )}
 
               <AnimatePresence mode="wait">
-                  {/* PASO 0: CREAR CUENTA */}
                   {step === 0 && (
                       <motion.div key="s0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                           
@@ -304,7 +308,6 @@ export default function RegisterPage() {
                               </button>
                           </form>
                           
-                          {/* Separador */}
                           <div className="relative my-8">
                               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-black/10 dark:border-white/10"></div></div>
                               <div className="relative flex justify-center text-sm">
@@ -315,7 +318,6 @@ export default function RegisterPage() {
                           </div>
 
                           <div className="grid grid-cols-2 gap-4 mb-2">
-                              {/* Botón de Google */}
                               <button 
                                 type="button" 
                                 onClick={() => loginWithGoogle()}
@@ -326,7 +328,6 @@ export default function RegisterPage() {
                                   <span className="text-sm font-bold text-cuadralo-textLight dark:text-white">Google</span>
                               </button>
                               
-                              {/* Botón de Apple */}
                               <AppleSignin
                                 authOptions={{
                                     clientId: APPLE_CLIENT_ID,
@@ -360,7 +361,6 @@ export default function RegisterPage() {
                       </motion.div>
                   )}
 
-                  {/* PASO 1: EDAD Y GÉNERO */}
                   {step === 1 && (
                       <motion.div key="s1" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}>
                           <div className="mb-10">
@@ -383,7 +383,6 @@ export default function RegisterPage() {
                       </motion.div>
                   )}
 
-                  {/* PASO 2: MÚLTIPLES FOTOS */}
                   {step === 2 && (
                       <motion.div key="s2" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}>
                           <div className="flex justify-between items-end mb-6 ml-2">
@@ -413,7 +412,6 @@ export default function RegisterPage() {
                       </motion.div>
                   )}
 
-                  {/* PASO 3: BIO */}
                   {step === 3 && (
                       <motion.div key="s3" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}>
                           <div className="relative mb-8">
@@ -430,7 +428,6 @@ export default function RegisterPage() {
                       </motion.div>
                   )}
 
-                  {/* PASO 4: INTERESES */}
                   {step === 4 && (
                       <motion.div key="s4" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}>
                           <div className="flex justify-between items-end mb-6 ml-2">
@@ -456,7 +453,6 @@ export default function RegisterPage() {
                       </motion.div>
                   )}
 
-                  {/* PASO 5: PREFERENCIAS */}
                   {step === 5 && (
                       <motion.div key="s5" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}>
                           
@@ -491,7 +487,6 @@ export default function RegisterPage() {
   );
 }
 
-// ✅ COMPONENTE INPUT FLOTANTE MODERNO
 function FloatingInput({ icon, label, type = "text", value, onChange, isLower }) {
     return (
         <div className="relative group">

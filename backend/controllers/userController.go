@@ -40,14 +40,14 @@ func UpdateMe(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
+	// ✅ CORRECCIÓN: "Location" eliminado. Se añaden Preferences para mantener los filtros de búsqueda guardados.
 	var input struct {
 		Name        string                 `json:"name"`
 		Username    string                 `json:"username"`
 		Bio         string                 `json:"bio"`
-		Location    string                 `json:"location"`
 		Photos      []string               `json:"photos"`
 		Interests   []string               `json:"interests"`
-		Preferences map[string]interface{} `json:"preferences"` // ✅ AÑADIDO: Para guardar los filtros
+		Preferences map[string]interface{} `json:"preferences"`
 	}
 
 	if err := c.BodyParser(&input); err != nil {
@@ -63,7 +63,6 @@ func UpdateMe(c *fiber.Ctx) error {
 	}
 
 	user.Bio = input.Bio
-	user.Location = input.Location
 
 	if input.Photos != nil {
 		user.Photos = input.Photos
@@ -72,7 +71,6 @@ func UpdateMe(c *fiber.Ctx) error {
 		}
 	}
 
-	// ✅ AÑADIDO: Guardar las preferencias como String JSON
 	if input.Preferences != nil {
 		prefsBytes, _ := json.Marshal(input.Preferences)
 		user.Preferences = string(prefsBytes)
@@ -122,7 +120,6 @@ func UpdateMe(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-// ✅ CORRECCIÓN APLICADA: Ahora GetUser también comprueba y envía si es un match
 func GetUser(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	id := c.Params("id")
@@ -137,7 +134,6 @@ func GetUser(c *fiber.Ctx) error {
 		user.InterestsList = append(user.InterestsList, i.Slug)
 	}
 
-	// Comprobar si ya son un Match oficial
 	var match models.Match
 	isMatch := false
 	if database.DB.Where("(user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?)", myId, user.ID, user.ID, myId).First(&match).RowsAffected > 0 {
@@ -161,7 +157,7 @@ func GetUser(c *fiber.Ctx) error {
 		"is_following":     user.IsFollowing,
 		"has_story":        user.HasStory,
 		"has_unseen_story": user.HasUnseenStory,
-		"is_match":         isMatch, // <- Enviamos si es match o no
+		"is_match":         isMatch,
 	})
 }
 

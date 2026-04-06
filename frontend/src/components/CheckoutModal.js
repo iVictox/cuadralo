@@ -12,9 +12,9 @@ import { useToast } from "@/context/ToastContext";
 
 const MY_BANK_DETAILS = {
     bank: "Banesco (0134)",
-    phone: "0414-1234567",
-    rif: "J-12345678-9",
-    name: "Cuadralo App C.A."
+    phone: "0412-7703302",
+    rif: "V- 30839445",
+    name: "Victor De Abreu"
 };
 
 const VZLA_BANKS = [
@@ -353,7 +353,7 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
                                     // Botón principal con el color de Cuádralo
                                     className="w-full bg-cuadralo-pink hover:bg-pink-600 text-white font-black uppercase tracking-widest text-xs sm:text-sm rounded-xl sm:rounded-2xl py-4 sm:py-5 shadow-[0_8px_20px_rgba(236,72,153,0.3)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 mt-2 sm:mt-4"
                                 >
-                                    {loading ? <RefreshCw className="animate-spin" size={20} /> : <><CheckCircle size={20} /> Enviar Reporte Seguro</>}
+                                    {loading ? <RefreshCw className="animate-spin" size={20} /> : <><CheckCircle size={20} /> Enviar Reporte de Pago</>}
                                 </button>
                             </div>
                         </div>

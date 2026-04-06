@@ -10,13 +10,12 @@ import { INTERESTS_LIST, getInterestInfo } from "@/utils/interests";
 export default function EditProfileModal({ user, onClose, onUpdate }) {
   const { showToast } = useToast();
   
-  // ✅ AÑADIDO: username en el estado inicial
+  // ✅ CORRECCIÓN: "location" eliminado del estado inicial
   const [formData, setFormData] = useState({
     name: user?.name || "",
     username: user?.username || "",
     bio: user?.bio || "",
-    gender: user?.gender || "male",
-    location: user?.location || ""
+    gender: user?.gender || "male"
   });
 
   const groupedInterests = INTERESTS_LIST.reduce((acc, item) => {
@@ -194,7 +193,6 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                         <input type="text" name="name" value={formData.name} onChange={handleChange} className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-2xl px-5 py-4 text-sm text-cuadralo-textLight dark:text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all" placeholder="Ej. Alex" />
                     </div>
 
-                    {/* ✅ NUEVO CAMPO: USUARIO (@) */}
                     <div>
                         <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Nombre de Usuario (@)</label>
                         <div className="relative">
@@ -210,10 +208,8 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Ubicación</label>
-                        <input type="text" name="location" value={formData.location} onChange={handleChange} className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-2xl px-5 py-4 text-sm text-cuadralo-textLight dark:text-white focus:ring-2 focus:ring-cuadralo-pink focus:border-transparent outline-none transition-all" placeholder="Ej. Valencia, VE" />
-                    </div>
+                    {/* ✅ ELIMINADO EL CAMPO MANUAL DE UBICACIÓN */}
+
                     <div>
                         <div className="flex justify-between items-center mb-1">
                             <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2">Biografía</label>

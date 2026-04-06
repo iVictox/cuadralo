@@ -24,6 +24,7 @@ type RegisterDTO struct {
 	Bio         string   `json:"bio"`
 	Latitude    float64  `json:"latitude"`
 	Longitude   float64  `json:"longitude"`
+	Location    string   `json:"location"` // ✅ AÑADIDO: Recibe la ciudad y país
 	Interests   []string `json:"interests"`
 	Preferences struct {
 		Distance int    `json:"distance"`
@@ -68,6 +69,7 @@ func Register(c *fiber.Ctx) error {
 		Bio:       data.Bio,
 		Latitude:  data.Latitude,
 		Longitude: data.Longitude,
+		Location:  data.Location, // ✅ AÑADIDO: Guarda la ciudad en el perfil del usuario automáticamente
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
@@ -147,7 +149,6 @@ func Login(c *fiber.Ctx) error {
 	})
 }
 
-// ✅ NUEVA FUNCIÓN: Inicio de sesión mediante Google (Sin contraseña)
 func GoogleLogin(c *fiber.Ctx) error {
 	var data map[string]string
 	if err := c.BodyParser(&data); err != nil {
@@ -159,12 +160,10 @@ func GoogleLogin(c *fiber.Ctx) error {
 	var user models.User
 	database.DB.Where("email = ?", email).First(&user)
 
-	// Si el correo de Google no está en nuestra base de datos, le decimos que se registre
 	if user.ID == 0 {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado. Por favor, regístrate primero."})
 	}
 
-	// Si el correo existe, generamos el token directamente
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": float64(user.ID),
 		"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
