@@ -206,36 +206,43 @@ func ReportPayment(c *fiber.Ctx) error {
 	})
 }
 
-// ✅ NUEVA FUNCIÓN: Obtiene directamente la tasa del EURO oficial del BCV
+// ✅ NUEVA FUNCIÓN ULTRA ROBUSTA: Múltiples APIs de respaldo para el EURO BCV
 func GetExchangeRate(c *fiber.Ctx) error {
-	// Consultamos a la API pública más estable para el BCV (PyDolarVenezuela)
-	// Al pasar "page=bcv" nos aseguramos de que solo traiga tasas oficiales del banco central.
-	resp, err := http.Get("https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv")
-
-	// TASA DE EMERGENCIA EXACTA (La mantenemos por seguridad en caso de que falle el internet del servidor)
 	fallbackRate := 512.22
 
-	if err != nil {
-		return c.JSON(fiber.Map{"rate": fallbackRate})
+	// --- Intento 1: DolarAPI (Endpoint específico de Euros Oficiales BCV) ---
+	// Es la más rápida, estable y no requiere parseo complejo
+	resp1, err1 := http.Get("https://ve.dolarapi.com/v1/euros/oficial")
+	if err1 == nil && resp1.StatusCode == 200 {
+		defer resp1.Body.Close()
+		var data struct {
+			Promedio float64 `json:"promedio"`
+		}
+		if err := json.NewDecoder(resp1.Body).Decode(&data); err == nil && data.Promedio > 0 {
+			return c.JSON(fiber.Map{"rate": data.Promedio})
+		}
 	}
-	defer resp.Body.Close()
 
-	// Decodificamos la respuesta dinámicamente como un mapa para evitar que crashee si la API cambia
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return c.JSON(fiber.Map{"rate": fallbackRate})
-	}
-
-	rate := fallbackRate
-
-	// Navegamos por el JSON para encontrar la tasa específica del EURO ("eur")
-	if monitors, ok := result["monitors"].(map[string]interface{}); ok {
-		if eur, ok := monitors["eur"].(map[string]interface{}); ok {
-			if price, ok := eur["price"].(float64); ok && price > 0 {
-				rate = price
+	// --- Intento 2: PyDolarVenezuela (Respaldo) ---
+	resp2, err2 := http.Get("https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv")
+	if err2 == nil && resp2.StatusCode == 200 {
+		defer resp2.Body.Close()
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp2.Body).Decode(&result); err == nil {
+			if monitors, ok := result["monitors"].(map[string]interface{}); ok {
+				// Buscamos la clave del euro dinámicamente ("eur" o "euro")
+				for _, key := range []string{"eur", "euro"} {
+					if currency, ok := monitors[key].(map[string]interface{}); ok {
+						if price, ok := currency["price"].(float64); ok && price > 0 {
+							return c.JSON(fiber.Map{"rate": price})
+						}
+					}
+				}
 			}
 		}
 	}
 
-	return c.JSON(fiber.Map{"rate": rate})
+	// --- Intento 3: Tasa de Emergencia ---
+	// Si ambas APIs están caídas o el servidor no tiene salida a internet, usamos esta
+	return c.JSON(fiber.Map{"rate": fallbackRate})
 }
