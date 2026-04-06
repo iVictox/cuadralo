@@ -206,12 +206,13 @@ func ReportPayment(c *fiber.Ctx) error {
 	})
 }
 
-// ✅ NUEVA FUNCIÓN: El servidor consulta la tasa sin problemas de bloqueo (CORS)
+// ✅ NUEVA FUNCIÓN: Obtiene directamente la tasa del EURO oficial del BCV
 func GetExchangeRate(c *fiber.Ctx) error {
-	// Consultamos a DolarAPI que es ultra estable
-	resp, err := http.Get("https://ve.dolarapi.com/v1/cotizaciones/eur")
+	// Consultamos a la API pública más estable para el BCV (PyDolarVenezuela)
+	// Al pasar "page=bcv" nos aseguramos de que solo traiga tasas oficiales del banco central.
+	resp, err := http.Get("https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv")
 
-	// TASA DE EMERGENCIA EXACTA que me pediste por si se cae el internet del servidor
+	// TASA DE EMERGENCIA EXACTA (La mantenemos por seguridad en caso de que falle el internet del servidor)
 	fallbackRate := 512.22
 
 	if err != nil {
@@ -219,21 +220,21 @@ func GetExchangeRate(c *fiber.Ctx) error {
 	}
 	defer resp.Body.Close()
 
-	var result struct {
-		Promedio float64 `json:"promedio"`
-		Venta    float64 `json:"venta"`
-	}
-
+	// Decodificamos la respuesta dinámicamente como un mapa para evitar que crashee si la API cambia
+	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return c.JSON(fiber.Map{"rate": fallbackRate})
 	}
 
-	rate := result.Venta
-	if rate == 0 {
-		rate = result.Promedio
-	}
-	if rate == 0 {
-		rate = fallbackRate
+	rate := fallbackRate
+
+	// Navegamos por el JSON para encontrar la tasa específica del EURO ("eur")
+	if monitors, ok := result["monitors"].(map[string]interface{}); ok {
+		if eur, ok := monitors["eur"].(map[string]interface{}); ok {
+			if price, ok := eur["price"].(float64); ok && price > 0 {
+				rate = price
+			}
+		}
 	}
 
 	return c.JSON(fiber.Map{"rate": rate})
