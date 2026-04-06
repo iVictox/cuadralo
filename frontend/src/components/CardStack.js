@@ -48,9 +48,18 @@ export default function CardStack() {
   const fetchFeed = async () => {
     try {
       setLoading(true);
-      const users = await api.get("/feed");
+      // Descargamos el feed normal y nuestras preferencias a la vez
+      const [users, me] = await Promise.all([
+          api.get("/feed"),
+          api.get("/me")
+      ]);
       
-      const formattedCards = users.map(u => ({
+      let prefs = null;
+      if (me.preferences) {
+          prefs = typeof me.preferences === 'string' ? JSON.parse(me.preferences) : me.preferences;
+      }
+
+      let formattedCards = users.map(u => ({
           id: u.id,
           name: u.name,
           age: u.age,
@@ -62,6 +71,40 @@ export default function CardStack() {
           location: "Valencia, Carabobo", 
           is_prime: u.is_prime 
       }));
+
+      // 🚀 APLICACIÓN DE FILTROS EN TIEMPO REAL
+      if (prefs) {
+          formattedCards = formattedCards.filter(u => {
+              // 1. Filtrar Género
+              if (prefs.show && prefs.show !== "Todos") {
+                  const userGender = u.gender?.toLowerCase() || "";
+                  const wantMen = prefs.show === "Hombres";
+                  const wantWomen = prefs.show === "Mujeres";
+                  
+                  if (wantMen && !["hombre", "masculino", "male"].includes(userGender)) return false;
+                  if (wantWomen && !["mujer", "femenino", "female"].includes(userGender)) return false;
+              }
+
+              // 2. Filtrar Edad
+              if (prefs.ageRange && prefs.ageRange.length === 2) {
+                  const [minAge, maxAge] = prefs.ageRange;
+                  // Si tiene menos de la edad mínima o más de la máxima solicitada
+                  if (u.age < minAge || u.age > maxAge) return false;
+              }
+
+              // 3. Filtrar Intereses
+              if (prefs.interests && prefs.interests.length > 0) {
+                  // Si el usuario eligió intereses, el perfil debe tener AL MENOS UNO en común
+                  const hasCommonInterest = u.interests.some(interest => prefs.interests.includes(interest));
+                  if (!hasCommonInterest) return false;
+              }
+
+              // 4. La Distancia usualmente se procesa via BD por seguridad de ubicación (PostGIS),
+              // Lo damos por validado asumiendo que el backend envía los cercanos en su query principal.
+
+              return true;
+          });
+      }
 
       setCards(formattedCards);
     } catch (error) {
@@ -162,7 +205,7 @@ export default function CardStack() {
           </div>
           <h3 className="text-2xl font-bold text-cuadralo-textLight dark:text-cuadralo-textDark mb-2">No hay nadie más cerca</h3>
           <p className="text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark text-sm mb-8 max-w-xs mx-auto leading-relaxed">
-              Hemos agotado los perfiles en tu área. Usa un Destello para expandir tu alcance.
+              Hemos agotado los perfiles en tu área con tus filtros actuales. Usa un Destello para expandir tu alcance o cambia los filtros.
           </p>
           
           <button 

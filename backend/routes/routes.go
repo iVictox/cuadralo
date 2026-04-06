@@ -69,14 +69,13 @@ func Setup(app *fiber.App) {
 	api.Post("/messages/:id/view", controllers.MarkMessageViewed)
 
 	// --- PREMIUM Y TIENDA ---
-	// --- PREMIUM Y TIENDA ---
 	api.Get("/premium/status", controllers.GetMyPlan)
-	api.Get("/premium/rate", controllers.GetExchangeRate) // ✅ AÑADE ESTA LÍNEA AQUÍ
+	api.Get("/premium/rate", controllers.GetExchangeRate)
 	api.Post("/premium/buy", controllers.BuyPrime)
 	api.Post("/premium/boost/buy", controllers.BuyBoost)
 	api.Post("/premium/boost/activate", controllers.ActivateBoost)
 	api.Post("/premium/rompehielos/buy", controllers.BuyRompehielos)
-	api.Post("/premium/report-payment", controllers.ReportPayment) // ✅ NUEVA RUTA PARA PAGOS
+	api.Post("/premium/report-payment", controllers.ReportPayment)
 
 	// --- ADMIN ---
 	admin := api.Group("/admin", middleware.IsAdmin)

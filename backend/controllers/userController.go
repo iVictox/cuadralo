@@ -3,6 +3,7 @@ package controllers
 import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
+	"encoding/json"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -40,12 +41,13 @@ func UpdateMe(c *fiber.Ctx) error {
 	}
 
 	var input struct {
-		Name      string   `json:"name"`
-		Username  string   `json:"username"`
-		Bio       string   `json:"bio"`
-		Location  string   `json:"location"`
-		Photos    []string `json:"photos"`
-		Interests []string `json:"interests"`
+		Name        string                 `json:"name"`
+		Username    string                 `json:"username"`
+		Bio         string                 `json:"bio"`
+		Location    string                 `json:"location"`
+		Photos      []string               `json:"photos"`
+		Interests   []string               `json:"interests"`
+		Preferences map[string]interface{} `json:"preferences"` // ✅ AÑADIDO: Para guardar los filtros
 	}
 
 	if err := c.BodyParser(&input); err != nil {
@@ -68,6 +70,12 @@ func UpdateMe(c *fiber.Ctx) error {
 		if len(input.Photos) > 0 {
 			user.Photo = input.Photos[0]
 		}
+	}
+
+	// ✅ AÑADIDO: Guardar las preferencias como String JSON
+	if input.Preferences != nil {
+		prefsBytes, _ := json.Marshal(input.Preferences)
+		user.Preferences = string(prefsBytes)
 	}
 
 	if err := database.DB.Save(&user).Error; err != nil {

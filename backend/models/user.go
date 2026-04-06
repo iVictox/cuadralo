@@ -46,6 +46,9 @@ type User struct {
 	Photo  string      `json:"photo"`
 	Photos StringArray `gorm:"type:text" json:"photos"`
 
+	// ✅ AÑADIDO: Campo para guardar los filtros de búsqueda en la BD
+	Preferences string `gorm:"type:text" json:"preferences"`
+
 	// Relaciones
 	Interests     []Interest `gorm:"many2many:user_interests;" json:"-"`
 	InterestsList []string   `gorm:"-" json:"interests"`

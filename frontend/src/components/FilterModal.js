@@ -7,23 +7,29 @@ import { api } from "@/utils/api";
 
 export default function FilterModal({ onClose }) {
   const [loading, setLoading] = useState(false);
+  const [allInterests, setAllInterests] = useState([]);
   const [prefs, setPrefs] = useState({
     distance: 50,
     show: "Todos",
-    ageRange: [18, 30] 
+    ageRange: [18, 30],
+    interests: [] // Añadido campo intereses
   });
 
   useEffect(() => {
-    const fetchPrefs = async () => {
+    const fetchData = async () => {
       try {
         const user = await api.get("/me");
         if (user.preferences) {
-          const savedPrefs = JSON.parse(user.preferences);
-          setPrefs(prev => ({ ...prev, ...savedPrefs }));
+          const savedPrefs = typeof user.preferences === 'string' ? JSON.parse(user.preferences) : user.preferences;
+          setPrefs(prev => ({ ...prev, ...savedPrefs, interests: savedPrefs.interests || [] }));
         }
+        
+        // Obtener la lista de intereses de la BD
+        const ints = await api.get("/interests");
+        if (Array.isArray(ints)) setAllInterests(ints);
       } catch (error) { console.error(error); }
     };
-    fetchPrefs();
+    fetchData();
   }, []);
 
   const handleSave = async () => {
@@ -38,11 +44,22 @@ export default function FilterModal({ onClose }) {
     finally { setLoading(false); }
   };
 
+  const toggleInterest = (slug) => {
+    setPrefs(prev => {
+        const current = prev.interests || [];
+        if (current.includes(slug)) {
+            return { ...prev, interests: current.filter(i => i !== slug) };
+        } else {
+            return { ...prev, interests: [...current, slug] };
+        }
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <motion.div 
         initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-        className="w-full max-w-md bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-[2.5rem] p-8 border border-black/5 dark:border-white/10 shadow-2xl transition-colors duration-300"
+        className="w-full max-w-md bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-[2.5rem] p-8 border border-black/5 dark:border-white/10 shadow-2xl transition-colors duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar"
       >
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-xl font-black uppercase italic tracking-tighter">Filtros de Búsqueda</h2>
@@ -51,7 +68,7 @@ export default function FilterModal({ onClose }) {
           </button>
         </div>
 
-        <div className="space-y-10">
+        <div className="space-y-8">
             <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-4 block">Mostrarme</label>
                 <div className="flex bg-black/5 dark:bg-white/5 p-1.5 rounded-2xl border border-black/5 dark:border-white/5">
@@ -84,6 +101,24 @@ export default function FilterModal({ onClose }) {
                     <span className="text-sm font-black italic text-cuadralo-pink">{prefs.distance} <span className="text-[10px] font-black uppercase tracking-widest text-cuadralo-textLight dark:text-white ml-1">km</span></span>
                 </div>
                 <input type="range" min="1" max="100" value={prefs.distance} onChange={(e) => setPrefs({...prefs, distance: parseInt(e.target.value)})} className="w-full h-2 bg-black/5 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cuadralo-pink" />
+            </div>
+
+            <div>
+                <label className="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-4 block">Intereses en Común (Opcional)</label>
+                <div className="flex flex-wrap gap-2">
+                    {allInterests.map(interest => {
+                        const isSelected = prefs.interests?.includes(interest.slug);
+                        return (
+                            <button
+                                key={interest.slug}
+                                onClick={() => toggleInterest(interest.slug)}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all border ${isSelected ? 'bg-cuadralo-pink text-white border-cuadralo-pink shadow-md shadow-cuadralo-pink/30' : 'bg-transparent text-gray-500 border-gray-300 dark:border-white/10 dark:text-white/60 hover:border-cuadralo-pink'}`}
+                            >
+                                {interest.name}
+                            </button>
+                        )
+                    })}
+                </div>
             </div>
         </div>
 
