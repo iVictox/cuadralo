@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { X, Heart, MapPin, Info, RotateCcw, Zap, Crown, User, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react"; 
+import { X, Heart, MapPin, Info, RotateCcw, Zap, Crown, User, ChevronLeft, ChevronRight, MessageCircle, Sliders } from "lucide-react"; 
 import Image from "next/image"; 
 import { api } from "@/utils/api"; 
 import MatchModal from "@/components/MatchModal"; 
@@ -11,7 +11,7 @@ import PrimeModal from "@/components/PrimeModal";
 import BoostModal from "@/components/BoostModal"; 
 import { getInterestInfo } from "@/utils/interests";
 
-export default function CardStack() {
+export default function CardStack({ onOpenFilters }) {
   const [cards, setCards] = useState([]);
   const [history, setHistory] = useState([]); 
   const [loading, setLoading] = useState(true);
@@ -88,19 +88,14 @@ export default function CardStack() {
               // 2. Filtrar Edad
               if (prefs.ageRange && prefs.ageRange.length === 2) {
                   const [minAge, maxAge] = prefs.ageRange;
-                  // Si tiene menos de la edad mínima o más de la máxima solicitada
                   if (u.age < minAge || u.age > maxAge) return false;
               }
 
               // 3. Filtrar Intereses
               if (prefs.interests && prefs.interests.length > 0) {
-                  // Si el usuario eligió intereses, el perfil debe tener AL MENOS UNO en común
                   const hasCommonInterest = u.interests.some(interest => prefs.interests.includes(interest));
                   if (!hasCommonInterest) return false;
               }
-
-              // 4. La Distancia usualmente se procesa via BD por seguridad de ubicación (PostGIS),
-              // Lo damos por validado asumiendo que el backend envía los cercanos en su query principal.
 
               return true;
           });
@@ -191,10 +186,21 @@ export default function CardStack() {
   );
 
   return (
-    // ✅ SOLUCIÓN: Flex layout con alturas adaptativas (h-[78vh] a h-[82vh] en móviles)
-    // Esto asegura que la carta y los botones convivan siempre en la pantalla sin solaparse.
     <div className="relative w-full h-[78vh] md:h-[84vh] max-h-[880px] flex flex-col justify-between items-center mt-2 md:mt-4 pb-2 md:pb-6">
       
+      {/* ✅ BOTÓN DE FILTROS EXCLUSIVO DE LA PANTALLA DE SWIPES */}
+      {onOpenFilters && (
+          <div className="absolute top-0 right-4 md:right-8 z-50">
+              <button 
+                  onClick={onOpenFilters}
+                  className="p-3 bg-white/70 dark:bg-[#1a1a1a]/80 backdrop-blur-xl rounded-full shadow-glass-light dark:shadow-glass-dark border border-gray-200/50 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:text-cuadralo-pink hover:scale-110 active:scale-95 transition-all"
+                  title="Filtros de Búsqueda"
+              >
+                  <Sliders size={22} strokeWidth={2.5} />
+              </button>
+          </div>
+      )}
+
       {cards.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center w-full text-center px-6 animate-fade-in">
           <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
@@ -222,7 +228,7 @@ export default function CardStack() {
         </div>
       ) : (
         <>
-          {/* ✅ ZONA DE CARTAS: flex-1 permite que se estire al máximo tamaño posible */}
+          {/* ✅ ZONA DE CARTAS */}
           <div className="relative w-full flex-1 flex justify-center items-center">
               <AnimatePresence>
                   {cards.map((card, index) => {
@@ -241,7 +247,7 @@ export default function CardStack() {
               </AnimatePresence>
           </div>
 
-          {/* ✅ ZONA DE BOTONES: flex-shrink-0 garantiza que NO sean aplastados ni desaparezcan */}
+          {/* ✅ ZONA DE BOTONES */}
           <div className="flex items-center justify-center gap-3 sm:gap-5 z-40 w-full px-4 mt-6 flex-shrink-0">
               
               <button 
@@ -337,7 +343,7 @@ export default function CardStack() {
   );
 }
 
-// ✅ COMPONENTE CARD MEJORADO (Abarca todo el ancho/alto permitido)
+// ✅ COMPONENTE CARD 
 function Card({ data, isFront, onSwipe, onInfo, swipeDir }) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-15, 15]);
@@ -373,7 +379,6 @@ function Card({ data, isFront, onSwipe, onInfo, swipeDir }) {
           rotate: swipeDir === "right" ? 20 : -20,
           transition: { duration: 0.3, ease: "easeOut" } 
       }}
-      // ✅ CARTA MASIVA: Ocupará todo el "flex-1" de alto y casi todo el ancho
       className={`absolute w-[96%] sm:w-[420px] max-w-[460px] h-full bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-[2.5rem] overflow-hidden shadow-glass-light dark:shadow-glass-dark border border-gray-200 dark:border-white/10 ${!isFront && 'pointer-events-none opacity-80'} cursor-grab active:cursor-grabbing`}
     >
       <img src={data.photos[activePhoto]} alt={data.name} className="w-full h-full object-cover pointer-events-none" />

@@ -64,7 +64,7 @@ function MainAppContent() {
 
     switch(activeTab) {
         case "social": return <SocialFeed onUploadClick={() => setShowUpload(true)} />;
-        case "home": return <CardStack />; 
+        case "home": return <CardStack onOpenFilters={() => setShowFilters(true)} />; 
         case "likes": return <MyLikes />;
         case "chat": return <ChatList onChatSelect={setSelectedChat} />;
         case "profile": return <Profile />;
@@ -76,7 +76,7 @@ function MainAppContent() {
     <main className="min-h-screen w-full bg-cuadralo-bgLight dark:bg-cuadralo-bgDark text-cuadralo-textLight dark:text-cuadralo-textDark transition-colors duration-300 relative flex flex-col md:pl-20">
       
       {showNavbar && (
-          <Navbar onFilterClick={activeTab === 'home' ? () => setShowFilters(true) : null} />
+          <Navbar />
       )}
 
       <div className={`flex-1 w-full h-full relative ${showNavbar ? "pt-20" : "pt-0"}`}>
