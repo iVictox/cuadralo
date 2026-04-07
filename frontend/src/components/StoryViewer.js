@@ -163,118 +163,132 @@ export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }
   if (!currentGroup || !currentStory) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black flex items-center justify-center">
+    <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md flex items-center justify-center">
         
-        {/* ✅ SOLUCIÓN: OVERLAY DE SOMBRA SUPERIOR PARA FOTOS BLANCAS */}
-        <div className="absolute top-0 left-0 w-full pt-4 pb-16 px-2 z-20 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
-            
-            {/* BARRAS DE PROGRESO */}
-            <div className="flex gap-1 w-full mb-4 px-2">
-                {stories.map((story, idx) => (
-                    <div key={story.id} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
-                        <motion.div 
-                            initial={{ width: idx < currentStoryIdx ? "100%" : "0%" }}
-                            animate={{ width: idx === currentStoryIdx ? `${progress}%` : idx < currentStoryIdx ? "100%" : "0%" }}
-                            transition={{ ease: "linear", duration: idx === currentStoryIdx ? 0.05 : 0 }}
-                            className="h-full bg-white shadow-[0_0_2px_rgba(0,0,0,0.5)]"
+        {/* CONTENEDOR TIPO MÓVIL (9:16) */}
+        <div className="relative w-full max-w-[420px] h-[100dvh] md:h-[90dvh] md:max-h-[850px] md:rounded-[2rem] md:border-4 border-black/50 overflow-hidden bg-black flex flex-col shadow-2xl">
+
+            {/* OVERLAY SUPERIOR */}
+            <div className="absolute top-0 left-0 w-full pt-4 pb-16 px-2 z-20 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
+
+                {/* BARRAS DE PROGRESO */}
+                <div className="flex gap-1 w-full mb-4 px-2">
+                    {stories.map((story, idx) => (
+                        <div key={story.id} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+                            <motion.div
+                                initial={{ width: idx < currentStoryIdx ? "100%" : "0%" }}
+                                animate={{ width: idx === currentStoryIdx ? `${progress}%` : idx < currentStoryIdx ? "100%" : "0%" }}
+                                transition={{ ease: "linear", duration: idx === currentStoryIdx ? 0.05 : 0 }}
+                                className="h-full bg-white shadow-[0_0_2px_rgba(0,0,0,0.5)]"
+                            />
+                        </div>
+                    ))}
+                </div>
+
+                {/* HEADER */}
+                <div className="flex justify-between items-center px-2 pointer-events-auto">
+                    <div className="flex items-center gap-3">
+                        <img
+                            src={getProfilePic(displayUser?.photo)}
+                            className="w-8 h-8 rounded-full border border-white/50 object-cover bg-[#1a0b2e] shadow-md"
+                            alt="Perfil"
                         />
+                        <span className="text-white font-bold text-sm drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                            {displayUser?.name || "Usuario"}
+                        </span>
+                        <span className="text-white/90 text-xs drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                            {new Date(currentStory.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </span>
                     </div>
-                ))}
+                    <div className="flex items-center gap-4">
+                        {isOwner && (
+                            <button onClick={handleDelete} className="text-white hover:text-red-500 transition-colors p-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                                <Trash2 size={22} style={{ filter: "drop-shadow(0px 2px 4px rgba(0,0,0,0.8))" }} />
+                            </button>
+                        )}
+                        <button onClick={() => onClose(false)} className="text-white p-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                            <X size={28} style={{ filter: "drop-shadow(0px 2px 4px rgba(0,0,0,0.8))" }} />
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {/* HEADER */}
-            <div className="flex justify-between items-center px-2 pointer-events-auto">
-                <div className="flex items-center gap-3">
-                    <img 
-                        src={getProfilePic(displayUser?.photo)} 
-                        className="w-8 h-8 rounded-full border border-white/50 object-cover bg-[#1a0b2e] shadow-md" 
-                        alt="Perfil"
+            {/* IMAGEN HISTORIA */}
+            <div
+                className="w-full h-full relative flex items-center justify-center overflow-hidden"
+                onMouseDown={() => setIsPaused(true)} onMouseUp={() => setIsPaused(false)}
+                onTouchStart={() => setIsPaused(true)} onTouchEnd={() => setIsPaused(false)}
+            >
+                <AnimatePresence mode="wait">
+                    {/* Fondo Desenfoque (Opcional, para que no queden bordes negros puros) */}
+                    <motion.img
+                        key={`bg-${currentStory.id}`}
+                        initial={{ opacity: 0.8 }} animate={{ opacity: 0.4 }} exit={{ opacity: 0.8 }} transition={{ duration: 0.2 }}
+                        src={getProfilePic(currentStory.image_url)}
+                        className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 pointer-events-none"
+                        alt="Background Blur"
                     />
-                    <span className="text-white font-bold text-sm drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                        {displayUser?.name || "Usuario"}
-                    </span>
-                    <span className="text-white/90 text-xs drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                        {new Date(currentStory.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </span>
-                </div>
-                <div className="flex items-center gap-4">
-                    {isOwner && (
-                        <button onClick={handleDelete} className="text-white hover:text-red-500 transition-colors p-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                            {/* Filtro extra directo al SVG por si la foto es extremadamente luminosa */}
-                            <Trash2 size={22} style={{ filter: "drop-shadow(0px 2px 4px rgba(0,0,0,0.8))" }} />
-                        </button>
-                    )}
-                    <button onClick={() => onClose(false)} className="text-white p-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                        <X size={28} style={{ filter: "drop-shadow(0px 2px 4px rgba(0,0,0,0.8))" }} />
+
+                    <motion.img
+                        key={currentStory.id}
+                        initial={{ opacity: 0.8, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0.8 }} transition={{ duration: 0.2 }}
+                        src={getProfilePic(currentStory.image_url)}
+                        className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                        alt="Story"
+                    />
+                </AnimatePresence>
+
+                {/* Zonas de control tactil/click */}
+                <div className="absolute inset-y-0 left-0 w-[40%] z-10" onClick={(e) => { e.stopPropagation(); handlePrev(); }} />
+                <div className="absolute inset-y-0 right-0 w-[40%] z-10" onClick={(e) => { e.stopPropagation(); handleNext(); }} />
+            </div>
+
+            {/* CONTADOR DE VISTAS (EN VIVO) */}
+            {isOwner && (
+                <div className="absolute bottom-6 left-4 z-30 pointer-events-auto">
+                    <button onClick={handleOpenViewers} className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-white border border-white/20 hover:bg-white/20 transition-colors shadow-lg">
+                        <Eye size={18} />
+                        <span className="font-bold text-sm">{liveViewsCount}</span>
+                        <span className="text-xs text-white/80 ml-1">vistas</span>
                     </button>
                 </div>
-            </div>
-        </div>
-
-        {/* IMAGEN HISTORIA */}
-        <div 
-            className="w-full h-full relative"
-            onMouseDown={() => setIsPaused(true)} onMouseUp={() => setIsPaused(false)}
-            onTouchStart={() => setIsPaused(true)} onTouchEnd={() => setIsPaused(false)}
-        >
-            <AnimatePresence mode="wait">
-                <motion.img 
-                    key={currentStory.id}
-                    initial={{ opacity: 0.8, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0.8 }} transition={{ duration: 0.2 }}
-                    src={getProfilePic(currentStory.image_url)} 
-                    className="absolute inset-0 w-full h-full object-contain bg-black" alt="Story"
-                />
-            </AnimatePresence>
-            <div className="absolute inset-y-0 left-0 w-1/3 z-10" onClick={(e) => { e.stopPropagation(); handlePrev(); }} />
-            <div className="absolute inset-y-0 right-0 w-1/3 z-10" onClick={(e) => { e.stopPropagation(); handleNext(); }} />
-        </div>
-
-        {/* CONTADOR DE VISTAS (EN VIVO) */}
-        {isOwner && (
-            <div className="absolute bottom-6 left-4 z-30 pointer-events-auto">
-                <button onClick={handleOpenViewers} className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full text-white border border-white/20 hover:bg-white/20 transition-colors shadow-lg">
-                    <Eye size={18} />
-                    <span className="font-bold text-sm">{liveViewsCount}</span>
-                    <span className="text-xs text-white/80 ml-1">vistas</span>
-                </button>
-            </div>
-        )}
-
-        {/* MODAL DE LISTA DE USUARIOS */}
-        <AnimatePresence>
-            {showViewers && (
-                <motion.div 
-                    initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                    className="absolute bottom-0 left-0 w-full h-[60%] bg-[#1a0b2e] rounded-t-3xl z-40 shadow-2xl border-t border-white/10 flex flex-col"
-                    onClick={(e) => e.stopPropagation()} 
-                >
-                    <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#0f0518]/50 rounded-t-3xl">
-                        <div className="flex items-center gap-2 text-white">
-                            <Eye size={20} className="text-cuadralo-pink" />
-                            <h3 className="font-bold">Visto por {viewersList.length} personas</h3>
-                        </div>
-                        <button onClick={() => { setShowViewers(false); setIsPaused(false); }} className="p-2 bg-white/10 rounded-full text-white hover:bg-white/20"><X size={18} /></button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        {loadingViewers ? <div className="text-white/50 text-center py-10">Cargando...</div>
-                        : viewersList.length === 0 ? <div className="text-white/50 text-center py-10">Aún nadie ha visto esto 👀</div>
-                        : (
-                            viewersList.map((view) => (
-                                <div key={view.user_id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-xl transition-colors">
-                                    <img src={getProfilePic(view.user?.photo)} alt={view.user?.name} className="w-10 h-10 rounded-full object-cover border border-white/20" />
-                                    <div className="flex-1">
-                                        <h4 className="text-white font-medium text-sm">{view.user?.name}</h4>
-                                        <p className="text-white/40 text-xs">{new Date(view.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </motion.div>
             )}
-        </AnimatePresence>
 
+            {/* MODAL DE LISTA DE USUARIOS */}
+            <AnimatePresence>
+                {showViewers && (
+                    <motion.div
+                        initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                        className="absolute bottom-0 left-0 w-full h-[60%] bg-[#1a0b2e] rounded-t-3xl z-40 shadow-2xl border-t border-white/10 flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#0f0518]/50 rounded-t-3xl">
+                            <div className="flex items-center gap-2 text-white">
+                                <Eye size={20} className="text-cuadralo-pink" />
+                                <h3 className="font-bold">Visto por {viewersList.length} personas</h3>
+                            </div>
+                            <button onClick={() => { setShowViewers(false); setIsPaused(false); }} className="p-2 bg-white/10 rounded-full text-white hover:bg-white/20"><X size={18} /></button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            {loadingViewers ? <div className="text-white/50 text-center py-10">Cargando...</div>
+                            : viewersList.length === 0 ? <div className="text-white/50 text-center py-10">Aún nadie ha visto esto 👀</div>
+                            : (
+                                viewersList.map((view) => (
+                                    <div key={view.user_id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-xl transition-colors">
+                                        <img src={getProfilePic(view.user?.photo)} alt={view.user?.name} className="w-10 h-10 rounded-full object-cover border border-white/20" />
+                                        <div className="flex-1">
+                                            <h4 className="text-white font-medium text-sm">{view.user?.name}</h4>
+                                            <p className="text-white/40 text-xs">{new Date(view.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
     </div>
   );
 }
