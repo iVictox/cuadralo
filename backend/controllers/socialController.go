@@ -575,6 +575,21 @@ func MarkNotificationRead(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true})
 }
 
+func MarkAllNotificationsRead(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
+
+	database.DB.Model(&models.Notification{}).Where("user_id = ?", myId).Update("is_read", true)
+	return c.JSON(fiber.Map{"success": true})
+}
+
+func DeleteNotification(c *fiber.Ctx) error {
+	myId := uint(c.Locals("userId").(float64))
+	notifId := c.Params("id")
+
+	database.DB.Where("id = ? AND user_id = ?", notifId, myId).Delete(&models.Notification{})
+	return c.JSON(fiber.Map{"success": true})
+}
+
 // CreateAndBroadcastNotification - Helper para usar en todo el backend
 func CreateAndBroadcastNotification(receiverID uint, senderID uint, notifType string, postID *uint, message string) {
 	if receiverID == senderID {

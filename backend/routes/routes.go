@@ -21,7 +21,9 @@ func Setup(app *fiber.App) {
 
 	api.Get("/search", controllers.SearchUsers)
 	api.Get("/notifications", controllers.GetNotifications)
+	api.Post("/notifications/read-all", controllers.MarkAllNotificationsRead)
 	api.Post("/notifications/:id/read", controllers.MarkNotificationRead)
+	api.Delete("/notifications/:id", controllers.DeleteNotification)
 
 	api.Get("/social/feed", controllers.GetSocialFeed)
 	api.Post("/social/posts", controllers.CreatePost)
