@@ -177,7 +177,7 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
             </div>
         </div>
 
-        {showComments && <CommentsModal postId={post.id} onClose={() => setShowComments(false)} />}
+        {showComments && <CommentsModal post={post} onClose={() => setShowComments(false)} />}
     </>
   );
 }
