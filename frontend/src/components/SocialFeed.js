@@ -12,7 +12,7 @@ import { api } from "@/utils/api";
 import { AnimatePresence, motion } from "framer-motion";
 import PrimeModal from "@/components/PrimeModal";
 
-export default function SocialFeed({ onUploadClick }) {
+export default function SocialFeed({ onUploadClick, isActive = true }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,14 +35,12 @@ export default function SocialFeed({ onUploadClick }) {
     try {
       if (!isRefresh) setLoading(true);
 
-      const status = await api.get("/premium/status").catch(() => ({ is_prime: false }));
       setIsPrime(status.is_prime);
 
       const userStr = localStorage.getItem("user");
       const me = userStr ? JSON.parse(userStr) : null;
       setCurrentUser(me);
 
-      const notifs = await api.get("/notifications").catch(() => []);
       if (Array.isArray(notifs)) {
           setUnreadNotifsCount(notifs.filter(n => !n.is_read).length);
       }
@@ -55,6 +53,8 @@ export default function SocialFeed({ onUploadClick }) {
           setStories(storiesResponse.feed || []);
           setMyStories(storiesResponse.my_stories || []);
       }
+
+      setHasInitialFetch(true);
     } catch (error) {
       console.error("Error data:", error);
     } finally {
@@ -63,7 +63,13 @@ export default function SocialFeed({ onUploadClick }) {
     }
   };
 
-  useEffect(() => { fetchData(activeTab); }, [activeTab]);
+  // Fetch when the component becomes active
+  useEffect(() => {
+      if (isActive) {
+          // If we never fetched, show loader. If we already have cache, fetch silently in background.
+          fetchData(false, !hasInitialFetch);
+      }
+  }, [isActive, hasInitialFetch]);
 
   // WebSockets para tiempo real
   useEffect(() => {

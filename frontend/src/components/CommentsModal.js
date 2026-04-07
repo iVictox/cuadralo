@@ -273,22 +273,22 @@ export default function CommentsModal({ onClose, post }) {
                     </div>
                 )}
                 
-                <div className="p-3 flex gap-2 items-center">
-                    <img src={currentUser?.photo} className="w-8 h-8 rounded-full object-cover border border-white/10" />
-                    <div className="flex-1 relative">
+                <div className="p-4 flex gap-3 items-center">
+                    <img src={currentUser?.photo} className="w-10 h-10 rounded-full object-cover border-2 border-white/10 shadow-sm" />
+                    <div className="flex-1 flex gap-2 bg-[#1a0b2e] rounded-3xl border border-white/10 p-1.5 focus-within:border-cuadralo-pink/50 transition-colors shadow-inner">
                         <input 
                             ref={inputRef}
                             type="text" 
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                            placeholder={replyingTo ? `Responde a ${replyingTo.username}...` : "Agrega un comentario..."}
-                            className="w-full bg-[#1a0b2e] text-white text-sm rounded-full pl-4 pr-10 py-2.5 border border-white/10 focus:border-cuadralo-pink focus:outline-none"
+                            placeholder={replyingTo ? `Responde a ${replyingTo.username}...` : "Escribe un comentario..."}
+                            className="w-full bg-transparent text-white text-sm pl-4 focus:outline-none placeholder:text-gray-500"
                         />
                         <button 
                             onClick={handleSend}
                             disabled={!newComment.trim() || sending}
-                            className="absolute right-1 top-1 p-1.5 bg-cuadralo-pink rounded-full text-white disabled:opacity-50 hover:scale-105 transition-transform"
+                            className="w-10 h-10 flex items-center justify-center bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-full text-white disabled:opacity-40 disabled:grayscale hover:scale-105 active:scale-95 transition-all shadow-md shadow-cuadralo-pink/20 flex-shrink-0"
                         >
                             {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                         </button>
