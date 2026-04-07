@@ -1,0 +1,13 @@
+
+2026/04/07 15:27:26 [35m/app/backend/database/connect.go:29
+[0m[31m[error] [0mfailed to initialize database, got error failed to connect to `user=postgres database=cuadralo_db`:
+	127.0.0.1:5432 (localhost): dial error: dial tcp 127.0.0.1:5432: connect: connection refused
+	[::1]:5432 (localhost): dial error: dial tcp [::1]:5432: connect: connection refused
+panic: No se pudo conectar a la base de datos
+
+goroutine 1 [running]:
+cuadralo-backend/database.Connect()
+	/app/backend/database/connect.go:31 +0x665
+main.main()
+	/app/backend/main.go:19 +0x25
+exit status 2
