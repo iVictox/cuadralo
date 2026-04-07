@@ -71,7 +71,7 @@ function MainAppContent() {
 
     return (
       <>
-        {mountedTabs.social && <div style={{ display: activeTab === 'social' ? 'block' : 'none', height: '100%' }}><SocialFeed onUploadClick={() => setShowUpload(true)} /></div>}
+        {mountedTabs.social && <div style={{ display: activeTab === 'social' ? 'block' : 'none', height: '100%' }}><SocialFeed isActive={activeTab === "social"} onUploadClick={() => setShowUpload(true)} /></div>}
         {mountedTabs.home && <div style={{ display: activeTab === 'home' ? 'block' : 'none', height: '100%' }}><CardStack onOpenFilters={() => setShowFilters(true)} /></div>}
         {mountedTabs.likes && <div style={{ display: activeTab === 'likes' ? 'block' : 'none', height: '100%' }}><MyLikes /></div>}
         {mountedTabs.chat && <div style={{ display: activeTab === 'chat' ? 'block' : 'none', height: '100%' }}><ChatList onChatSelect={setSelectedChat} /></div>}
