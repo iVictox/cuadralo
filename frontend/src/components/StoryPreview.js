@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Type, Smile, ChevronRight, Loader2, Trash2 } from "lucide-react";
+import { X, Type, Smile, ChevronRight, Loader2, Trash2, Wand2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker from 'emoji-picker-react';
 
@@ -24,7 +24,7 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
     const containerRef = useRef(null);
 
     const [imagePreview, setImagePreview] = useState("");
-    const [showFilters, setShowFilters] = useState(true);
+    const [showFilters, setShowFilters] = useState(false);
 
     useEffect(() => {
         if (file) {
@@ -99,42 +99,27 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                 canvas.width = targetWidth;
                 canvas.height = targetHeight;
 
-                // 1. Aplicamos filtro
-                ctx.filter = FILTERS[filterIndex].css;
-
-                // 2. Dibujamos el fondo desenfocado (para rellenar fotos horizontales o de otra proporción)
+                // Matemáticas para recortar la foto idénticamente a como se ve en el celular (object-cover)
                 let sx, sy, sw, sh;
                 if (imgRatio > screenRatio) {
+                    // La imagen original es más ancha que la pantalla, cortamos los lados
                     sh = img.height;
                     sw = img.height * screenRatio;
                     sx = (img.width - sw) / 2;
                     sy = 0;
                 } else {
+                    // La imagen original es más alta que la pantalla, cortamos arriba/abajo
                     sw = img.width;
                     sh = img.width / screenRatio;
                     sx = 0;
                     sy = (img.height - sh) / 2;
                 }
 
-                // Fondo borroso
-                ctx.filter = `${FILTERS[filterIndex].css} blur(20px) brightness(0.6)`;
-                ctx.drawImage(img, sx, sy, sw, sh, -20, -20, canvas.width + 40, canvas.height + 40);
-
-                // 3. Dibujamos la imagen principal en object-contain
+                // 1. Aplicamos filtro
                 ctx.filter = FILTERS[filterIndex].css;
-                let drawWidth = canvas.width;
-                let drawHeight = canvas.width / imgRatio;
-                let drawX = 0;
-                let drawY = (canvas.height - drawHeight) / 2;
                 
-                if (drawHeight > canvas.height) {
-                    drawHeight = canvas.height;
-                    drawWidth = canvas.height * imgRatio;
-                    drawX = (canvas.width - drawWidth) / 2;
-                    drawY = 0;
-                }
-
-                ctx.drawImage(img, 0, 0, img.width, img.height, drawX, drawY, drawWidth, drawHeight);
+                // 2. Dibujamos solo la porción recortada de la imagen para que llene el canvas
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
 
                 // 3. Reseteamos filtros para los textos
                 ctx.filter = "none";
@@ -194,7 +179,7 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
         <div className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm text-white flex items-center justify-center h-[100dvh] overflow-hidden">
             
             {/* CONTENEDOR TIPO MÓVIL (9:16) */}
-            <div className="relative w-full max-w-[420px] h-[100dvh] md:h-[90dvh] md:max-h-[850px] md:rounded-[2rem] md:border-4 border-black/50 overflow-hidden bg-black flex flex-col shadow-2xl">
+            <div className="relative w-full max-w-[420px] h-[100dvh] md:h-[90dvh] md:max-h-[850px] md:rounded-2xl md:border border-white/10 overflow-hidden bg-black flex flex-col shadow-2xl">
 
                 {/* CABECERA */}
                 <div className="absolute top-0 w-full flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent z-[600]">
@@ -202,6 +187,9 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                         <X size={24} />
                     </button>
                     <div className="flex gap-3">
+                        <button onClick={() => setShowFilters(!showFilters)} className={`p-3 backdrop-blur-md rounded-full transition-colors shadow-lg active:scale-95 ${showFilters ? 'bg-cuadralo-pink' : 'bg-black/40 hover:bg-black/60'}`}>
+                            <Wand2 size={22} />
+                        </button>
                         <button onClick={handleAddText} className="p-3 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 transition-colors shadow-lg active:scale-95">
                             <Type size={22} />
                         </button>
@@ -225,19 +213,11 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                     className="relative flex-1 w-full h-full bg-black flex items-center justify-center overflow-hidden touch-none"
                     onClick={() => setActiveTextId(null)}
                 >
-                    {/* Fondo Borroso para fotos horizontales */}
-                    <img
-                        src={imagePreview}
-                        style={{ filter: `${FILTERS[filterIndex].css} blur(20px) brightness(0.6)` }}
-                        className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none scale-110"
-                        alt="Fondo de Historia"
-                    />
-
                     {/* Imagen Principal Adaptada */}
                     <img
                         src={imagePreview}
                         style={{ filter: FILTERS[filterIndex].css }}
-                        className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none transition-all duration-300"
+                        className="w-full h-full object-cover pointer-events-none select-none transition-all duration-300"
                         alt="Historia"
                     />
 
@@ -289,16 +269,6 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                             )}
                         </motion.div>
                     ))}
-                </div>
-
-                {/* BOTÓN PARA OCULTAR/MOSTRAR FILTROS */}
-                <div className="absolute bottom-[90px] left-4 z-[600]">
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="bg-black/50 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/20 shadow-md"
-                    >
-                        {showFilters ? "Ocultar filtros" : "Filtros"}
-                    </button>
                 </div>
 
                 {/* CARRUSEL HORIZONTAL DE FILTROS */}
