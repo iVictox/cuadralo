@@ -151,11 +151,10 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
                     exit={{ opacity: 0 }} 
                     className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center text-white"
                 >
-                    <Loader2 size={60} className="animate-spin text-cuadralo-pink mb-6" />
-                    <h2 className="text-2xl font-black tracking-widest uppercase animate-pulse drop-shadow-[0_0_15px_rgba(255,41,117,0.8)]">
-                        Publicando historia...
+                    <Loader2 size={40} className="animate-spin text-cuadralo-pink mb-4" />
+                    <h2 className="text-lg font-bold tracking-wider animate-pulse">
+                        Subiendo...
                     </h2>
-                    <p className="text-white/60 mt-2 text-sm">Esto tomará solo un segundo</p>
                 </motion.div>
             )}
         </AnimatePresence>

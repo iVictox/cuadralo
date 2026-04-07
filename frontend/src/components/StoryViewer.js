@@ -166,7 +166,7 @@ export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }
     <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md flex items-center justify-center">
         
         {/* CONTENEDOR TIPO MÓVIL (9:16) */}
-        <div className="relative w-full max-w-[420px] h-[100dvh] md:h-[90dvh] md:max-h-[850px] md:rounded-[2rem] md:border-4 border-black/50 overflow-hidden bg-black flex flex-col shadow-2xl">
+        <div className="relative w-full max-w-[420px] h-[100dvh] md:h-[90dvh] md:max-h-[850px] md:rounded-2xl md:border border-white/10 overflow-hidden bg-black flex flex-col shadow-2xl">
 
             {/* OVERLAY SUPERIOR */}
             <div className="absolute top-0 left-0 w-full pt-4 pb-16 px-2 z-20 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
@@ -220,20 +220,11 @@ export default function StoryViewer({ playlist, initialGroupIndex = 0, onClose }
                 onTouchStart={() => setIsPaused(true)} onTouchEnd={() => setIsPaused(false)}
             >
                 <AnimatePresence mode="wait">
-                    {/* Fondo Desenfoque (Opcional, para que no queden bordes negros puros) */}
-                    <motion.img
-                        key={`bg-${currentStory.id}`}
-                        initial={{ opacity: 0.8 }} animate={{ opacity: 0.4 }} exit={{ opacity: 0.8 }} transition={{ duration: 0.2 }}
-                        src={getProfilePic(currentStory.image_url)}
-                        className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 pointer-events-none"
-                        alt="Background Blur"
-                    />
-
                     <motion.img
                         key={currentStory.id}
                         initial={{ opacity: 0.8, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0.8 }} transition={{ duration: 0.2 }}
                         src={getProfilePic(currentStory.image_url)}
-                        className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                        className="w-full h-full object-cover pointer-events-none"
                         alt="Story"
                     />
                 </AnimatePresence>
