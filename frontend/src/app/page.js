@@ -60,17 +60,24 @@ function MainAppContent() {
     }
   }, [router]);
 
+  const [mountedTabs, setMountedTabs] = useState({ social: true });
+
+  useEffect(() => {
+    setMountedTabs((prev) => ({ ...prev, [activeTab]: true }));
+  }, [activeTab]);
+
   const renderView = () => {
     if (selectedChat) return <ChatWindow chat={selectedChat} onBack={() => setSelectedChat(null)} />;
 
-    switch(activeTab) {
-        case "social": return <SocialFeed onUploadClick={() => setShowUpload(true)} />;
-        case "home": return <CardStack onOpenFilters={() => setShowFilters(true)} />; 
-        case "likes": return <MyLikes />;
-        case "chat": return <ChatList onChatSelect={setSelectedChat} />;
-        case "profile": return <Profile />;
-        default: return <SocialFeed />;
-    }
+    return (
+      <>
+        {mountedTabs.social && <div style={{ display: activeTab === 'social' ? 'block' : 'none', height: '100%' }}><SocialFeed onUploadClick={() => setShowUpload(true)} /></div>}
+        {mountedTabs.home && <div style={{ display: activeTab === 'home' ? 'block' : 'none', height: '100%' }}><CardStack onOpenFilters={() => setShowFilters(true)} /></div>}
+        {mountedTabs.likes && <div style={{ display: activeTab === 'likes' ? 'block' : 'none', height: '100%' }}><MyLikes /></div>}
+        {mountedTabs.chat && <div style={{ display: activeTab === 'chat' ? 'block' : 'none', height: '100%' }}><ChatList onChatSelect={setSelectedChat} /></div>}
+        {mountedTabs.profile && <div style={{ display: activeTab === 'profile' ? 'block' : 'none', height: '100%' }}><Profile /></div>}
+      </>
+    );
   };
 
   return (
