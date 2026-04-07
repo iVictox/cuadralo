@@ -593,8 +593,9 @@ func CreateAndBroadcastNotification(receiverID uint, senderID uint, notifType st
 
 	database.DB.Create(&notif)
 
+	var fullNotif models.Notification
 	// ✅ AÑADIDO: Preload("Post") para que el WebSocket también envíe la imagen en vivo
-	database.DB.Preload("Sender").Preload("Post").First(&notif, notif.ID)
+	database.DB.Preload("Sender").Preload("Post").First(&fullNotif, notif.ID)
 
-	websockets.SendToUser(fmt.Sprintf("%d", receiverID), "new_notification", notif)
+	websockets.SendToUser(fmt.Sprintf("%d", receiverID), "new_notification", fullNotif)
 }

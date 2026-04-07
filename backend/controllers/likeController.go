@@ -90,7 +90,25 @@ func Swipe(c *fiber.Ctx) error {
 			isMatch = true
 			match := models.Match{User1ID: myId, User2ID: input.TargetID}
 			database.DB.Create(&match)
-		}
+
+            // Disparar notificación de Match para la otra persona
+			CreateAndBroadcastNotification(
+				input.TargetID,
+				myId,
+				"match",
+				nil,
+				"¡Tienen un nuevo Match! Comienza a chatear.",
+			)
+		} else {
+            // Si no hay match, le mandamos una notificación de "Recibiste un like" a la persona (Swipe Like)
+            CreateAndBroadcastNotification(
+                input.TargetID,
+                myId,
+                "swipe_like",
+                nil,
+                "le diste curiosidad a alguien. ¡Averigua quién es!",
+            )
+        }
 	}
 	return c.JSON(fiber.Map{"message": "Interacción registrada", "match": isMatch})
 }
