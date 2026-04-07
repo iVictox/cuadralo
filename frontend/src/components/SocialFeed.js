@@ -11,6 +11,7 @@ import NotificationModal from "./NotificationModal";
 import { api } from "@/utils/api";
 import { AnimatePresence, motion } from "framer-motion";
 import PrimeModal from "@/components/PrimeModal";
+import Loader from "@/components/Loader";
 
 export default function SocialFeed({ onUploadClick }) {
   const [posts, setPosts] = useState([]);
@@ -213,7 +214,7 @@ export default function SocialFeed({ onUploadClick }) {
       )}
 
       {loading ? (
-         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" size={40} /></div>
+         <Loader fullScreen />
       ) : (
          <div className="w-full max-w-[600px] mx-auto px-4 flex flex-col gap-8 pb-20">
             <AnimatePresence mode="popLayout">
@@ -234,7 +235,7 @@ export default function SocialFeed({ onUploadClick }) {
             
             {posts.length > 0 && (
                 <button onClick={handleRefresh} className="mx-auto flex items-center gap-2 text-xs text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark hover:text-cuadralo-pink transition-colors py-6 mb-10 bg-white/5 dark:bg-black/20 px-6 rounded-full backdrop-blur-md">
-                    {refreshing ? <Loader2 className="animate-spin" size={16}/> : <RefreshCw size={16}/>} Actualizar Feed
+                    {refreshing ? <Loader size="sm" /> : <RefreshCw size={16}/>} Actualizar Feed
                 </button>
             )}
          </div>

@@ -6,6 +6,7 @@ import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 import { AnimatePresence, motion } from "framer-motion";
 import StoryPreview from "./StoryPreview";
+import Loader from "@/components/Loader";
 
 export default function StoriesBar({ stories, myStories, currentUser, onViewStory, onRefresh }) {
   const { showToast } = useToast();
@@ -151,7 +152,7 @@ export default function StoriesBar({ stories, myStories, currentUser, onViewStor
                     exit={{ opacity: 0 }} 
                     className="fixed inset-0 z-[2000] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center text-white"
                 >
-                    <Loader2 size={40} className="animate-spin text-cuadralo-pink mb-4" />
+                    <Loader />
                     <h2 className="text-lg font-bold tracking-wider animate-pulse">
                         Subiendo...
                     </h2>

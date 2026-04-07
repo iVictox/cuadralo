@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { X, Image as ImageIcon, MapPin, Loader2, CheckCircle } from "lucide-react";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
+import Loader from "@/components/Loader";
 
 export default function UploadModal({ onClose }) {
   const { showToast } = useToast();
@@ -72,7 +73,7 @@ export default function UploadModal({ onClose }) {
         {/* Footer */}
         <div className="p-6 border-t border-black/5 dark:border-white/10 bg-black/5 dark:bg-black/20">
             <button onClick={handlePublish} disabled={!file || loading} className="w-full bg-cuadralo-pink text-white font-black uppercase tracking-widest py-4 rounded-2xl shadow-xl shadow-cuadralo-pink/30 disabled:opacity-50 flex items-center justify-center gap-2 text-xs">
-                {loading ? <Loader2 className="animate-spin" size={20} /> : <>Compartir <CheckCircle size={20} /></>}
+                {loading ? <Loader size="sm" /> : <>Compartir <CheckCircle size={20} /></>}
             </button>
         </div>
       </motion.div>

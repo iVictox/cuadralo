@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
     User, Mail, Lock, Calendar, ArrowRight, ArrowLeft, 
-    Plus, Trash2, ChevronRight, AlertCircle, Loader2
+    Plus, Trash2, ChevronRight, AlertCircle
 } from "lucide-react";
+import Loader from "@/components/Loader";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { api } from "@/utils/api"; 
@@ -402,7 +403,7 @@ export default function RegisterPage() {
                               {formData.photos.length < 6 && (
                                   <label className={`relative aspect-[3/4] bg-black/5 dark:bg-white/5 border-2 border-dashed border-black/10 dark:border-white/20 rounded-2xl flex flex-col items-center justify-center transition-all group ${isUploading ? 'opacity-50 cursor-wait' : 'cursor-pointer hover:border-cuadralo-pink/50 hover:bg-black/10 dark:hover:bg-white/10'}`}>
                                       <input type="file" accept="image/*" onChange={handlePhotoUpload} disabled={isUploading} className="hidden" />
-                                      {isUploading ? <Loader2 className="animate-spin text-cuadralo-pink" size={28} /> : <Plus className="text-gray-400 group-hover:text-cuadralo-pink transition-colors" size={28} />}
+                                      {isUploading ? <Loader size="sm" /> : <Plus className="text-gray-400 group-hover:text-cuadralo-pink transition-colors" size={28} />}
                                   </label>
                               )}
                           </div>
@@ -476,7 +477,7 @@ export default function RegisterPage() {
                           {error && <ErrorMessage msg={error} />}
 
                           <button onClick={handleFinalSubmit} disabled={isLoading} className={`w-full py-5 bg-gradient-to-r from-cuadralo-pink to-purple-600 rounded-2xl font-black text-white text-lg shadow-xl shadow-cuadralo-pink/30 flex items-center justify-center gap-3 transition-all ${isLoading ? 'opacity-70 cursor-wait' : 'hover:scale-[1.02] active:scale-95'}`}>
-                              {isLoading ? <Loader2 className="animate-spin" size={24} /> : <>Entrar a Cuadralo <ArrowRight size={24} /></>}
+                              {isLoading ? <Loader size="sm" /> : <>Entrar a Cuadralo <ArrowRight size={24} /></>}
                           </button>
                       </motion.div>
                   )}

@@ -9,6 +9,7 @@ import FeedPost from "@/components/FeedPost";
 // Importamos tus menús originales
 import BottomNav from "@/components/BottomNav";
 import Navbar from "@/components/Navbar";
+import Loader from "@/components/Loader";
 
 export default function SinglePostPage() {
     const params = useParams();
@@ -66,7 +67,7 @@ export default function SinglePostPage() {
                 <div className="max-w-[600px] mx-auto px-4 pt-6">
                     {loading ? (
                         <div className="flex justify-center py-20">
-                            <Loader2 className="animate-spin text-cuadralo-pink" size={40} />
+                            <Loader fullScreen />
                         </div>
                     ) : post ? (
                         // Reutilizamos tu componente FeedPost

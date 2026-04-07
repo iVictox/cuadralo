@@ -10,6 +10,7 @@ import ProfileDetailsModal from "@/components/ProfileDetailsModal";
 import PrimeModal from "@/components/PrimeModal";
 import BoostModal from "@/components/BoostModal"; 
 import { getInterestInfo } from "@/utils/interests";
+import Loader from "@/components/Loader";
 
 export default function CardStack({ onOpenFilters }) {
   const [cards, setCards] = useState([]);
