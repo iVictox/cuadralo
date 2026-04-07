@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, Send, Trash2, Loader2, Heart } from "lucide-react";
+import { X, Send, Trash2, Loader2, Heart, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
@@ -22,6 +22,9 @@ export default function CommentsModal({ onClose, post }) {
   
   const [replyingTo, setReplyingTo] = useState(null); 
   const [visibleReplyCounts, setVisibleReplyCounts] = useState({});
+
+  const [liked, setLiked] = useState(post?.is_liked || false);
+  const [likesCount, setLikesCount] = useState(post?.likes_count || 0);
 
   const commentsEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -98,6 +101,15 @@ export default function CommentsModal({ onClose, post }) {
       } catch (error) { showToast("Error al eliminar", "error"); }
   };
 
+  const handleLikePost = async () => {
+    const prevLiked = liked;
+    const prevCount = likesCount;
+    setLiked(!liked);
+    setLikesCount(prev => prev + (liked ? -1 : 1));
+    try { await api.post(`/social/posts/${postId}/like`); }
+    catch (error) { setLiked(prevLiked); setLikesCount(prevCount); }
+  };
+
   const handleLikeComment = async (commentId) => {
       setComments(prev => prev.map(c => {
           if (c.id === commentId) {
@@ -149,7 +161,7 @@ export default function CommentsModal({ onClose, post }) {
       </div>
   );
 
-  const rootComments = comments.filter(c => !c.parent_id);
+  const rootComments = comments.filter(c => !c.parent_id || c.parent_id === 0);
   const getReplies = (parentId) => comments.filter(c => c.parent_id === parentId);
 
   return (
@@ -168,25 +180,53 @@ export default function CommentsModal({ onClose, post }) {
             </button>
 
             {/* Left Column: Post Preview (Hidden on small mobile if you want, or kept stacked. Let's keep it stacked but mostly for md+) */}
-            <div className="hidden md:flex w-[50%] lg:w-[55%] bg-black relative flex-col items-center justify-center">
+            <div className="hidden md:flex w-[50%] lg:w-[55%] bg-black relative flex-col items-center justify-center overflow-hidden group">
                 <img
                     src={post?.image_url}
                     alt="Post"
-                    className="w-full h-full object-contain"
+                    className="absolute inset-0 w-full h-full object-cover"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+
+                <div className="absolute bottom-0 left-0 w-full p-6 flex flex-col gap-4">
+                    {/* Interaction Tools */}
+                    <div className="flex gap-4 items-center">
+                        <div className="flex items-center gap-1.5">
+                            <button onClick={handleLikePost} className="focus:outline-none transition-transform active:scale-90 hover:-translate-y-0.5">
+                                <Heart size={28} className={`transition-colors duration-300 ${liked ? "fill-cuadralo-pink text-cuadralo-pink" : "text-white hover:text-gray-200"}`} strokeWidth={liked ? 0 : 2} />
+                            </button>
+                            <span className="text-white font-semibold text-sm drop-shadow-md">{likesCount}</span>
+                        </div>
+                        <button className="text-white hover:text-gray-200 transition-all hover:-translate-y-0.5 focus:outline-none">
+                            <Share2 size={26} strokeWidth={2} />
+                        </button>
+                    </div>
+
+                    {/* User and Caption */}
+                    <div className="flex items-start gap-3">
+                        <img src={post?.user?.photo || "https://via.placeholder.com/150"} alt={postAuthor} className="w-10 h-10 rounded-full object-cover border border-white/20 mt-1" />
+                        <div>
+                            <h3 className="text-white font-bold text-base drop-shadow-md">{postAuthor}</h3>
+                            {post?.caption && <p className="text-sm text-gray-100 mt-1 drop-shadow-md">{post.caption}</p>}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Right Column: Comments Section */}
             <div className="w-full md:w-[50%] lg:w-[45%] h-full bg-[#1a0b2e] flex flex-col border-l border-white/10 relative">
                 <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#0f0518]">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 md:hidden">
                         <img src={post?.user?.photo || "https://via.placeholder.com/150"} alt={postAuthor} className="w-10 h-10 rounded-full object-cover border border-white/10" />
                         <div>
                             <h3 className="text-white font-bold text-sm">{postAuthor}</h3>
                             {post?.caption && <p className="text-xs text-gray-300 line-clamp-1">{post.caption}</p>}
                         </div>
                     </div>
-                    <button onClick={onClose} className="hidden md:block p-2 bg-white/5 rounded-full text-white hover:bg-white/10"><X size={20} /></button>
+                    <div className="hidden md:flex flex-1 justify-center items-center">
+                        <h3 className="text-white font-bold text-sm">Comentarios</h3>
+                    </div>
+                    <button onClick={onClose} className="hidden md:block absolute right-4 p-2 bg-white/5 rounded-full text-white hover:bg-white/10"><X size={20} /></button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
