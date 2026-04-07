@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, MessageCircle, MoreVertical, Flag, Trash2, Share2 } from "lucide-react";
+import { Heart, MessageCircle, MoreVertical, Flag, Trash2, Share2, MapPin } from "lucide-react";
 import { api } from "@/utils/api";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -163,7 +163,7 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
 
                 {/* ✅ SOLUCIÓN: Cambiamos a post.caption, que es la variable real que envía el backend */}
                 {post.caption && (
-                    <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-2">
+                    <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-1">
                         <span className="font-semibold text-cuadralo-textLight dark:text-cuadralo-textDark mr-2 cursor-pointer hover:underline" onClick={() => router.push(`/u/${post.user.username}`)}>
                             {post.user?.name}
                         </span>
@@ -171,7 +171,15 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                     </p>
                 )}
 
-                <button onClick={() => setShowComments(true)} className="text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark text-sm hover:underline">
+                {/* UBICACIÓN */}
+                {post.location && (
+                    <div className="flex items-center gap-1.5 mb-3 text-gray-500 dark:text-gray-400">
+                        <MapPin size={14} />
+                        <span className="text-xs font-medium">{post.location}</span>
+                    </div>
+                )}
+
+                <button onClick={() => setShowComments(true)} className="text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark text-sm hover:underline mt-1">
                     {commentsCount > 0 ? `Ver los ${commentsCount} comentarios` : "Añadir un comentario..."}
                 </button>
             </div>
