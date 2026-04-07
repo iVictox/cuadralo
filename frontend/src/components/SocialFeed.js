@@ -13,7 +13,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import PrimeModal from "@/components/PrimeModal";
 import Loader from "@/components/Loader";
 
-export default function SocialFeed({ onUploadClick }) {
+export default function SocialFeed({ onUploadClick, isActive = true }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -32,43 +32,47 @@ export default function SocialFeed({ onUploadClick }) {
 
   const [activeTab, setActiveTab] = useState("for_you");
 
-  const [feedCache, setFeedCache] = useState({ for_you: null, following: null });
+  const [feedCache, setFeedCache] = useState({ for_you: [], following: [] });
+  const [hasInitialFetch, setHasInitialFetch] = useState(false);
 
-  const fetchData = async (tab = activeTab, isRefresh = false) => {
+  // Derive current posts directly from cache
+  useEffect(() => {
+      setPosts(feedCache[activeTab] || []);
+  }, [activeTab, feedCache]);
+
+  const fetchData = async (isRefresh = false, showLoader = true) => {
     try {
-      // Si tenemos caché y no es un refresh forzado, mostrar caché de inmediato y no poner loading true
-      if (feedCache[tab] && !isRefresh) {
-          setPosts(feedCache[tab]);
-          setLoading(false);
-          // Continua en el background para actualizar en silencio
-      } else if (!isRefresh) {
-          setLoading(true);
-      }
+      if (showLoader) setLoading(true);
 
-      const status = await api.get("/premium/status").catch(() => ({ is_prime: false }));
+      const [status, notifs, forYouData, followingData, storiesResponse] = await Promise.all([
+          api.get("/premium/status").catch(() => ({ is_prime: false })),
+          api.get("/notifications").catch(() => []),
+          api.get(`/social/feed?tab=for_you`).catch(() => []),
+          api.get(`/social/feed?tab=following`).catch(() => []),
+          api.get("/social/stories").catch(() => null)
+      ]);
+
       setIsPrime(status.is_prime);
 
       const userStr = localStorage.getItem("user");
       const me = userStr ? JSON.parse(userStr) : null;
       setCurrentUser(me);
 
-      const notifs = await api.get("/notifications").catch(() => []);
       if (Array.isArray(notifs)) {
           setUnreadNotifsCount(notifs.filter(n => !n.is_read).length);
       }
 
-      const feedData = await api.get(`/social/feed?tab=${tab}`);
-      const newPosts = Array.isArray(feedData) ? feedData : [];
-      setPosts(newPosts);
+      setFeedCache({
+          for_you: Array.isArray(forYouData) ? forYouData : [],
+          following: Array.isArray(followingData) ? followingData : []
+      });
 
-      // Update Cache
-      setFeedCache(prev => ({ ...prev, [tab]: newPosts }));
-
-      const storiesResponse = await api.get("/social/stories");
       if (storiesResponse) {
           setStories(storiesResponse.feed || []);
           setMyStories(storiesResponse.my_stories || []);
       }
+
+      setHasInitialFetch(true);
     } catch (error) {
       console.error("Error data:", error);
     } finally {
@@ -77,7 +81,13 @@ export default function SocialFeed({ onUploadClick }) {
     }
   };
 
-  useEffect(() => { fetchData(activeTab); }, [activeTab]);
+  // Fetch when the component becomes active
+  useEffect(() => {
+      if (isActive) {
+          // If we never fetched, show loader. If we already have cache, fetch silently in background.
+          fetchData(false, !hasInitialFetch);
+      }
+  }, [isActive, hasInitialFetch]);
 
   // WebSockets para tiempo real
   useEffect(() => {
