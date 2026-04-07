@@ -9,9 +9,14 @@ import { useRouter } from "next/navigation";
 export default function NotificationModal({ onClose, onReadSync }) {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState(null);
     const router = useRouter();
 
     useEffect(() => {
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+            setCurrentUser(JSON.parse(userStr));
+        }
         fetchNotifications();
     }, []);
 
@@ -40,12 +45,34 @@ export default function NotificationModal({ onClose, onReadSync }) {
         // ✅ CORRECCIÓN A PRUEBA DE BALAS: Si tiene post_id, va directo a la publicación
         if (notif.post_id) {
             router.push(`/post/${notif.post_id}`);
-        } else if (notif.type === "follow" || notif.type === "swipe_like") {
+        } else if (notif.type === "swipe_like") {
+            router.push(`/?tab=likes`);
+        } else if (notif.type === "follow") {
             router.push(`/u/${notif.sender?.username}`);
         } else if (notif.type === "match") {
-            router.push(`/chat`);
+            router.push(`/?tab=chat`);
         } else {
-            router.push(`/profile`);
+            router.push(`/?tab=profile`);
+        }
+    };
+
+    const handleDelete = async (e, notifId) => {
+        e.stopPropagation();
+        try {
+            await api.delete(`/notifications/${notifId}`);
+            setNotifications(prev => prev.filter(n => n.id !== notifId));
+        } catch (error) {
+            console.error("Error al eliminar notificación:", error);
+        }
+    };
+
+    const handleMarkAllRead = async () => {
+        try {
+            await api.post(`/notifications/read-all`);
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+            if (onReadSync) onReadSync();
+        } catch (error) {
+            console.error("Error al marcar como leído:", error);
         }
     };
 
@@ -74,9 +101,16 @@ export default function NotificationModal({ onClose, onReadSync }) {
                     <h2 className="text-lg font-black text-cuadralo-textLight dark:text-white tracking-tight">Notificaciones</h2>
                     <p className="text-xs text-cuadralo-textMutedLight dark:text-gray-400 font-medium">Entérate de todo lo que pasa.</p>
                 </div>
-                <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-gray-500 dark:text-gray-400 transition-all">
-                    <X size={24} />
-                </button>
+                <div className="flex gap-2">
+                    {notifications.some(n => !n.is_read) && (
+                        <button onClick={handleMarkAllRead} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-gray-500 dark:text-gray-400 transition-all" title="Marcar todas como leídas">
+                            <CheckCheck size={20} />
+                        </button>
+                    )}
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-gray-500 dark:text-gray-400 transition-all">
+                        <X size={24} />
+                    </button>
+                </div>
             </div>
 
             {/* LISTA DE NOTIFICACIONES */}
@@ -100,7 +134,7 @@ export default function NotificationModal({ onClose, onReadSync }) {
 
                                 {/* Avatar y Badge Icono */}
                                 <div className="relative flex-shrink-0 self-start">
-                                    <img src={notif.sender?.photo || "https://via.placeholder.com/150"} alt="User" className="w-12 h-12 rounded-full object-cover border-2 border-black/5 dark:border-white/10" />
+                                    <img src={notif.sender?.photo || "https://via.placeholder.com/150"} alt="User" className={`w-12 h-12 rounded-full object-cover border-2 border-black/5 dark:border-white/10 ${notif.type === 'swipe_like' && !currentUser?.is_prime ? 'blur-md' : ''}`} />
                                     <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center border-2 border-cuadralo-bgLight dark:border-cuadralo-bgDark ${style.bg} backdrop-blur-md`}>
                                         <Icon size={12} className={style.color} fill={notif.type === 'post_like' || notif.type === 'match' ? 'currentColor' : 'none'} />
                                     </div>
@@ -109,20 +143,31 @@ export default function NotificationModal({ onClose, onReadSync }) {
                                 {/* Contenido Texto */}
                                 <div className="flex-1 pr-2">
                                     <p className="text-sm text-cuadralo-textLight dark:text-gray-200">
-                                        <span className="font-bold text-cuadralo-textLight dark:text-white">{notif.sender?.username}</span> {notif.message}
+                                        <span className="font-bold text-cuadralo-textLight dark:text-white">
+                                             {notif.type === 'swipe_like' ? (currentUser?.is_prime ? notif.sender?.username : 'Alguien') : notif.sender?.username}
+                                        </span> {notif.message}
                                     </p>
                                     <span className="text-[10px] text-cuadralo-textMutedLight dark:text-gray-500 font-bold uppercase tracking-widest mt-1 block">
                                         {new Date(notif.created_at).toLocaleDateString()} • {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
 
-                                {/* MINIATURA DE LA PUBLICACIÓN */}
-                                {notif.post && notif.post.image_url && (
-                                    <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-black/5 dark:border-white/10 shadow-sm ml-auto">
-                                        <img src={notif.post.image_url} alt="Post" className="w-full h-full object-cover" />
-                                    </div>
-                                )}
+                                {/* MINIATURA DE LA PUBLICACIÓN Y BOTÓN DE BORRAR */}
+                                <div className="flex flex-col items-end gap-2 ml-auto shrink-0">
+                                    <button
+                                        onClick={(e) => handleDelete(e, notif.id)}
+                                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                                        title="Eliminar notificación"
+                                    >
+                                        <X size={14} />
+                                    </button>
 
+                                    {notif.post && notif.post.image_url && (
+                                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-black/5 dark:border-white/10 shadow-sm">
+                                            <img src={notif.post.image_url} alt="Post" className="w-full h-full object-cover" />
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         );
                     })
