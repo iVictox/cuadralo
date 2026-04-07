@@ -124,7 +124,7 @@ export default function ChatList({ onChatSelect }) {
         <div className="px-2">
             <h2 className="text-[10px] font-black text-cuadralo-textMutedLight dark:text-gray-500 uppercase tracking-[0.2em] mb-3 px-4">Conversaciones</h2>
             
-            {loading && <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-cuadralo-pink border-t-transparent animate-spin rounded-full"/></div>}
+            {loading && <Loader />}
             
             {!loading && filteredConversations.length === 0 && (
                 <div className="text-center py-12 flex flex-col items-center opacity-40">
