@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Image as ImageIcon, Camera, MapPin, Loader2, CheckCircle, Navigation } from "lucide-react";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
-import Loader from "@/components/Loader";
 
 export default function UploadModal({ onClose }) {
   const { showToast } = useToast();

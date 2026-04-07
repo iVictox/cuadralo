@@ -7,7 +7,6 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, Loader2 } from "lucid
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { api } from "@/utils/api"; 
-import Loader from "@/components/Loader";
 
 // ✅ Importaciones para los logins sociales
 import { useGoogleLogin } from '@react-oauth/google';
@@ -216,9 +215,17 @@ export default function LoginPage() {
                           <button 
                               type="submit" 
                               disabled={isLoading}
-                              className={`w-full py-5 bg-gradient-to-r from-cuadralo-pink to-purple-600 rounded-2xl font-black text-white text-lg shadow-xl shadow-cuadralo-pink/30 flex items-center justify-center gap-3 transition-all ${isLoading ? 'opacity-70 cursor-wait' : 'hover:scale-[1.02] active:scale-95'}`}
+                              className={`w-full py-5 bg-gradient-to-r from-cuadralo-pink to-purple-600 rounded-2xl font-black text-white text-lg shadow-xl shadow-cuadralo-pink/30 flex items-center justify-center gap-3 transition-all relative overflow-hidden ${isLoading ? 'opacity-80 cursor-wait' : 'hover:scale-[1.02] active:scale-95'}`}
                           >
-                              {isLoading ? <Loader size="sm" /> : <>Iniciar Sesión <ArrowRight size={24} /></>}
+                              {isLoading ? (
+                                  <div className="flex items-center justify-center gap-1.5">
+                                      <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                      <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                      <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                                  </div>
+                              ) : (
+                                  <>Iniciar Sesión <ArrowRight size={24} /></>
+                              )}
                           </button>
                       </form>
                       

@@ -11,7 +11,6 @@ import { useToast } from "@/context/ToastContext";
 import { useSocket } from "@/context/SocketContext";
 import ProfileDetailsModal from "@/components/ProfileDetailsModal";
 import CheckoutModal from "@/components/CheckoutModal"; 
-import Loader from "@/components/Loader";
 
 const SecretImageMessage = ({ msg, isMe, onOpen, isViewed }) => {
     return (
@@ -337,7 +336,7 @@ export default function ChatWindow({ chat, onBack }) {
             <form onSubmit={handleSend} className="flex items-center gap-2 max-w-3xl mx-auto">
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
                 <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="p-3 bg-black/5 dark:bg-white/5 rounded-2xl text-cuadralo-textMutedLight dark:text-gray-400 hover:text-cuadralo-pink transition-all shrink-0">
-                    {isUploading ? <Loader size="sm" /> : <ImageIcon size={20} />}
+                    {isUploading ? <Loader2 size={20} className="animate-spin" /> : <ImageIcon size={20} />}
                 </button>
                 <div className="flex-1 relative bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 rounded-2xl overflow-hidden focus-within:ring-2 focus-within:ring-cuadralo-pink/20 transition-all">
                     <input type="text" placeholder="Escribe..." className="w-full bg-transparent py-3.5 px-5 text-sm outline-none font-medium" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />

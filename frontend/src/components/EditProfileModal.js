@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 import { INTERESTS_LIST, getInterestInfo } from "@/utils/interests"; 
-import Loader from "@/components/Loader";
 
 export default function EditProfileModal({ user, onClose, onUpdate }) {
   const { showToast } = useToast();
@@ -172,7 +171,7 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
                     {photos.length < 9 && (
                         <div onClick={handleAddPhotoClick} className={`aspect-[3/4] rounded-2xl border-2 border-dashed border-black/10 dark:border-white/10 flex flex-col items-center justify-center transition-all group ${uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-cuadralo-pink/50 bg-black/5 dark:bg-white/5'}`}>
                             {uploading ? (
-                                <Loader />
+                                <Loader2 className="animate-spin text-cuadralo-pink" size={28} />
                             ) : (
                                 <>
                                     <div className="p-3 rounded-full bg-white dark:bg-white/5 group-hover:bg-cuadralo-pink group-hover:text-white transition-colors mb-2 shadow-sm"><Plus size={24} className="text-gray-400 group-hover:text-white" /></div>
@@ -264,7 +263,7 @@ export default function EditProfileModal({ user, onClose, onUpdate }) {
         <div className="p-6 border-t border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 flex justify-end gap-4">
             <button onClick={onClose} className="px-6 py-3 rounded-2xl text-gray-500 font-bold hover:bg-black/5 dark:hover:bg-white/5 hover:text-cuadralo-textLight dark:hover:text-white transition-colors text-sm">Cancelar</button>
             <button type="submit" form="editForm" disabled={saving || uploading} className="px-8 py-3 bg-cuadralo-pink rounded-2xl text-white font-black uppercase tracking-widest shadow-xl shadow-cuadralo-pink/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 text-xs">
-                {saving ? <Loader size="sm" /> : <Save size={18} />} Guardar Cambios
+                {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />} Guardar Cambios
             </button>
         </div>
       </motion.div>
