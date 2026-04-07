@@ -11,6 +11,7 @@ import NotificationModal from "./NotificationModal";
 import { api } from "@/utils/api";
 import { AnimatePresence, motion } from "framer-motion";
 import PrimeModal from "@/components/PrimeModal";
+import Loader from "@/components/Loader";
 
 export default function SocialFeed({ onUploadClick }) {
   const [posts, setPosts] = useState([]);
@@ -31,9 +32,18 @@ export default function SocialFeed({ onUploadClick }) {
 
   const [activeTab, setActiveTab] = useState("for_you");
 
+  const [feedCache, setFeedCache] = useState({ for_you: null, following: null });
+
   const fetchData = async (tab = activeTab, isRefresh = false) => {
     try {
-      if (!isRefresh) setLoading(true);
+      // Si tenemos caché y no es un refresh forzado, mostrar caché de inmediato y no poner loading true
+      if (feedCache[tab] && !isRefresh) {
+          setPosts(feedCache[tab]);
+          setLoading(false);
+          // Continua en el background para actualizar en silencio
+      } else if (!isRefresh) {
+          setLoading(true);
+      }
 
       const status = await api.get("/premium/status").catch(() => ({ is_prime: false }));
       setIsPrime(status.is_prime);
@@ -48,7 +58,11 @@ export default function SocialFeed({ onUploadClick }) {
       }
 
       const feedData = await api.get(`/social/feed?tab=${tab}`);
-      setPosts(Array.isArray(feedData) ? feedData : []);
+      const newPosts = Array.isArray(feedData) ? feedData : [];
+      setPosts(newPosts);
+
+      // Update Cache
+      setFeedCache(prev => ({ ...prev, [tab]: newPosts }));
 
       const storiesResponse = await api.get("/social/stories");
       if (storiesResponse) {
@@ -213,7 +227,7 @@ export default function SocialFeed({ onUploadClick }) {
       )}
 
       {loading ? (
-         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" size={40} /></div>
+         <Loader fullScreen />
       ) : (
          <div className="w-full max-w-[600px] mx-auto px-4 flex flex-col gap-8 pb-20">
             <AnimatePresence mode="popLayout">
@@ -233,8 +247,13 @@ export default function SocialFeed({ onUploadClick }) {
             )}
             
             {posts.length > 0 && (
-                <button onClick={handleRefresh} className="mx-auto flex items-center gap-2 text-xs text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark hover:text-cuadralo-pink transition-colors py-6 mb-10 bg-white/5 dark:bg-black/20 px-6 rounded-full backdrop-blur-md">
-                    {refreshing ? <Loader2 className="animate-spin" size={16}/> : <RefreshCw size={16}/>} Actualizar Feed
+                <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="mx-auto flex items-center gap-2.5 text-xs font-bold uppercase tracking-widest text-white transition-all py-3 px-8 mb-10 rounded-full shadow-lg shadow-cuadralo-pink/20 bg-gradient-to-r from-cuadralo-pink to-purple-600 hover:scale-105 active:scale-95 disabled:opacity-70 disabled:hover:scale-100"
+                >
+                    {refreshing ? <Loader2 className="animate-spin" size={16}/> : <RefreshCw size={16}/>}
+                    {refreshing ? "Actualizando..." : "Actualizar Feed"}
                 </button>
             )}
          </div>

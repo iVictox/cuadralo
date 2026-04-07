@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { X, Heart, MessageCircle, UserPlus, Flame, Sparkles, Loader2, CheckCheck, Bell } from "lucide-react";
 import { api } from "@/utils/api";
 import { useRouter } from "next/navigation";
+import Loader from "@/components/Loader";
 
 export default function NotificationModal({ onClose, onReadSync }) {
     const [notifications, setNotifications] = useState([]);
@@ -116,7 +117,7 @@ export default function NotificationModal({ onClose, onReadSync }) {
             {/* LISTA DE NOTIFICACIONES */}
             <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-3">
                 {loading ? (
-                    <div className="flex justify-center py-20"><Loader2 className="animate-spin text-cuadralo-pink" size={32} /></div>
+                    <Loader fullScreen />
                 ) : notifications.length > 0 ? (
                     notifications.map((notif) => {
                         const style = getNotificationStyle(notif.type);

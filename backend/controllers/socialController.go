@@ -245,7 +245,8 @@ func GetPostComments(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
 	var comments []models.Comment
-	database.DB.Preload("User").Where("post_id = ? AND parent_id IS NULL", postId).Order("created_at desc").Find(&comments)
+	// SE ELIMINÓ 'AND parent_id IS NULL' PARA QUE CARGUE LAS RESPUESTAS TAMBIÉN
+	database.DB.Preload("User").Where("post_id = ?", postId).Order("created_at desc").Find(&comments)
 
 	for i := range comments {
 		var count int64
@@ -278,10 +279,18 @@ func CreateComment(c *fiber.Ctx) error {
 	var pId uint
 	fmt.Sscanf(postId, "%d", &pId)
 
+	// SE AGREGÓ LÓGICA PARA RECIBIR Y GUARDAR EL PARENT_ID SI ES UNA RESPUESTA
+	var parentId *uint
+	if pidFloat, ok := data["parent_id"].(float64); ok {
+		pidUint := uint(pidFloat)
+		parentId = &pidUint
+	}
+
 	comment := models.Comment{
 		PostID:    pId,
 		UserID:    userId,
 		Content:   content,
+		ParentID:  parentId,
 		CreatedAt: time.Now(),
 	}
 

@@ -18,6 +18,7 @@ import SocialFeed from "@/components/SocialFeed";
 // Modales
 import FilterModal from "@/components/FilterModal";
 import UploadModal from "@/components/UploadModal";
+import Loader from "@/components/Loader";
 
 // 1. Componente interno que usa useSearchParams
 function MainAppContent() {
@@ -59,17 +60,24 @@ function MainAppContent() {
     }
   }, [router]);
 
+  const [mountedTabs, setMountedTabs] = useState({ social: true });
+
+  useEffect(() => {
+    setMountedTabs((prev) => ({ ...prev, [activeTab]: true }));
+  }, [activeTab]);
+
   const renderView = () => {
     if (selectedChat) return <ChatWindow chat={selectedChat} onBack={() => setSelectedChat(null)} />;
 
-    switch(activeTab) {
-        case "social": return <SocialFeed onUploadClick={() => setShowUpload(true)} />;
-        case "home": return <CardStack onOpenFilters={() => setShowFilters(true)} />; 
-        case "likes": return <MyLikes />;
-        case "chat": return <ChatList onChatSelect={setSelectedChat} />;
-        case "profile": return <Profile />;
-        default: return <SocialFeed />;
-    }
+    return (
+      <>
+        {mountedTabs.social && <div style={{ display: activeTab === 'social' ? 'block' : 'none', height: '100%' }}><SocialFeed onUploadClick={() => setShowUpload(true)} /></div>}
+        {mountedTabs.home && <div style={{ display: activeTab === 'home' ? 'block' : 'none', height: '100%' }}><CardStack onOpenFilters={() => setShowFilters(true)} /></div>}
+        {mountedTabs.likes && <div style={{ display: activeTab === 'likes' ? 'block' : 'none', height: '100%' }}><MyLikes /></div>}
+        {mountedTabs.chat && <div style={{ display: activeTab === 'chat' ? 'block' : 'none', height: '100%' }}><ChatList onChatSelect={setSelectedChat} /></div>}
+        {mountedTabs.profile && <div style={{ display: activeTab === 'profile' ? 'block' : 'none', height: '100%' }}><Profile /></div>}
+      </>
+    );
   };
 
   return (
@@ -106,9 +114,7 @@ function MainAppContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-        <div className="min-h-screen w-full flex items-center justify-center bg-cuadralo-bgLight dark:bg-cuadralo-bgDark">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cuadralo-pink"></div>
-        </div>
+      <Loader fullScreen />
     }>
       <MainAppContent />
     </Suspense>

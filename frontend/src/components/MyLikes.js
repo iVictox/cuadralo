@@ -7,6 +7,7 @@ import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 import PrimeModal from "@/components/PrimeModal"; 
 import BoostModal from "@/components/BoostModal"; 
+import Loader from "@/components/Loader";
 
 export default function MyLikes() {
   const { showToast } = useToast();
@@ -58,11 +59,7 @@ export default function MyLikes() {
   };
 
   if (loading) {
-    return (
-        <div className="flex h-full items-center justify-center text-cuadralo-pink">
-            <Loader2 className="animate-spin" size={32}/>
-        </div>
-    );
+      return <Loader fullScreen />;
   }
 
   return (
