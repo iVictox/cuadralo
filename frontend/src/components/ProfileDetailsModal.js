@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-    ChevronDown, MapPin, Quote, Loader2, Crown, ChevronLeft, ChevronRight, User, Calendar, Heart, MessageCircle
+    ChevronDown, MapPin, Quote, Crown, ChevronLeft, ChevronRight, User, Calendar, Heart, MessageCircle
 } from "lucide-react";
+import Loader from "@/components/Loader";
 import { api } from "@/utils/api";
 import { getInterestInfo } from "@/utils/interests"; 
 import ChatWindow from "@/components/ChatWindow"; 
@@ -173,7 +174,7 @@ export default function ProfileDetailsModal({ profile, onClose }) {
                         </div>
 
                         {loading ? (
-                            <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" size={32} /></div>
+                            <Loader />
                         ) : (
                             <div className="space-y-8 mt-6">
                                 <div>
@@ -182,7 +183,7 @@ export default function ProfileDetailsModal({ profile, onClose }) {
                                     </h3>
                                     <div className="bg-white/5 border border-white/5 p-6 rounded-3xl shadow-inner">
                                         <p className="text-gray-300 text-sm leading-relaxed italic">
-                                            "{bio}"
+                                            &quot;{bio}&quot;
                                         </p>
                                     </div>
                                 </div>

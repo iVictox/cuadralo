@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Search, X, Loader2, User as UserIcon } from "lucide-react";
 import { api } from "@/utils/api";
 import { useRouter } from "next/navigation";
+import Loader from "@/components/Loader";
 
 export default function SearchModal({ onClose }) {
   const [query, setQuery] = useState("");
@@ -96,7 +97,7 @@ export default function SearchModal({ onClose }) {
             <div className="flex-1 overflow-y-auto no-scrollbar p-2">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 text-cuadralo-pink">
-                        <Loader2 className="animate-spin mb-4" size={28} />
+                        <Loader />
                         <span className="text-xs font-bold uppercase tracking-[0.2em] text-cuadralo-textMutedLight dark:text-gray-500">Buscando...</span>
                     </div>
                 ) : results.length > 0 ? (

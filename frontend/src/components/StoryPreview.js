@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { X, Type, Smile, ChevronRight, Loader2, Trash2, Wand2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import EmojiPicker from 'emoji-picker-react';
+import Loader from "@/components/Loader";
 
 const FILTERS = [
     { name: "Normal", css: "none" },
@@ -310,7 +311,7 @@ export default function StoryPreview({ file, onPublish, onCancel }) {
                         className="bg-cuadralo-pink text-white font-black uppercase tracking-widest text-sm px-6 py-4 rounded-full shadow-[0_0_20px_rgba(255,41,117,0.5)] hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer w-full md:w-auto justify-center"
                     >
                         {isPublishing ? (
-                            <><Loader2 size={18} className="animate-spin" /> Preparando...</>
+                            <><Loader size="sm" /> Preparando...</>
                         ) : (
                             <>Publicar Historia <ChevronRight size={18} /></>
                         )}

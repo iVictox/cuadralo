@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 import { useConfirm } from "@/context/ConfirmContext";
+import Loader from "@/components/Loader";
 
 export default function CommentsModal({ onClose, post }) {
   const postId = post?.id;
@@ -230,7 +231,7 @@ export default function CommentsModal({ onClose, post }) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
-                {loading ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" /></div> : 
+                {loading ? <Loader /> :
                  comments.length === 0 ? <div className="text-center text-gray-500 py-10 text-sm">Sé el primero en comentar 👇</div> : (
                     rootComments.map((root) => {
                         const replies = getReplies(root.id);
@@ -289,7 +290,7 @@ export default function CommentsModal({ onClose, post }) {
                             disabled={!newComment.trim() || sending}
                             className="absolute right-1 top-1 p-1.5 bg-cuadralo-pink rounded-full text-white disabled:opacity-50 hover:scale-105 transition-transform"
                         >
-                            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                            {sending ? <Loader size="sm" /> : <Send size={16} />}
                         </button>
                     </div>
                 </div>

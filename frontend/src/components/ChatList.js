@@ -6,6 +6,7 @@ import { Search, MessageCircle, Zap, Crown } from "lucide-react";
 import { api } from "@/utils/api";
 import BoostModal from "@/components/BoostModal";
 import PrimeModal from "@/components/PrimeModal";
+import Loader from "@/components/Loader";
 
 export default function ChatList({ onChatSelect }) {
   const [newMatches, setNewMatches] = useState([]);

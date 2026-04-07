@@ -18,6 +18,7 @@ import SocialFeed from "@/components/SocialFeed";
 // Modales
 import FilterModal from "@/components/FilterModal";
 import UploadModal from "@/components/UploadModal";
+import Loader from "@/components/Loader";
 
 // 1. Componente interno que usa useSearchParams
 function MainAppContent() {
@@ -106,9 +107,7 @@ function MainAppContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-        <div className="min-h-screen w-full flex items-center justify-center bg-cuadralo-bgLight dark:bg-cuadralo-bgDark">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cuadralo-pink"></div>
-        </div>
+      <Loader fullScreen />
     }>
       <MainAppContent />
     </Suspense>
