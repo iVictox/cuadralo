@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 import { useRouter } from "next/navigation";
-import Loader from "@/components/Loader";
 
 export default function SettingsModal({ onClose }) {
   const { showToast } = useToast();
@@ -92,7 +91,7 @@ export default function SettingsModal({ onClose }) {
                     <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-2xl p-4 text-sm text-cuadralo-textLight dark:text-white outline-none focus:ring-2 focus:ring-cuadralo-pink" placeholder="Nueva Contraseña" />
                     <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full bg-cuadralo-bgLight dark:bg-black/40 border border-black/10 dark:border-white/10 rounded-2xl p-4 text-sm text-cuadralo-textLight dark:text-white outline-none focus:ring-2 focus:ring-cuadralo-pink" placeholder="Confirmar" />
                     <button type="submit" disabled={isLoading} className="w-full py-4 bg-cuadralo-pink text-white rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">
-                        {isLoading ? <Loader size="sm" /> : "Actualizar"}
+                        {isLoading ? <Loader2 className="animate-spin mx-auto" /> : "Actualizar"}
                     </button>
                 </form>
             )}

@@ -5,7 +5,6 @@ import { X, Save, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "@/utils/api";
 import { INTERESTS_LIST } from "@/utils/interests"; // ✅ Usamos estrictamente tu lista oficial
-import Loader from "@/components/Loader";
 
 export default function FilterModal({ onClose }) {
   const [loading, setLoading] = useState(false);
@@ -124,7 +123,7 @@ export default function FilterModal({ onClose }) {
         </div>
 
         <button onClick={handleSave} disabled={loading} className="w-full mt-10 py-5 rounded-2xl bg-cuadralo-pink text-white font-black uppercase tracking-widest text-xs shadow-xl shadow-cuadralo-pink/30 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
-            {loading ? <Loader size="sm" /> : <><Save size={20} /> Guardar Cambios</>}
+            {loading ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /> Guardar Cambios</>}
         </button>
       </motion.div>
     </div>
