@@ -1,0 +1,43 @@
+go: downloading go1.25.0 (linux/amd64)
+go: downloading github.com/gofiber/contrib/websocket v1.3.4
+go: downloading github.com/gofiber/fiber/v2 v2.52.10
+go: downloading github.com/joho/godotenv v1.5.1
+go: downloading gorm.io/driver/postgres v1.6.0
+go: downloading gorm.io/gorm v1.31.1
+go: downloading github.com/golang-jwt/jwt/v5 v5.3.0
+go: downloading github.com/google/uuid v1.6.0
+go: downloading golang.org/x/crypto v0.46.0
+go: downloading github.com/jackc/pgx/v5 v5.6.0
+go: downloading github.com/fasthttp/websocket v1.5.8
+go: downloading github.com/valyala/fasthttp v1.52.0
+go: downloading github.com/jinzhu/now v1.1.5
+go: downloading github.com/mattn/go-colorable v0.1.13
+go: downloading github.com/mattn/go-isatty v0.0.20
+go: downloading github.com/mattn/go-runewidth v0.0.16
+go: downloading github.com/valyala/bytebufferpool v1.0.0
+go: downloading github.com/jinzhu/inflection v1.0.0
+go: downloading golang.org/x/text v0.32.0
+go: downloading github.com/jackc/pgpassfile v1.0.0
+go: downloading github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+go: downloading github.com/klauspost/compress v1.17.9
+go: downloading github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511
+go: downloading golang.org/x/net v0.47.0
+go: downloading golang.org/x/sys v0.39.0
+go: downloading github.com/rivo/uniseg v0.2.0
+go: downloading github.com/jackc/puddle/v2 v2.2.2
+go: downloading github.com/andybalholm/brotli v1.1.0
+go: downloading github.com/valyala/tcplisten v1.0.0
+go: downloading golang.org/x/sync v0.19.0
+
+2026/04/08 12:04:13 [35m/app/backend/database/connect.go:29
+[0m[31m[error] [0mfailed to initialize database, got error failed to connect to `user=postgres database=cuadralo_db`:
+	127.0.0.1:5432 (localhost): dial error: dial tcp 127.0.0.1:5432: connect: connection refused
+	[::1]:5432 (localhost): dial error: dial tcp [::1]:5432: connect: connection refused
+panic: No se pudo conectar a la base de datos
+
+goroutine 1 [running]:
+cuadralo-backend/database.Connect()
+	/app/backend/database/connect.go:31 +0x665
+main.main()
+	/app/backend/main.go:19 +0x25
+exit status 2
