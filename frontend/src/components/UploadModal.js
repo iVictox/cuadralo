@@ -66,18 +66,20 @@ export default function UploadModal({ onClose }) {
           const imageUrl = await api.upload(file);
           await api.post("/social/posts", { image_url: imageUrl, caption, location });
           showToast("¡Publicación creada exitosamente!");
-          window.location.reload(); 
-      } catch (error) { showToast("Error al subir", "error"); }
-      finally { setLoading(false); onClose(); }
+          onClose();
+          // We can let the parent refresh or listen to socket instead of forced reload.
+          setTimeout(() => { window.location.reload(); }, 300);
+      } catch (error) { showToast("Error al subir", "error"); setLoading(false); }
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-0">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.2 } }} className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
       
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20, transition: { duration: 0.2 } }}
         className="relative w-full max-w-4xl bg-cuadralo-bgLight dark:bg-[#1a0b2e] border border-black/5 dark:border-white/10 md:rounded-[2rem] rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh] md:h-[650px] transition-colors duration-300"
       >
         <button onClick={onClose} className="absolute top-4 right-4 z-50 p-2 bg-black/40 backdrop-blur-md text-white hover:bg-black/60 rounded-full transition-colors"><X size={20} /></button>

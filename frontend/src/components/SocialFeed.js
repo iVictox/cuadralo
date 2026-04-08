@@ -12,7 +12,7 @@ import { api } from "@/utils/api";
 import { AnimatePresence, motion } from "framer-motion";
 import PrimeModal from "@/components/PrimeModal";
 
-export default function SocialFeed({ onUploadClick, isActive = true }) {
+export default function SocialFeed({ onUploadClick, isActive = true, onLoaded }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,6 +63,7 @@ export default function SocialFeed({ onUploadClick, isActive = true }) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      if (onLoaded) onLoaded();
     }
   };
 
@@ -148,7 +149,16 @@ export default function SocialFeed({ onUploadClick, isActive = true }) {
       };
 
       window.addEventListener("socket_event", handleSocketEvent);
-      return () => window.removeEventListener("socket_event", handleSocketEvent);
+
+      const handleGlobalPostDeleted = (e) => {
+          handlePostDeleted(e.detail.id);
+      };
+      window.addEventListener("post_deleted", handleGlobalPostDeleted);
+
+      return () => {
+          window.removeEventListener("socket_event", handleSocketEvent);
+          window.removeEventListener("post_deleted", handleGlobalPostDeleted);
+      };
   }, [currentUser]);
 
   const handleRefresh = () => { setRefreshing(true); fetchData(activeTab, true); };

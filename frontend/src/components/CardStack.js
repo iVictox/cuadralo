@@ -11,7 +11,7 @@ import PrimeModal from "@/components/PrimeModal";
 import BoostModal from "@/components/BoostModal"; 
 import { getInterestInfo } from "@/utils/interests";
 
-export default function CardStack({ onOpenFilters }) {
+export default function CardStack({ onOpenFilters, onLoaded }) {
   const [cards, setCards] = useState([]);
   const [history, setHistory] = useState([]); 
   const [loading, setLoading] = useState(true);
@@ -101,6 +101,7 @@ export default function CardStack({ onOpenFilters }) {
       console.error("Error cargando feed:", error);
     } finally {
       setLoading(false);
+      if (onLoaded) onLoaded();
     }
   };
 

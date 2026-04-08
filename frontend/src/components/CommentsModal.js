@@ -186,6 +186,7 @@ export default function CommentsModal({ onClose, post }) {
   const rootComments = comments.filter(c => !c.parent_id || Number(c.parent_id) === 0);
   const getReplies = (parentId) => comments.filter(c => Number(c.parent_id) === Number(parentId));
 
+
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end md:justify-center items-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
         
@@ -251,41 +252,41 @@ export default function CommentsModal({ onClose, post }) {
                     <button onClick={onClose} className="hidden md:block absolute right-4 p-2 bg-white/5 rounded-full text-white hover:bg-white/10"><X size={20} /></button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
-                {loading ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" /></div> :
-                 comments.length === 0 ? <div className="text-center text-gray-500 py-10 text-sm">Sé el primero en comentar 👇</div> : (
-                    rootComments.map((root) => {
-                        const replies = getReplies(root.id);
-                        const currentLimit = visibleReplyCounts[root.id] || 2; 
-                        const visibleReplies = replies.slice(0, currentLimit);
-                        const remaining = replies.length - visibleReplies.length;
-                        const nextBatchSize = Math.min(5, remaining);
+                <div className="flex-1 overflow-y-auto p-4 no-scrollbar flex flex-col">
+                    {loading ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" /></div> :
+                     comments.length === 0 ? <div className="text-center text-gray-500 py-10 text-sm">Sé el primero en comentar 👇</div> : (
+                        rootComments.map((root) => {
+                            const replies = getReplies(root.id);
+                            const currentLimit = visibleReplyCounts[root.id] || 2;
+                            const visibleReplies = replies.slice(0, currentLimit);
+                            const remaining = replies.length - visibleReplies.length;
+                            const nextBatchSize = Math.min(5, remaining);
 
-                        return (
-                            <div key={root.id} className="mb-4">
-                                <CommentItem c={root} />
-                                {replies.length > 0 && (
-                                    <div className="ml-12 border-l-2 border-white/5 pl-4">
-                                        {visibleReplies.map(reply => (
-                                            <CommentItem key={reply.id} c={reply} isReply={true} />
-                                        ))}
-                                        {remaining > 0 && (
-                                            <button 
-                                                onClick={() => handleShowMore(root.id)}
-                                                className="mt-3 text-xs text-gray-400 hover:text-white flex items-center gap-2 font-bold transition-colors"
-                                            >
-                                                <div className="w-6 h-[1px] bg-gray-600"></div>
-                                                Ver {nextBatchSize} respuestas más
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })
-                )}
-                <div ref={commentsEndRef} />
-            </div>
+                            return (
+                                <div key={root.id} className="mb-4">
+                                    <CommentItem c={root} />
+                                    {replies.length > 0 && (
+                                        <div className="ml-12 border-l-2 border-white/5 pl-4">
+                                            {visibleReplies.map(reply => (
+                                                <CommentItem key={reply.id} c={reply} isReply={true} />
+                                            ))}
+                                            {remaining > 0 && (
+                                                <button
+                                                    onClick={() => handleShowMore(root.id)}
+                                                    className="mt-3 text-xs text-gray-400 hover:text-white flex items-center gap-2 font-bold transition-colors"
+                                                >
+                                                    <div className="w-6 h-[1px] bg-gray-600"></div>
+                                                    Ver {nextBatchSize} respuestas más
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
+                    <div ref={commentsEndRef} />
+                </div>
 
             <div className="bg-[#0f0518] border-t border-white/10">
                 {replyingTo && (

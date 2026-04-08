@@ -72,7 +72,11 @@ export default function SinglePostPage() {
                         // Reutilizamos tu componente FeedPost
                         <FeedPost 
                             post={post} 
-                            onDelete={() => router.push("/")} 
+                            onDelete={() => {
+                                // Limpiamos el caché forzando una recarga suave o mandando un evento para que SocialFeed limpie su caché
+                                window.dispatchEvent(new CustomEvent('post_deleted', { detail: { id: post.id } }));
+                                router.push("/");
+                            }}
                             onViewStory={() => {}} 
                         />
                     ) : (
