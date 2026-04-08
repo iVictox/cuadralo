@@ -36,6 +36,7 @@ export default function MyLikes() {
       console.error("Error cargando bandeja:", error);
     } finally {
       setLoading(false);
+            if (onLoaded) onLoaded();
     }
   };
 

@@ -21,7 +21,7 @@ func GetSocialFeed(c *fiber.Ctx) error {
 	var posts []models.Post
 
 	// 1. Preparar la búsqueda base
-	query := database.DB.Preload("User").Order("created_at desc")
+	query := database.DB.Model(&models.Post{}).Preload("User").Order("created_at desc")
 
 	// Si eligió "Siguiendo", filtramos la búsqueda
 	if tab == "following" {
@@ -33,10 +33,10 @@ func GetSocialFeed(c *fiber.Ctx) error {
 			return c.JSON([]models.Post{})
 		}
 
-		query = query.Where("user_id IN ?", followingIds)
+		query.Where("user_id IN ?", followingIds).Find(&posts)
+	} else {
+		query.Find(&posts)
 	}
-
-	query.Find(&posts)
 
 	if len(posts) == 0 {
 		return c.JSON([]models.Post{})
@@ -161,6 +161,7 @@ func DeletePost(c *fiber.Ctx) error {
 
 	database.DB.Where("post_id = ?", post.ID).Delete(&models.PostLike{})
 	database.DB.Where("post_id = ?", post.ID).Delete(&models.Comment{})
+	database.DB.Where("post_id = ?", post.ID).Delete(&models.Notification{})
 	database.DB.Delete(&post)
 
 	return c.JSON(fiber.Map{"message": "Post eliminado"})

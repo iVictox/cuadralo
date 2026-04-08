@@ -9,7 +9,7 @@ import SettingsModal from "./SettingsModal";
 import { useRouter } from "next/navigation";
 import { getInterestInfo } from "@/utils/interests";
 
-export default function Profile() {
+export default function Profile({ onLoaded }) {
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +41,7 @@ export default function Profile() {
       console.error(e);
     } finally {
       setLoading(false);
+      if (onLoaded) onLoaded();
     }
   };
 

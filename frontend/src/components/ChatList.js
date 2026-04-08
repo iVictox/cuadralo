@@ -45,6 +45,7 @@ export default function ChatList({ onChatSelect }) {
       console.error("Error chats:", error);
     } finally {
       setLoading(false);
+      if (onLoaded) onLoaded();
     }
   };
 

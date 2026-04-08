@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation"; 
 import { api } from "@/utils/api";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 // Componentes
 import BottomNav from "@/components/BottomNav";
@@ -59,17 +59,58 @@ function MainAppContent() {
     }
   }, [router]);
 
+  const [loadedSections, setLoadedSections] = useState({});
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  useEffect(() => {
+    if (!loadedSections[activeTab]) {
+      setInitialLoading(true);
+    } else {
+      setInitialLoading(false);
+    }
+  }, [activeTab, loadedSections]);
+
+  const handleSectionLoaded = (section) => {
+    setLoadedSections((prev) => ({ ...prev, [section]: true }));
+    if (activeTab === section) {
+        setInitialLoading(false);
+    }
+  };
+
+  const UniversalLoader = () => (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-cuadralo-bgLight dark:bg-cuadralo-bgDark">
+      <motion.div
+        animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+        className="w-12 h-12 bg-cuadralo-pink rounded-xl shadow-[0_0_15px_#f2138e]"
+      />
+    </div>
+  );
+
   const renderView = () => {
     if (selectedChat) return <ChatWindow chat={selectedChat} onBack={() => setSelectedChat(null)} />;
 
-    switch(activeTab) {
-        case "social": return <SocialFeed onUploadClick={() => setShowUpload(true)} />;
-        case "home": return <CardStack onOpenFilters={() => setShowFilters(true)} />;
-        case "likes": return <MyLikes />;
-        case "chat": return <ChatList onChatSelect={setSelectedChat} />;
-        case "profile": return <Profile />;
-        default: return <SocialFeed />;
-    }
+    return (
+      <>
+        {initialLoading && <UniversalLoader />}
+
+        <div style={{ display: activeTab === 'social' && !initialLoading ? 'block' : 'none', height: '100%' }}>
+           <SocialFeed onUploadClick={() => setShowUpload(true)} isActive={activeTab === 'social'} onLoaded={() => handleSectionLoaded('social')} />
+        </div>
+        <div style={{ display: activeTab === 'home' && !initialLoading ? 'block' : 'none', height: '100%' }}>
+           {(activeTab === 'home' || loadedSections['home']) && <CardStack onOpenFilters={() => setShowFilters(true)} onLoaded={() => handleSectionLoaded('home')} />}
+        </div>
+        <div style={{ display: activeTab === 'likes' && !initialLoading ? 'block' : 'none', height: '100%' }}>
+           {(activeTab === 'likes' || loadedSections['likes']) && <MyLikes onLoaded={() => handleSectionLoaded('likes')} />}
+        </div>
+        <div style={{ display: activeTab === 'chat' && !initialLoading ? 'block' : 'none', height: '100%' }}>
+           {(activeTab === 'chat' || loadedSections['chat']) && <ChatList onChatSelect={setSelectedChat} onLoaded={() => handleSectionLoaded('chat')} />}
+        </div>
+        <div style={{ display: activeTab === 'profile' && !initialLoading ? 'block' : 'none', height: '100%' }}>
+           {(activeTab === 'profile' || loadedSections['profile']) && <Profile onLoaded={() => handleSectionLoaded('profile')} />}
+        </div>
+      </>
+    );
   };
 
   return (
