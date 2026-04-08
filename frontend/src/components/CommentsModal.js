@@ -7,7 +7,7 @@ import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 import { useConfirm } from "@/context/ConfirmContext";
 
-export default function CommentsModal({ onClose, post }) {
+export default function CommentsModal({ onClose, post, onUpdate }) {
   const postId = post?.id;
   const postAuthor = post?.user?.name;
   const postOwnerId = post?.user?.id;
@@ -78,6 +78,7 @@ export default function CommentsModal({ onClose, post }) {
           };
 
           setComments([...comments, newCommentObj]);
+          if (onUpdate) onUpdate({ commentsCount: (post?.comments_count || comments.length) + 1 });
           setNewComment("");
           setReplyingTo(null); 
           
@@ -101,7 +102,9 @@ export default function CommentsModal({ onClose, post }) {
 
       try {
           await api.delete(`/social/comments/${commentId}`);
-          setComments(comments.filter(c => c.id !== commentId && c.parent_id !== commentId));
+          const newComments = comments.filter(c => c.id !== commentId && c.parent_id !== commentId);
+          setComments(newComments);
+          if (onUpdate) onUpdate({ commentsCount: newComments.length });
           showToast("Eliminado", "success");
       } catch (error) { showToast("Error al eliminar", "error"); }
   };
@@ -109,10 +112,19 @@ export default function CommentsModal({ onClose, post }) {
   const handleLikePost = async () => {
     const prevLiked = liked;
     const prevCount = likesCount;
-    setLiked(!liked);
-    setLikesCount(prev => prev + (liked ? -1 : 1));
+    const newLiked = !liked;
+    const newCount = prevCount + (liked ? -1 : 1);
+
+    setLiked(newLiked);
+    setLikesCount(newCount);
+    if (onUpdate) onUpdate({ liked: newLiked, likesCount: newCount });
+
     try { await api.post(`/social/posts/${postId}/like`); }
-    catch (error) { setLiked(prevLiked); setLikesCount(prevCount); }
+    catch (error) {
+        setLiked(prevLiked);
+        setLikesCount(prevCount);
+        if (onUpdate) onUpdate({ liked: prevLiked, likesCount: prevCount });
+    }
   };
 
   const handleLikeComment = async (commentId) => {
