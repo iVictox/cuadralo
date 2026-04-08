@@ -150,11 +150,13 @@ export default function LoginPage() {
       {/* PANEL DERECHO (Formulario) */}
       <div className="w-full lg:w-[55%] flex flex-col items-center justify-center p-6 sm:p-12 md:p-20 relative z-10 bg-white/40 dark:bg-black/10 lg:bg-transparent backdrop-blur-sm lg:backdrop-blur-none">
           
-          <div className="absolute top-8 left-8 lg:hidden w-32 h-8 relative">
-               <Image src="/logo.svg" fill className="object-contain dark:invert-0 invert" alt="Cuadralo" priority />
-          </div>
+          <div className="w-full max-w-md mt-10 lg:mt-0">
+              <div className="flex justify-center mb-10 lg:hidden relative z-10">
+                  <div className="w-56 h-16 relative">
+                      <Image src="/logo.svg" fill className="object-contain dark:invert-0 invert" alt="Cuadralo" priority />
+                  </div>
+              </div>
 
-          <div className="w-full max-w-md mt-16 lg:mt-0">
               <div className="mb-8 lg:hidden">
                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
                      <h2 className="text-3xl sm:text-4xl font-black text-cuadralo-textLight dark:text-white tracking-tighter mb-3 leading-[1.1]">

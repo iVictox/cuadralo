@@ -10,8 +10,8 @@ export default function SocialHeader({ unreadCount = 0, onSearchClick, onNotifCl
         
         {/* IZQUIERDA: Logo */}
         <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-cuadralo-pink/20">
-                <span className="text-white font-black text-lg leading-none">C</span>
+            <div className="w-8 h-8 relative flex items-center justify-center">
+                <img src="/logo.svg" className="object-contain dark:invert-0 invert w-full h-full" alt="Cuadralo" />
             </div>
             <h1 className="text-lg font-black italic tracking-tighter text-cuadralo-textLight dark:text-white uppercase hidden sm:block">
                 Cuadralo
