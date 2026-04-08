@@ -7,7 +7,7 @@ import { api } from "@/utils/api";
 import BoostModal from "@/components/BoostModal";
 import PrimeModal from "@/components/PrimeModal";
 
-export default function ChatList({ onChatSelect }) {
+export default function ChatList({ onChatSelect, onLoaded }) {
   const [newMatches, setNewMatches] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);

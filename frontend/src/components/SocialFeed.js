@@ -67,13 +67,13 @@ export default function SocialFeed({ onUploadClick, isActive = true, onLoaded })
     }
   };
 
-  // Fetch when the component becomes active
+  // Fetch when the component becomes active or tab changes
   useEffect(() => {
       if (isActive) {
           // If we never fetched, show loader. If we already have cache, fetch silently in background.
-          fetchData(false, !hasInitialFetch);
+          fetchData(activeTab, !hasInitialFetch);
       }
-  }, [isActive, hasInitialFetch]);
+  }, [isActive, hasInitialFetch, activeTab]);
 
   // WebSockets para tiempo real
   useEffect(() => {

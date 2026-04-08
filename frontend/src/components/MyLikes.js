@@ -8,7 +8,7 @@ import { useToast } from "@/context/ToastContext";
 import PrimeModal from "@/components/PrimeModal"; 
 import BoostModal from "@/components/BoostModal"; 
 
-export default function MyLikes() {
+export default function MyLikes({ onLoaded }) {
   const { showToast } = useToast();
   const [likes, setLikes] = useState([]);
   const [rompehielos, setRompehielos] = useState([]);
