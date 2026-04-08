@@ -245,7 +245,8 @@ func GetPostComments(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 
 	var comments []models.Comment
-	database.DB.Preload("User").Where("post_id = ? AND parent_id IS NULL", postId).Order("created_at desc").Find(&comments)
+	// ✅ CORRECCIÓN 1: Quitamos "AND parent_id IS NULL" para que devuelva tanto comentarios como respuestas
+	database.DB.Preload("User").Where("post_id = ?", postId).Order("created_at desc").Find(&comments)
 
 	for i := range comments {
 		var count int64
@@ -275,6 +276,13 @@ func CreateComment(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "El comentario no puede estar vacío"})
 	}
 
+	// ✅ CORRECCIÓN 2: Leemos el parent_id que viene en el JSON para registrar que es una respuesta
+	var parentId *uint
+	if val, ok := data["parent_id"].(float64); ok {
+		id := uint(val)
+		parentId = &id
+	}
+
 	var pId uint
 	fmt.Sscanf(postId, "%d", &pId)
 
@@ -282,6 +290,7 @@ func CreateComment(c *fiber.Ctx) error {
 		PostID:    pId,
 		UserID:    userId,
 		Content:   content,
+		ParentID:  parentId, // Lo asignamos aquí para que se guarde en base de datos
 		CreatedAt: time.Now(),
 	}
 
