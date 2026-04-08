@@ -27,7 +27,12 @@ func GetSocialFeed(c *fiber.Ctx) error {
 	if tab == "following" {
 		var followingIds []uint
 		database.DB.Model(&models.Follow{}).Where("follower_id = ?", myId).Pluck("following_id", &followingIds)
-		followingIds = append(followingIds, myId) // Añadimos mi propio ID
+
+		if len(followingIds) == 0 {
+			// Si no sigue a nadie, retornamos una lista vacía de posts directamente
+			return c.JSON([]models.Post{})
+		}
+
 		query = query.Where("user_id IN ?", followingIds)
 	}
 
