@@ -30,10 +30,8 @@ export default function Navbar() {
       <div className="hidden md:flex fixed top-0 left-0 h-full w-20 bg-cuadralo-cardLight dark:bg-[#0f0518] border-r border-black/5 dark:border-white/10 flex-col items-center py-8 z-50 transition-colors duration-300">
         
         {/* LOGO */}
-        <Link href="/" className="mb-10">
-          <div className="w-12 h-12 bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-[1.2rem] flex items-center justify-center font-black text-white text-2xl shadow-xl shadow-cuadralo-pink/20 hover:scale-105 transition-transform">
-            C
-          </div>
+        <Link href="/" className="mb-10 w-14 h-14 flex items-center justify-center hover:scale-105 transition-transform">
+          <img src="/logo.svg" alt="Cuadralo" className="w-full h-full object-contain" />
         </Link>
 
         {/* NAV ITEMS PRINCIPALES */}
