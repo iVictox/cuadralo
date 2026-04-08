@@ -30,17 +30,20 @@ export default function SocialFeed({ onUploadClick, isActive = true }) {
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
 
   const [activeTab, setActiveTab] = useState("for_you");
+  const [hasInitialFetch, setHasInitialFetch] = useState(false);
 
   const fetchData = async (tab = activeTab, isRefresh = false) => {
     try {
       if (!isRefresh) setLoading(true);
 
+      const status = await api.get("/premium/status");
       setIsPrime(status.is_prime);
 
       const userStr = localStorage.getItem("user");
       const me = userStr ? JSON.parse(userStr) : null;
       setCurrentUser(me);
 
+      const notifs = await api.get("/notifications");
       if (Array.isArray(notifs)) {
           setUnreadNotifsCount(notifs.filter(n => !n.is_read).length);
       }
