@@ -59,7 +59,12 @@ export default function CommentsModal({ onClose, post }) {
       setSending(true);
 
       try {
-          const payload = { content: newComment };
+          let finalContent = newComment;
+          if (replyingTo && !finalContent.startsWith(`@${replyingTo.username}`)) {
+              finalContent = `@${replyingTo.username} ${finalContent}`;
+          }
+
+          const payload = { content: finalContent };
           if (replyingTo) payload.parent_id = Number(replyingTo.id);
 
           const comment = await api.post(`/social/posts/${postId}/comments`, payload);
@@ -123,7 +128,7 @@ export default function CommentsModal({ onClose, post }) {
 
   const handleStartReply = (comment) => {
       const parentId = comment.parent_id || comment.id;
-      setReplyingTo({ id: parentId, username: comment.user?.name });
+      setReplyingTo({ id: parentId, username: comment.user?.username || comment.user?.name });
       inputRef.current?.focus();
   };
 
@@ -134,13 +139,29 @@ export default function CommentsModal({ onClose, post }) {
       }));
   };
 
-  const CommentItem = ({ c, isReply = false }) => (
+  const CommentItem = ({ c, isReply = false }) => {
+      // Extraer la mención si existe al principio del contenido
+      let isMention = false;
+      let mention = null;
+      let restContent = c.content;
+
+      if (c.content && c.content.trim().startsWith('@')) {
+          const words = c.content.trim().split(' ');
+          mention = words[0];
+          isMention = true;
+          restContent = words.slice(1).join(' ');
+      }
+
+      return (
       <div className={`flex gap-3 group items-start ${isReply ? "mt-3" : "mt-4"}`}>
           <img src={c.user?.photo || "https://via.placeholder.com/150"} className="w-8 h-8 rounded-full object-cover border border-white/10 mt-1" alt="User" />
           <div className="flex-1">
               <div className="bg-white/5 p-3 rounded-2xl inline-block min-w-[120px]">
                   <span className="text-xs font-bold text-white block mb-0.5">{c.user?.name}</span>
-                  <p className="text-sm text-gray-200 break-words whitespace-pre-wrap">{c.content}</p>
+                  <p className="text-sm text-gray-200 break-words whitespace-pre-wrap">
+                      {isMention && <span className="text-cuadralo-pink font-semibold mr-1">{mention}</span>}
+                      {restContent}
+                  </p>
               </div>
               
               <div className="flex items-center gap-4 mt-1 ml-1">
@@ -160,9 +181,10 @@ export default function CommentsModal({ onClose, post }) {
           </div>
       </div>
   );
+  };
 
-  const rootComments = comments.filter(c => !c.parent_id || c.parent_id === 0);
-  const getReplies = (parentId) => comments.filter(c => c.parent_id === parentId);
+  const rootComments = comments.filter(c => !c.parent_id || Number(c.parent_id) === 0);
+  const getReplies = (parentId) => comments.filter(c => Number(c.parent_id) === Number(parentId));
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end md:justify-center items-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
