@@ -90,7 +90,6 @@ func GetAllUsersAdmin(c *fiber.Ctx) error {
 	})
 }
 
-// Actualizar Rol Manualmente (Backup para rutas existentes)
 func UpdateUserRole(c *fiber.Ctx) error {
 	userId := c.Params("id")
 	var payload struct {
@@ -112,7 +111,7 @@ func SuspendUser(c *fiber.Ctx) error {
 
 	var payload struct {
 		IsSuspended bool   `json:"is_suspended"`
-		Days        int    `json:"days"` // 0 = Permanent
+		Days        int    `json:"days"`
 		Reason      string `json:"reason"`
 	}
 
@@ -144,7 +143,7 @@ func SuspendUser(c *fiber.Ctx) error {
 			updates["suspended_until"] = expiry
 			details += " (Hasta " + expiry.Format("02/01/2006") + ")"
 		} else {
-			updates["suspended_until"] = nil // Permanente
+			updates["suspended_until"] = nil
 			details += " (PERMANENTE)"
 		}
 	} else {
@@ -161,7 +160,6 @@ func SuspendUser(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Estado de cuenta actualizado correctamente."})
 }
 
-// ✅ FUNCIONES VIP RESTAURADAS
 func RevokeVIP(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	adminID := uint(c.Locals("userId").(float64))
@@ -320,9 +318,10 @@ func RevokeAdminRole(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Privilegios revocados exitosamente"})
 }
 
+// ✅ FIX: Preload("User") para obtener todos los datos visuales del usuario que hizo el pago
 func GetAllPaymentsAdmin(c *fiber.Ctx) error {
 	var payments []models.PaymentReport
-	if err := database.DB.Order("created_at desc").Find(&payments).Error; err != nil {
+	if err := database.DB.Preload("User").Order("created_at desc").Find(&payments).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al obtener pagos"})
 	}
 	return c.JSON(payments)

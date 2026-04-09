@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/utils/api";
-import { CheckCircle, XCircle, Clock, Eye, Receipt } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Eye, Receipt, User } from "lucide-react";
 import PaymentDetailModal from "./PaymentDetailModal";
 
 export default function AdminPayments() {
@@ -52,7 +52,7 @@ export default function AdminPayments() {
             <thead className="bg-gray-900 text-gray-400 font-semibold border-b border-gray-700">
               <tr>
                 <th className="px-6 py-4">Ref. Sistema</th>
-                <th className="px-6 py-4">Usuario</th>
+                <th className="px-6 py-4">Usuario Emisor</th>
                 <th className="px-6 py-4">Monto / Datos del Banco</th>
                 <th className="px-6 py-4">Capture</th>
                 <th className="px-6 py-4">Estado</th>
@@ -70,9 +70,30 @@ export default function AdminPayments() {
                     <div className="font-mono text-white text-base">#{p.id}</div>
                     <div className="text-xs text-gray-500">{new Date(p.created_at).toLocaleString()}</div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-purple-400">ID #{p.user_id}</td>
+                  
+                  {/* ✅ COLUMNA DE USUARIO MEJORADA */}
                   <td className="px-6 py-4">
-                    <div className="text-green-400 font-bold text-base">${p.amount_usd} <span className="text-gray-400 text-xs font-normal">({p.amount_ves} Bs)</span></div>
+                    {p.user ? (
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden shrink-0 border border-gray-600">
+                                {p.user.photo ? (
+                                    <img src={p.user.photo} alt={p.user.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-gray-500"><User size={20}/></div>
+                                )}
+                            </div>
+                            <div>
+                                <div className="font-bold text-white text-sm leading-tight">{p.user.name}</div>
+                                <div className="text-xs text-purple-400 font-medium">@{p.user.username}</div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-gray-500 text-xs italic">Usuario Eliminado (ID: {p.user_id})</div>
+                    )}
+                  </td>
+
+                  <td className="px-6 py-4">
+                    <div className="text-green-400 font-bold text-base">€{p.amount_usd} <span className="text-gray-400 text-xs font-normal">({p.amount_ves} Bs)</span></div>
                     <div className="text-xs text-gray-400 mt-1">Ref: <span className="font-mono text-white">{p.reference}</span></div>
                     <div className="text-[10px] text-gray-500 uppercase">{p.bank}</div>
                   </td>
@@ -91,7 +112,7 @@ export default function AdminPayments() {
                     {p.status === 'rejected' && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20"><XCircle size={12}/> Rechazado</span>}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button onClick={() => setSelectedPayment(p)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    <button onClick={() => setSelectedPayment(p)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
                       Gestionar
                     </button>
                   </td>

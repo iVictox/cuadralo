@@ -6,10 +6,10 @@ import "time"
 type Transaction struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `json:"user_id"`
-	Type      string    `json:"type"`      
-	ItemName  string    `json:"item_name"` 
-	Amount    float64   `json:"amount"`    
-	Duration  int       `json:"duration"`  
+	Type      string    `json:"type"`
+	ItemName  string    `json:"item_name"`
+	Amount    float64   `json:"amount"`
+	Duration  int       `json:"duration"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -17,14 +17,15 @@ type Transaction struct {
 type PaymentReport struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `json:"user_id"`
-	ItemType  string    `json:"item_type"`  // "vip", "boost", "rompehielo"
-	AmountUSD float64   `json:"amount_usd"` // Precio original en dólares
-	AmountVES float64   `json:"amount_ves"` // Lo que pagó en Bolívares
-	Rate      float64   `json:"rate"`       // Tasa Euro BCV usada
-	Reference string    `json:"reference"`  // Referencia del pago móvil
-	Bank      string    `json:"bank"`       // Banco emisor
-	Phone     string    `json:"phone"`      // Teléfono emisor
-	Receipt   string    `json:"receipt"`    // URL del capture de pantalla
-	Status    string    `json:"status"`     // "pending", "approved", "rejected"
+	User      User      `gorm:"foreignKey:UserID" json:"user"` // ✅ Relación para extraer datos visuales del usuario
+	ItemType  string    `json:"item_type"`
+	AmountUSD float64   `json:"amount_usd"`
+	AmountVES float64   `json:"amount_ves"`
+	Rate      float64   `json:"rate"`
+	Reference string    `json:"reference"`
+	Bank      string    `json:"bank"`
+	Phone     string    `json:"phone"`
+	Receipt   string    `json:"receipt"`
+	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 }
