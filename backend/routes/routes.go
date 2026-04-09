@@ -108,6 +108,10 @@ func Setup(app *fiber.App) {
 	admin.Put("/users/:id/vip/grant", controllers.GrantVIPManual)
 
 	// ✅ MODERACIÓN (Nuevas Rutas)
+	admin.Get("/moderation/conversations", controllers.GetAllConversationsAdmin)
+	admin.Get("/moderation/conversations/history", controllers.GetFullConversationAdmin) // ✅ NUEVO: Historial de chat
+	admin.Delete("/moderation/conversations", controllers.DeleteConversationAdmin)
+
 	admin.Get("/moderation/messages", controllers.GetAllMessagesAdmin)
 	admin.Delete("/moderation/messages/:id", controllers.DeleteMessageAdmin)
 
@@ -119,9 +123,6 @@ func Setup(app *fiber.App) {
 
 	admin.Get("/moderation/comments", controllers.GetAllCommentsAdmin)
 	admin.Delete("/moderation/comments/:id", controllers.DeleteCommentAdmin)
-
-	admin.Get("/moderation/conversations", controllers.GetAllConversationsAdmin)
-	admin.Delete("/moderation/conversations", controllers.DeleteConversationAdmin)
 
 	admin.Get("/moderation/media", controllers.GetAllMediaAdmin)
 	admin.Get("/moderation/flagged", controllers.GetFlaggedContentAdmin)

@@ -9,26 +9,29 @@ import (
 )
 
 // ==========================================
-// 🗨️ CONVERSACIONES (Agrupadas)
+// 🗨️ CONVERSACIONES (Agrupadas e Historial)
 // ==========================================
 
 func GetAllConversationsAdmin(c *fiber.Ctx) error {
+	search := c.Query("search", "")
+
 	type ConversationResult struct {
-		User1ID   uint   `json:"user1_id"`
-		User1Name string `json:"user1_name"`
-		User2ID   uint   `json:"user2_id"`
-		User2Name string `json:"user2_name"`
-		LastMsg   string `json:"last_message"`
-		Date      string `json:"date"`
+		User1ID    uint   `json:"user1_id"`
+		User1Name  string `json:"user1_name"`
+		User1Photo string `json:"user1_photo"`
+		User2ID    uint   `json:"user2_id"`
+		User2Name  string `json:"user2_name"`
+		User2Photo string `json:"user2_photo"`
+		LastMsg    string `json:"last_message"`
+		Date       string `json:"date"`
 	}
 
 	var convs []ConversationResult
 
-	// Query nativo para agrupar mensajes únicos por par de usuarios
-	query := `
+	baseQuery := `
 	SELECT 
-		u1.id as user1_id, u1.username as user1_name, 
-		u2.id as user2_id, u2.username as user2_name, 
+		u1.id as user1_id, u1.username as user1_name, u1.photo as user1_photo,
+		u2.id as user2_id, u2.username as user2_name, u2.photo as user2_photo,
 		m.content as last_msg, m.created_at as date
 	FROM messages m
 	JOIN users u1 ON m.sender_id = u1.id
@@ -37,16 +40,42 @@ func GetAllConversationsAdmin(c *fiber.Ctx) error {
 		SELECT MAX(id)
 		FROM messages
 		GROUP BY LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id)
-	)
-	ORDER BY m.created_at DESC
-	LIMIT 50;
-	`
+	)`
 
-	if err := database.DB.Raw(query).Scan(&convs).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener conversaciones"})
+	if search != "" {
+		baseQuery += ` AND (u1.username ILIKE ? OR u2.username ILIKE ? OR u1.name ILIKE ? OR u2.name ILIKE ?) ORDER BY m.created_at DESC LIMIT 100;`
+		searchTerm := "%" + search + "%"
+		if err := database.DB.Raw(baseQuery, searchTerm, searchTerm, searchTerm, searchTerm).Scan(&convs).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Error al obtener conversaciones filtradas"})
+		}
+	} else {
+		baseQuery += ` ORDER BY m.created_at DESC LIMIT 100;`
+		if err := database.DB.Raw(baseQuery).Scan(&convs).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Error al obtener conversaciones"})
+		}
 	}
 
 	return c.JSON(fiber.Map{"conversations": convs})
+}
+
+// ✅ NUEVO: Obtiene todo el historial de chat entre dos usuarios específicos
+func GetFullConversationAdmin(c *fiber.Ctx) error {
+	u1 := c.Query("u1")
+	u2 := c.Query("u2")
+
+	if u1 == "" || u2 == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Faltan parámetros de usuarios"})
+	}
+
+	var messages []models.Message
+	if err := database.DB.Preload("Sender").Preload("Receiver").
+		Where("(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)", u1, u2, u2, u1).
+		Order("created_at asc").
+		Find(&messages).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener el historial"})
+	}
+
+	return c.JSON(fiber.Map{"messages": messages})
 }
 
 func DeleteConversationAdmin(c *fiber.Ctx) error {
