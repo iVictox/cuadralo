@@ -11,9 +11,10 @@ export default function SocialHeader({ unreadCount = 0, onSearchClick, onNotifCl
                 {/* IZQUIERDA: Logo */}
                 <div className="flex items-center gap-2">
                     <div className="relative flex items-center justify-center">
+                        {/* Usamos h-8 (32px de alto) y w-auto para que no se deforme */}
                         <img
                             src="/logo.svg"
-                            className="object-contain dark:invert-0 invert max-w-[250px] w-full h-auto"
+                            className="object-contain dark:invert-0 invert h-8 w-auto"
                             alt="Cuadralo"
                         />
                     </div>
