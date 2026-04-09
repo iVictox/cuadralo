@@ -20,7 +20,6 @@ func Setup(app *fiber.App) {
 	// --- PROTECCIÓN GENERAL ---
 	api.Use(middleware.IsAuthenticated)
 
-	// --- SOLICITUD DE ROLES (NUEVO) ---
 	api.Post("/user/admin-request", controllers.RequestAdminRole)
 
 	// --- FUNCIONES DE USUARIO ---
@@ -94,14 +93,18 @@ func Setup(app *fiber.App) {
 	admin.Get("/users", controllers.GetAllUsersAdmin)
 	admin.Put("/users/:id/suspend", controllers.SuspendUser)
 
+	// Pagos
 	admin.Get("/payments", controllers.GetAllPaymentsAdmin)
 	admin.Put("/payments/:id/verify", controllers.VerifyPayment)
 
+	// ✅ Gestión Exclusiva VIP
+	admin.Get("/vip-users", controllers.GetVipUsersAdmin)
 	admin.Put("/users/:id/vip/revoke", controllers.RevokeVIP)
 	admin.Put("/users/:id/vip/extend", controllers.ExtendVIP)
+	admin.Put("/users/:id/vip/grant", controllers.GrantVIPManual)
 
 	admin.Get("/logs", controllers.GetAdminLogs)
-	admin.Get("/settings", controllers.GetSystemSettings) // El staff puede VER las configuraciones
+	admin.Get("/settings", controllers.GetSystemSettings)
 
 	// ==========================================
 	// 🔴 PANEL DE ALTO RIESGO (Solo SuperAdmin)
@@ -109,7 +112,7 @@ func Setup(app *fiber.App) {
 	superAdmin := api.Group("/admin", middleware.IsSuperAdmin)
 
 	superAdmin.Delete("/users/:id", controllers.DeleteUserAdmin)
-	superAdmin.Put("/settings", controllers.UpdateSystemSettings) // ✅ FIX: Solo el SuperAdmin puede GUARDAR ajustes
+	superAdmin.Put("/settings", controllers.UpdateSystemSettings)
 	superAdmin.Get("/requests", controllers.GetAdminRequests)
 	superAdmin.Put("/requests/:id", controllers.ProcessAdminRequest)
 	superAdmin.Get("/staff", controllers.GetAdminStaff)

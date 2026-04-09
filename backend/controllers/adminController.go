@@ -10,7 +10,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// LogAdminAction is a helper function to record admin activities
 func LogAdminAction(adminID uint, action string, targetID *uint, details string) {
 	log := models.AdminLog{
 		AdminID:   adminID,
@@ -90,20 +89,6 @@ func GetAllUsersAdmin(c *fiber.Ctx) error {
 	})
 }
 
-func UpdateUserRole(c *fiber.Ctx) error {
-	userId := c.Params("id")
-	var payload struct {
-		Role string `json:"role"`
-	}
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
-	}
-	if err := database.DB.Model(&models.User{}).Where("id = ?", userId).Update("role", payload.Role).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo actualizar el rol"})
-	}
-	return c.JSON(fiber.Map{"message": "Rol actualizado con éxito"})
-}
-
 func SuspendUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	adminID := uint(c.Locals("userId").(float64))
@@ -160,6 +145,75 @@ func SuspendUser(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Estado de cuenta actualizado correctamente."})
 }
 
+// ===============================================
+// ✅ NUEVA SECCIÓN DE GESTIÓN EXCLUSIVA VIP
+// ===============================================
+
+func GetVipUsersAdmin(c *fiber.Ctx) error {
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	offset := (page - 1) * limit
+	search := c.Query("search", "")
+
+	query := database.DB.Model(&models.User{})
+
+	if search != "" {
+		query = query.Where("name ILIKE ? OR username ILIKE ? OR id::text = ?", "%"+search+"%", "%"+search+"%", search)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	var users []models.User
+	// Los VIP siempre saldrán arriba en la tabla de búsqueda
+	if err := query.Order("is_prime desc, prime_expires_at desc").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener base de datos VIP"})
+	}
+
+	type VipResponse struct {
+		models.User
+		PurchaseDate *time.Time `json:"purchase_date"`
+		ApprovalDate *time.Time `json:"approval_date"`
+	}
+
+	var response []VipResponse
+	for i, u := range users {
+
+		// ✅ AUTO-REMOVE VIP: Si un admin consulta la tabla y el VIP ya expiró, el sistema se lo quita silenciosamente.
+		if u.IsPrime && time.Now().After(u.PrimeExpiresAt) {
+			database.DB.Model(&u).Update("is_prime", false)
+			u.IsPrime = false
+			users[i].IsPrime = false
+		}
+
+		vipUser := VipResponse{User: u}
+
+		if u.IsPrime {
+			// Busca el pago aprobado que activó este VIP
+			var payment models.PaymentReport
+			if err := database.DB.Where("user_id = ? AND item_type IN ('vip', 'prime') AND status = 'approved'", u.ID).Order("updated_at desc").First(&payment).Error; err == nil {
+				vipUser.PurchaseDate = &payment.CreatedAt // Fecha que subió el capture
+				vipUser.ApprovalDate = &payment.UpdatedAt // Fecha que el Admin le dio a 'Aprobar'
+			} else {
+				// Si no hay pago (Fue concedido manualmente o vía Apple/Google)
+				var sub models.Subscription
+				if err := database.DB.Where("user_id = ? AND plan = 'vip'", u.ID).Order("created_at desc").First(&sub).Error; err == nil {
+					vipUser.PurchaseDate = &sub.CreatedAt
+					vipUser.ApprovalDate = &sub.StartDate
+				}
+			}
+		}
+		response = append(response, vipUser)
+	}
+
+	return c.JSON(fiber.Map{
+		"users": response,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
+}
+
 func RevokeVIP(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	adminID := uint(c.Locals("userId").(float64))
@@ -176,7 +230,7 @@ func RevokeVIP(c *fiber.Ctx) error {
 	targetID = uint(idInt)
 	LogAdminAction(adminID, "revoke_vip", &targetID, "User ID "+userID)
 
-	return c.JSON(fiber.Map{"message": "VIP revocado con éxito"})
+	return c.JSON(fiber.Map{"message": "VIP revocado con éxito. El usuario vuelve a ser estándar."})
 }
 
 func ExtendVIP(c *fiber.Ctx) error {
@@ -184,7 +238,7 @@ func ExtendVIP(c *fiber.Ctx) error {
 	adminID := uint(c.Locals("userId").(float64))
 
 	var payload struct {
-		Days int `json:"days"`
+		Days int `json:"days"` // ✅ Ahora acepta valores negativos para acortar tiempo
 	}
 
 	if err := c.BodyParser(&payload); err != nil {
@@ -197,23 +251,78 @@ func ExtendVIP(c *fiber.Ctx) error {
 	}
 
 	newExpiry := user.PrimeExpiresAt
-	if time.Now().After(newExpiry) {
+	if !user.IsPrime || time.Now().After(newExpiry) {
 		newExpiry = time.Now()
 	}
+
 	newExpiry = newExpiry.AddDate(0, 0, payload.Days)
 
+	// Si se le acorta el tiempo y cae en el pasado, se le desactiva el VIP por completo
+	isPrime := true
+	if time.Now().After(newExpiry) {
+		isPrime = false
+	}
+
 	if err := database.DB.Model(&user).Updates(map[string]interface{}{
-		"is_prime":         true,
+		"is_prime":         isPrime,
 		"prime_expires_at": newExpiry,
 	}).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo extender VIP"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo modificar el tiempo VIP"})
+	}
+
+	action := "extend_vip"
+	if payload.Days < 0 {
+		action = "reduce_vip"
 	}
 
 	var targetID = user.ID
-	LogAdminAction(adminID, "extend_vip", &targetID, "Extended by days")
+	LogAdminAction(adminID, action, &targetID, fmt.Sprintf("VIP ajustado en %d días", payload.Days))
 
-	return c.JSON(fiber.Map{"message": "VIP extendido con éxito", "new_expiry": newExpiry})
+	return c.JSON(fiber.Map{"message": "Tiempo modificado con éxito en la base de datos.", "new_expiry": newExpiry, "is_prime": isPrime})
 }
+
+func GrantVIPManual(c *fiber.Ctx) error {
+	userID := c.Params("id")
+	adminID := uint(c.Locals("userId").(float64))
+
+	var payload struct {
+		Days int `json:"days"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
+	}
+
+	newExpiry := time.Now().AddDate(0, 0, payload.Days)
+
+	database.DB.Model(&user).Updates(map[string]interface{}{
+		"is_prime":         true,
+		"prime_expires_at": newExpiry,
+	})
+
+	// Creamos un registro silencioso en las suscripciones
+	database.DB.Create(&models.Subscription{
+		UserID:    user.ID,
+		Plan:      "vip_manual",
+		StartDate: time.Now(),
+		EndDate:   newExpiry,
+		Status:    "active",
+		CreatedAt: time.Now(),
+	})
+
+	var targetID = user.ID
+	LogAdminAction(adminID, "grant_vip_manual", &targetID, fmt.Sprintf("Otorgado manualmente por %d días", payload.Days))
+
+	return c.JSON(fiber.Map{"message": "Membresía VIP otorgada exitosamente al usuario."})
+}
+
+// ===============================================
+// RESTO DEL CÓDIGO INTACTO
+// ===============================================
 
 func RequestAdminRole(c *fiber.Ctx) error {
 	userID := uint(c.Locals("userId").(float64))
@@ -318,7 +427,6 @@ func RevokeAdminRole(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Privilegios revocados exitosamente"})
 }
 
-// ✅ FIX: Preload("User") para obtener todos los datos visuales del usuario que hizo el pago
 func GetAllPaymentsAdmin(c *fiber.Ctx) error {
 	var payments []models.PaymentReport
 	if err := database.DB.Preload("User").Order("created_at desc").Find(&payments).Error; err != nil {

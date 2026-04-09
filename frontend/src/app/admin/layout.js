@@ -5,7 +5,7 @@ import { api } from "@/utils/api";
 import Link from "next/link";
 import { 
   Users, CreditCard, Settings, LayoutDashboard, LogOut, Menu, X, 
-  ShieldAlert, Activity, MessageSquare, AlertTriangle, ChevronDown, ChevronRight, BarChart3, Database, ShieldCheck
+  ShieldAlert, Activity, MessageSquare, AlertTriangle, ChevronDown, ChevronRight, BarChart3, Database, ShieldCheck, Crown
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -14,7 +14,6 @@ export default function AdminLayout({ children }) {
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState({});
   const router = useRouter();
   const pathname = usePathname();
 
@@ -35,7 +34,7 @@ export default function AdminLayout({ children }) {
           return;
         }
 
-        await api.get("/admin/stats"); // Validate session
+        await api.get("/admin/stats"); 
         setIsAdmin(true);
         setUserRole(user.role);
       } catch (error) {
@@ -51,17 +50,12 @@ export default function AdminLayout({ children }) {
     checkAdmin();
   }, [router]);
 
-  const toggleMenu = (key) => {
-    setExpandedMenus(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     router.push("/login");
   };
 
-  // ✅ NUEVO: Estructura de menú profesional con categorías
   const menuCategories = [
     {
       title: "General",
@@ -74,7 +68,8 @@ export default function AdminLayout({ children }) {
       title: "Comunidad",
       items: [
         { name: "Usuarios", icon: Users, path: "/admin/users" },
-        { name: "Pagos & VIP", icon: CreditCard, path: "/admin/payments" },
+        { name: "Pagos", icon: CreditCard, path: "/admin/payments" },
+        { name: "Gestión VIP", icon: Crown, path: "/admin/vip" }, // ✅ SEPARADO AQUÍ
       ]
     },
     {
@@ -88,7 +83,7 @@ export default function AdminLayout({ children }) {
       title: "Sistema",
       items: [
         { name: "Configuración", icon: Settings, path: "/admin/settings" },
-        { name: "Gestión de Admins", icon: ShieldCheck, path: "/admin/management", roles: ['superadmin'] }, // Solo superadmin
+        { name: "Gestión de Admins", icon: ShieldCheck, path: "/admin/management", roles: ['superadmin'] }, 
         { name: "Auditoría (Logs)", icon: Activity, path: "/admin/logs" },
         { name: "Estado del Sistema", icon: Database, path: "/admin/system" },
       ]
@@ -117,7 +112,6 @@ export default function AdminLayout({ children }) {
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
       <motion.aside
         initial={{ x: -300 }} animate={{ x: isSidebarOpen ? 0 : window.innerWidth >= 1024 ? 0 : -300 }}
         className={`fixed lg:relative z-50 w-72 h-full bg-gray-900 border-r border-gray-800 flex flex-col transition-transform duration-300 shadow-2xl`}
@@ -138,7 +132,6 @@ export default function AdminLayout({ children }) {
                 <h3 className="px-3 text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{category.title}</h3>
                 <ul className="space-y-1.5">
                   {category.items.map((item) => {
-                    // Filtrado de roles
                     if (item.roles && !item.roles.includes(userRole)) return null;
 
                     const isActive = pathname === item.path || pathname.startsWith(item.path + '/');
@@ -182,7 +175,6 @@ export default function AdminLayout({ children }) {
         </div>
       </motion.aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#0a0a0a]">
         <header className="bg-gray-900/80 backdrop-blur border-b border-gray-800 p-4 flex items-center justify-between lg:hidden sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white bg-gray-800 p-2 rounded-lg border border-gray-700">

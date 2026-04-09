@@ -13,11 +13,11 @@ type Transaction struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// ✅ NUEVO: Reporte de pagos manuales (Pago Móvil, Transferencias, etc.)
+// Reporte de pagos manuales (Pago Móvil, Transferencias, etc.)
 type PaymentReport struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `json:"user_id"`
-	User      User      `gorm:"foreignKey:UserID" json:"user"` // ✅ Relación para extraer datos visuales del usuario
+	User      User      `gorm:"foreignKey:UserID" json:"user"`
 	ItemType  string    `json:"item_type"`
 	AmountUSD float64   `json:"amount_usd"`
 	AmountVES float64   `json:"amount_ves"`
@@ -27,5 +27,6 @@ type PaymentReport struct {
 	Phone     string    `json:"phone"`
 	Receipt   string    `json:"receipt"`
 	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `json:"created_at"` // ✅ Se usa como Fecha de Compra
+	UpdatedAt time.Time `json:"updated_at"` // ✅ NUEVO: Se usa como Fecha de Aprobación por el Admin
 }
