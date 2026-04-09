@@ -3,6 +3,7 @@ package controllers
 import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
+	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -58,7 +59,6 @@ func GetAllConversationsAdmin(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"conversations": convs})
 }
 
-// ✅ NUEVO: Obtiene todo el historial de chat entre dos usuarios específicos
 func GetFullConversationAdmin(c *fiber.Ctx) error {
 	u1 := c.Query("u1")
 	u2 := c.Query("u2")
@@ -225,25 +225,131 @@ func DeleteCommentAdmin(c *fiber.Ctx) error {
 }
 
 // ==========================================
-// 📸 FOTOS Y MEDIA (Extrae imágenes de Posts)
+// 📸 GALERÍA CENTRAL DE MEDIA (Multiorigen)
 // ==========================================
 
+type MediaResponse struct {
+	ID       string `json:"id"`
+	URL      string `json:"url"`
+	Type     string `json:"type"`
+	SourceID uint   `json:"source_id"`
+	Username string `json:"username"`
+	UserPic  string `json:"user_pic"`
+	Date     string `json:"date"`
+}
+
 func GetAllMediaAdmin(c *fiber.Ctx) error {
+	filter := c.Query("filter", "posts")
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "50"))
+	limit, _ := strconv.Atoi(c.Query("limit", "40"))
 	offset := (page - 1) * limit
 
-	query := database.DB.Model(&models.Post{}).Preload("User").Where("images IS NOT NULL AND images != '[]'")
-
+	var mediaList []MediaResponse
 	var total int64
-	query.Count(&total)
 
-	var posts []models.Post
-	if err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&posts).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener media"})
+	// ✅ FIX CRÍTICO: Buscar ImageURL en vez de Images
+	if filter == "posts" {
+		var posts []models.Post
+		query := database.DB.Model(&models.Post{}).Where("image_url IS NOT NULL AND image_url != ''")
+		query.Count(&total)
+		query.Preload("User").Order("created_at desc").Offset(offset).Limit(limit).Find(&posts)
+
+		for _, p := range posts {
+			mediaList = append(mediaList, MediaResponse{
+				ID:       fmt.Sprintf("post-%d", p.ID),
+				URL:      p.ImageURL, // ✅ Corregido
+				Type:     "post",
+				SourceID: p.ID,
+				Username: p.User.Username,
+				UserPic:  p.User.Photo,
+				Date:     p.CreatedAt.Format("2006-01-02 15:04:05"),
+			})
+		}
+	} else if filter == "chats" {
+		var messages []models.Message
+		query := database.DB.Model(&models.Message{}).Where("type = 'image' AND content IS NOT NULL AND content != ''")
+		query.Count(&total)
+		query.Preload("Sender").Order("created_at desc").Offset(offset).Limit(limit).Find(&messages)
+
+		for _, m := range messages {
+			mediaList = append(mediaList, MediaResponse{
+				ID:       fmt.Sprintf("chat-%d", m.ID),
+				URL:      m.Content,
+				Type:     "chat",
+				SourceID: m.ID,
+				Username: m.Sender.Username,
+				UserPic:  m.Sender.Photo,
+				Date:     m.CreatedAt.Format("2006-01-02 15:04:05"),
+			})
+		}
+	} else if filter == "profiles" {
+		var users []models.User
+		query := database.DB.Model(&models.User{}).Where("photo IS NOT NULL AND photo != ''")
+		query.Count(&total)
+		query.Order("created_at desc").Offset(offset).Limit(limit).Find(&users)
+
+		for _, u := range users {
+			mediaList = append(mediaList, MediaResponse{
+				ID:       fmt.Sprintf("profile-%d", u.ID),
+				URL:      u.Photo,
+				Type:     "profile",
+				SourceID: u.ID,
+				Username: u.Username,
+				UserPic:  u.Photo,
+				Date:     u.CreatedAt.Format("2006-01-02 15:04:05"),
+			})
+			for i, img := range u.Photos {
+				if img != u.Photo {
+					mediaList = append(mediaList, MediaResponse{
+						ID:       fmt.Sprintf("profile-sec-%d-%d", u.ID, i),
+						URL:      img,
+						Type:     "profile",
+						SourceID: u.ID,
+						Username: u.Username,
+						UserPic:  u.Photo,
+						Date:     u.UpdatedAt.Format("2006-01-02 15:04:05"),
+					})
+				}
+			}
+		}
 	}
 
-	return c.JSON(fiber.Map{"media": posts, "total": total, "page": page, "limit": limit})
+	if mediaList == nil {
+		mediaList = []MediaResponse{}
+	}
+
+	return c.JSON(fiber.Map{"media": mediaList, "total": total, "page": page, "limit": limit})
+}
+
+func DeleteMediaAdmin(c *fiber.Ctx) error {
+	mediaType := c.Query("type")
+	idStr := c.Query("source_id")
+	sourceID, _ := strconv.Atoi(idStr)
+
+	if sourceID == 0 {
+		return c.Status(400).JSON(fiber.Map{"error": "ID de origen inválido"})
+	}
+
+	if mediaType == "post" {
+		if err := database.DB.Delete(&models.Post{}, sourceID).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Error eliminando publicación"})
+		}
+	} else if mediaType == "chat" {
+		if err := database.DB.Delete(&models.Message{}, sourceID).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Error eliminando mensaje de chat"})
+		}
+	} else if mediaType == "profile" {
+		if err := database.DB.Model(&models.User{}).Where("id = ?", sourceID).Updates(map[string]interface{}{
+			"photo":  "",
+			"photos": models.StringArray{},
+		}).Error; err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "Error neutralizando perfil"})
+		}
+	} else {
+		return c.Status(400).JSON(fiber.Map{"error": "Tipo de media desconocido"})
+	}
+
+	return c.JSON(fiber.Map{"message": "El archivo multimedia y su contenedor fueron eliminados permanentemente del sistema."})
 }
 
 // ==========================================
