@@ -4,8 +4,9 @@ import { useRouter, usePathname } from "next/navigation";
 import { api } from "@/utils/api";
 import Link from "next/link";
 import { 
-  Users, CreditCard, Settings, LayoutDashboard, LogOut, Menu, X, 
-  ShieldAlert, Activity, MessageSquare, AlertTriangle, ChevronDown, ChevronRight, BarChart3, Database, ShieldCheck, Crown
+  LayoutDashboard, Users, MessageSquare, AlertTriangle, CreditCard,
+  Settings, ShieldCheck, Activity, Database, BarChart3, ChevronDown, 
+  LogOut, Menu, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -14,6 +15,7 @@ export default function AdminLayout({ children }) {
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [openCategory, setOpenCategory] = useState("📊 DASHBOARD"); // Estado del Acordeón
   const router = useRouter();
   const pathname = usePathname();
 
@@ -56,36 +58,101 @@ export default function AdminLayout({ children }) {
     router.push("/login");
   };
 
+  // ✅ EL MENÚ MAESTRO COMPLETO EXACTAMENTE COMO LO PEDISTE
   const menuCategories = [
     {
-      title: "General",
+      title: "📊 DASHBOARD",
       items: [
-        { name: "Dashboard", icon: LayoutDashboard, path: "/admin" },
-        { name: "Analíticas", icon: BarChart3, path: "/admin/analytics" },
+        { name: "Dashboard Principal", path: "/admin" }
       ]
     },
     {
-      title: "Comunidad",
+      title: "👥 USUARIOS",
       items: [
-        { name: "Usuarios", icon: Users, path: "/admin/users" },
-        { name: "Pagos", icon: CreditCard, path: "/admin/payments" },
-        { name: "Gestión VIP", icon: Crown, path: "/admin/vip" }, // ✅ SEPARADO AQUÍ
+        { name: "Todos los Usuarios", path: "/admin/users" },
+        { name: "Usuarios VIP", path: "/admin/vip" },
+        { name: "Usuarios Suspendidos", path: "/admin/users/suspended" },
+        { name: "Usuarios Eliminados", path: "/admin/users/deleted" }
       ]
     },
     {
-      title: "Seguridad",
+      title: "💬 MODERACIÓN",
       items: [
-        { name: "Moderación", icon: MessageSquare, path: "/admin/moderation" },
-        { name: "Reportes", icon: AlertTriangle, path: "/admin/reports" },
+        { name: "Conversaciones", path: "/admin/moderation/conversations" },
+        { name: "Mensajes", path: "/admin/moderation/messages" },
+        { name: "Fotos y Media", path: "/admin/moderation/media" },
+        { name: "Matches", path: "/admin/moderation/matches" },
+        { name: "Comentarios", path: "/admin/moderation/comments" },
+        { name: "Posts", path: "/admin/moderation/posts" },
+        { name: "Contenido Marcado", path: "/admin/moderation/flagged" }
       ]
     },
     {
-      title: "Sistema",
+      title: "📋 REPORTES",
       items: [
-        { name: "Configuración", icon: Settings, path: "/admin/settings" },
-        { name: "Gestión de Admins", icon: ShieldCheck, path: "/admin/management", roles: ['superadmin'] }, 
-        { name: "Auditoría (Logs)", icon: Activity, path: "/admin/logs" },
-        { name: "Estado del Sistema", icon: Database, path: "/admin/system" },
+        { name: "Posts Reportados", path: "/admin/reports/posts" },
+        { name: "Comentarios Reportados", path: "/admin/reports/comments" },
+        { name: "Usuarios Reportados", path: "/admin/reports/users" },
+        { name: "Mensajes Reportados", path: "/admin/reports/messages" },
+        { name: "Reportes Resueltos", path: "/admin/reports/resolved" }
+      ]
+    },
+    {
+      title: "💰 PAGOS",
+      items: [
+        { name: "Pagos Pendientes", path: "/admin/payments" },
+        { name: "Pagos Aprobados", path: "/admin/payments/approved" },
+        { name: "Pagos Rechazados", path: "/admin/payments/rejected" },
+        { name: "Cola de Verificación", path: "/admin/payments/queue" }
+      ]
+    },
+    {
+      title: "⚙️ CONFIGURACIÓN",
+      items: [
+        { name: "Ajustes Generales", path: "/admin/settings" },
+        { name: "Ajustes VIP", path: "/admin/settings/vip" },
+        { name: "Monedas y Tasas", path: "/admin/settings/rates" },
+        { name: "Ajustes de Moderación", path: "/admin/settings/moderation" },
+        { name: "Activar/Desactivar Funciones", path: "/admin/settings/features" },
+        { name: "Apariencia", path: "/admin/settings/appearance" }
+      ]
+    },
+    {
+      title: "👑 GESTIÓN DE ADMINS",
+      roles: ['superadmin'], // Solo Superadmin puede ver esto
+      items: [
+        { name: "Roles de Administrador", path: "/admin/management" },
+        { name: "Solicitudes Pendientes", path: "/admin/management/requests" },
+        { name: "Log de Actividad Admin", path: "/admin/management/logs" },
+        { name: "Configuración 2FA", path: "/admin/management/2fa" }
+      ]
+    },
+    {
+      title: "📜 LOGS",
+      items: [
+        { name: "Logs de Acción Admin", path: "/admin/logs/admins" },
+        { name: "Logs de Actividad Usuario", path: "/admin/logs/users" },
+        { name: "Logs del Sistema", path: "/admin/logs/system" },
+        { name: "Exportar Logs", path: "/admin/logs/export" }
+      ]
+    },
+    {
+      title: "🔧 SISTEMA",
+      items: [
+        { name: "Backup de Base de Datos", path: "/admin/system/backup" },
+        { name: "Gestión de Caché", path: "/admin/system/cache" },
+        { name: "Estado de Cron Jobs", path: "/admin/system/cron" },
+        { name: "Estado de API", path: "/admin/system/api" }
+      ]
+    },
+    {
+      title: "📈 ANALÍTICAS",
+      items: [
+        { name: "Crecimiento de Usuarios", path: "/admin/analytics/growth" },
+        { name: "Ingresos VIP", path: "/admin/analytics/revenue" },
+        { name: "Retención de Usuarios", path: "/admin/analytics/retention" },
+        { name: "Contenido Popular", path: "/admin/analytics/content" },
+        { name: "Eficiencia de Moderación", path: "/admin/analytics/moderation" }
       ]
     }
   ];
@@ -116,7 +183,7 @@ export default function AdminLayout({ children }) {
         initial={{ x: -300 }} animate={{ x: isSidebarOpen ? 0 : window.innerWidth >= 1024 ? 0 : -300 }}
         className={`fixed lg:relative z-50 w-72 h-full bg-gray-900 border-r border-gray-800 flex flex-col transition-transform duration-300 shadow-2xl`}
       >
-        <div className="p-6 flex justify-between items-center border-b border-gray-800 bg-gray-900/50">
+        <div className="p-6 flex justify-between items-center border-b border-gray-800 bg-gray-900/50 shrink-0">
           <div className="flex flex-col">
               <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 tracking-tight">CUADRALO</span>
               <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">Control Center</span>
@@ -126,39 +193,67 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-6 custom-scrollbar px-4 space-y-8">
-          {menuCategories.map((category, idx) => (
-             <div key={idx}>
-                <h3 className="px-3 text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{category.title}</h3>
-                <ul className="space-y-1.5">
-                  {category.items.map((item) => {
-                    if (item.roles && !item.roles.includes(userRole)) return null;
+        {/* Menú Acordeón */}
+        <nav className="flex-1 overflow-y-auto py-4 custom-scrollbar px-3 space-y-1">
+          {menuCategories.map((category, idx) => {
+            // Bloqueo de seguridad si no tiene el rol
+            if (category.roles && !category.roles.includes(userRole)) return null;
 
-                    const isActive = pathname === item.path || pathname.startsWith(item.path + '/');
-                    return (
-                      <li key={item.path}>
-                        <Link href={item.path}>
-                          <span
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 font-medium ${
-                              isActive
-                                ? "bg-purple-600/10 text-purple-400 border border-purple-500/20 shadow-inner"
-                                : "text-gray-400 hover:bg-gray-800/80 hover:text-gray-200 border border-transparent"
-                            }`}
-                            onClick={() => window.innerWidth < 1024 && setSidebarOpen(false)}
-                          >
-                            <item.icon size={18} className={isActive ? "text-purple-500" : "text-gray-500"} />
-                            {item.name}
-                          </span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-             </div>
-          ))}
+            const isOpen = openCategory === category.title;
+            const isActiveCategory = category.items.some(i => pathname === i.path || pathname.startsWith(i.path + '/'));
+
+            return (
+              <div key={idx} className="mb-2">
+                <button 
+                  onClick={() => setOpenCategory(isOpen ? "" : category.title)}
+                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 font-black tracking-wide text-xs md:text-sm ${
+                    isOpen || isActiveCategory
+                      ? "bg-purple-600/10 text-purple-400 border border-purple-500/20"
+                      : "text-gray-400 hover:bg-gray-800/80 hover:text-gray-200 border border-transparent"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {category.title}
+                  </div>
+                  <ChevronDown size={16} className={`transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                <AnimatePresence>
+                  {isOpen && (
+                    <motion.ul 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden ml-4 mt-1 space-y-1 border-l-2 border-gray-800 pl-3"
+                    >
+                      {category.items.map((item) => {
+                        const isActive = pathname === item.path;
+                        return (
+                          <li key={item.path}>
+                            <Link href={item.path}>
+                              <span
+                                className={`block px-4 py-2.5 rounded-lg transition-all duration-200 text-xs font-bold tracking-wide ${
+                                  isActive
+                                    ? "bg-purple-500/20 text-white shadow-inner border border-purple-500/20"
+                                    : "text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+                                }`}
+                                onClick={() => window.innerWidth < 1024 && setSidebarOpen(false)}
+                              >
+                                {item.name}
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </nav>
 
-        <div className="p-4 border-t border-gray-800 bg-gray-900/80">
+        <div className="p-4 border-t border-gray-800 bg-gray-900/80 shrink-0">
           <div className="flex items-center gap-3 px-3 py-3 mb-4 rounded-xl bg-gray-800/50 border border-gray-700/50">
              <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center font-bold text-white shadow-lg">A</div>
              <div>
@@ -185,7 +280,7 @@ export default function AdminLayout({ children }) {
         </header>
 
         <div className="flex-1 overflow-auto p-4 md:p-8 custom-scrollbar">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto pb-10">
              {children}
           </div>
         </div>

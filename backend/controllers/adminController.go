@@ -77,7 +77,7 @@ func GetAllUsersAdmin(c *fiber.Ctx) error {
 	var total int64
 	query.Count(&total)
 
-	if err := query.Preload("Interests").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+	if err := query.Preload("Interests").Order("id desc").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al obtener usuarios"})
 	}
 
@@ -146,7 +146,7 @@ func SuspendUser(c *fiber.Ctx) error {
 }
 
 // ===============================================
-// ✅ NUEVA SECCIÓN DE GESTIÓN EXCLUSIVA VIP
+// ✅ SECCIÓN DE GESTIÓN EXCLUSIVA VIP (Corregida)
 // ===============================================
 
 func GetVipUsersAdmin(c *fiber.Ctx) error {
@@ -155,18 +155,18 @@ func GetVipUsersAdmin(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 	search := c.Query("search", "")
 
-	query := database.DB.Model(&models.User{})
+	// ✅ FIX: Filtramos estrictamente solo a los usuarios que TIENEN VIP
+	query := database.DB.Model(&models.User{}).Where("is_prime = ?", true)
 
 	if search != "" {
-		query = query.Where("name ILIKE ? OR username ILIKE ? OR id::text = ?", "%"+search+"%", "%"+search+"%", search)
+		query = query.Where("(name ILIKE ? OR username ILIKE ? OR id::text = ?)", "%"+search+"%", "%"+search+"%", search)
 	}
 
 	var total int64
 	query.Count(&total)
 
 	var users []models.User
-	// Los VIP siempre saldrán arriba en la tabla de búsqueda
-	if err := query.Order("is_prime desc, prime_expires_at desc").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+	if err := query.Order("prime_expires_at desc").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener base de datos VIP"})
 	}
 
@@ -177,30 +177,27 @@ func GetVipUsersAdmin(c *fiber.Ctx) error {
 	}
 
 	var response []VipResponse
-	for i, u := range users {
+	for _, u := range users {
 
-		// ✅ AUTO-REMOVE VIP: Si un admin consulta la tabla y el VIP ya expiró, el sistema se lo quita silenciosamente.
-		if u.IsPrime && time.Now().After(u.PrimeExpiresAt) {
+		// ✅ FIX: Evitamos borrar el VIP si la fecha está vacía (0001-01-01) en registros viejos
+		if !u.PrimeExpiresAt.IsZero() && time.Now().After(u.PrimeExpiresAt) {
 			database.DB.Model(&u).Update("is_prime", false)
-			u.IsPrime = false
-			users[i].IsPrime = false
+			continue // Como ya venció, no lo enviamos al frontend
 		}
 
 		vipUser := VipResponse{User: u}
 
-		if u.IsPrime {
-			// Busca el pago aprobado que activó este VIP
-			var payment models.PaymentReport
-			if err := database.DB.Where("user_id = ? AND item_type IN ('vip', 'prime') AND status = 'approved'", u.ID).Order("updated_at desc").First(&payment).Error; err == nil {
-				vipUser.PurchaseDate = &payment.CreatedAt // Fecha que subió el capture
-				vipUser.ApprovalDate = &payment.UpdatedAt // Fecha que el Admin le dio a 'Aprobar'
-			} else {
-				// Si no hay pago (Fue concedido manualmente o vía Apple/Google)
-				var sub models.Subscription
-				if err := database.DB.Where("user_id = ? AND plan = 'vip'", u.ID).Order("created_at desc").First(&sub).Error; err == nil {
-					vipUser.PurchaseDate = &sub.CreatedAt
-					vipUser.ApprovalDate = &sub.StartDate
-				}
+		// Busca el pago aprobado que activó este VIP
+		var payment models.PaymentReport
+		if err := database.DB.Where("user_id = ? AND item_type IN ('vip', 'prime') AND status = 'approved'", u.ID).Order("updated_at desc").First(&payment).Error; err == nil {
+			vipUser.PurchaseDate = &payment.CreatedAt
+			vipUser.ApprovalDate = &payment.UpdatedAt
+		} else {
+			// Si no hay pago (Carga Manual o Apple/Google)
+			var sub models.Subscription
+			if err := database.DB.Where("user_id = ? AND plan = 'vip'", u.ID).Order("created_at desc").First(&sub).Error; err == nil {
+				vipUser.PurchaseDate = &sub.CreatedAt
+				vipUser.ApprovalDate = &sub.StartDate
 			}
 		}
 		response = append(response, vipUser)
@@ -238,7 +235,7 @@ func ExtendVIP(c *fiber.Ctx) error {
 	adminID := uint(c.Locals("userId").(float64))
 
 	var payload struct {
-		Days int `json:"days"` // ✅ Ahora acepta valores negativos para acortar tiempo
+		Days int `json:"days"`
 	}
 
 	if err := c.BodyParser(&payload); err != nil {
@@ -251,13 +248,12 @@ func ExtendVIP(c *fiber.Ctx) error {
 	}
 
 	newExpiry := user.PrimeExpiresAt
-	if !user.IsPrime || time.Now().After(newExpiry) {
+	if !user.IsPrime || user.PrimeExpiresAt.IsZero() || time.Now().After(newExpiry) {
 		newExpiry = time.Now()
 	}
 
 	newExpiry = newExpiry.AddDate(0, 0, payload.Days)
 
-	// Si se le acorta el tiempo y cae en el pasado, se le desactiva el VIP por completo
 	isPrime := true
 	if time.Now().After(newExpiry) {
 		isPrime = false
@@ -304,7 +300,6 @@ func GrantVIPManual(c *fiber.Ctx) error {
 		"prime_expires_at": newExpiry,
 	})
 
-	// Creamos un registro silencioso en las suscripciones
 	database.DB.Create(&models.Subscription{
 		UserID:    user.ID,
 		Plan:      "vip_manual",
@@ -319,10 +314,6 @@ func GrantVIPManual(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"message": "Membresía VIP otorgada exitosamente al usuario."})
 }
-
-// ===============================================
-// RESTO DEL CÓDIGO INTACTO
-// ===============================================
 
 func RequestAdminRole(c *fiber.Ctx) error {
 	userID := uint(c.Locals("userId").(float64))
