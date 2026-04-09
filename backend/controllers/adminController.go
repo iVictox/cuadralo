@@ -90,6 +90,21 @@ func GetAllUsersAdmin(c *fiber.Ctx) error {
 	})
 }
 
+// Actualizar Rol Manualmente (Backup para rutas existentes)
+func UpdateUserRole(c *fiber.Ctx) error {
+	userId := c.Params("id")
+	var payload struct {
+		Role string `json:"role"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+	if err := database.DB.Model(&models.User{}).Where("id = ?", userId).Update("role", payload.Role).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo actualizar el rol"})
+	}
+	return c.JSON(fiber.Map{"message": "Rol actualizado con éxito"})
+}
+
 func SuspendUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	adminID := uint(c.Locals("userId").(float64))
@@ -110,7 +125,6 @@ func SuspendUser(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	// Protección: Un moderador o admin no puede suspender a un SuperAdmin
 	if targetUser.Role == "superadmin" && adminRole != "superadmin" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "No puedes suspender a un SuperAdministrador."})
 	}
@@ -145,6 +159,62 @@ func SuspendUser(c *fiber.Ctx) error {
 
 	LogAdminAction(adminID, action, &targetUser.ID, details)
 	return c.JSON(fiber.Map{"message": "Estado de cuenta actualizado correctamente."})
+}
+
+// ✅ FUNCIONES VIP RESTAURADAS
+func RevokeVIP(c *fiber.Ctx) error {
+	userID := c.Params("id")
+	adminID := uint(c.Locals("userId").(float64))
+
+	if err := database.DB.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+		"is_prime":         false,
+		"prime_expires_at": time.Now(),
+	}).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo revocar VIP"})
+	}
+
+	var targetID uint
+	idInt, _ := strconv.Atoi(userID)
+	targetID = uint(idInt)
+	LogAdminAction(adminID, "revoke_vip", &targetID, "User ID "+userID)
+
+	return c.JSON(fiber.Map{"message": "VIP revocado con éxito"})
+}
+
+func ExtendVIP(c *fiber.Ctx) error {
+	userID := c.Params("id")
+	adminID := uint(c.Locals("userId").(float64))
+
+	var payload struct {
+		Days int `json:"days"`
+	}
+
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Usuario no encontrado"})
+	}
+
+	newExpiry := user.PrimeExpiresAt
+	if time.Now().After(newExpiry) {
+		newExpiry = time.Now()
+	}
+	newExpiry = newExpiry.AddDate(0, 0, payload.Days)
+
+	if err := database.DB.Model(&user).Updates(map[string]interface{}{
+		"is_prime":         true,
+		"prime_expires_at": newExpiry,
+	}).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo extender VIP"})
+	}
+
+	var targetID = user.ID
+	LogAdminAction(adminID, "extend_vip", &targetID, "Extended by days")
+
+	return c.JSON(fiber.Map{"message": "VIP extendido con éxito", "new_expiry": newExpiry})
 }
 
 func RequestAdminRole(c *fiber.Ctx) error {
@@ -190,7 +260,7 @@ func ProcessAdminRequest(c *fiber.Ctx) error {
 	superAdminID := uint(c.Locals("userId").(float64))
 
 	var payload struct {
-		Action string `json:"action"` // approve, deny
+		Action string `json:"action"`
 		Reason string `json:"reason"`
 	}
 
@@ -342,7 +412,6 @@ func GetSystemSettings(c *fiber.Ctx) error {
 	return c.JSON(settingsMap)
 }
 
-// ✅ FIX CRÍTICO: Conversión segura de tipos de datos para prevenir el error "Datos inválidos"
 func UpdateSystemSettings(c *fiber.Ctx) error {
 	var payload map[string]interface{}
 
@@ -352,7 +421,6 @@ func UpdateSystemSettings(c *fiber.Ctx) error {
 
 	adminID := uint(c.Locals("userId").(float64))
 
-	// Iteramos y forzamos todo a ser un String (para que pase limpiamente a la BD)
 	for key, val := range payload {
 		strVal := fmt.Sprintf("%v", val)
 

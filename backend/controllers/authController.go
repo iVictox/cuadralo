@@ -4,13 +4,34 @@ import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
 	"fmt"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
+
+type RegisterDTO struct {
+	Name        string   `json:"name"`
+	Username    string   `json:"username"`
+	Email       string   `json:"email"`
+	Password    string   `json:"password"`
+	BirthDate   string   `json:"birthDate"`
+	Gender      string   `json:"gender"`
+	Photo       string   `json:"photo"`
+	Photos      []string `json:"photos"`
+	Bio         string   `json:"bio"`
+	Latitude    float64  `json:"latitude"`
+	Longitude   float64  `json:"longitude"`
+	Location    string   `json:"location"`
+	Interests   []string `json:"interests"`
+	Preferences struct {
+		Distance int    `json:"distance"`
+		Show     string `json:"show"`
+		AgeRange []int  `json:"ageRange"`
+	} `json:"preferences"`
+}
 
 func Register(c *fiber.Ctx) error {
 	// ✅ Bloqueo de registro por mantenimiento
@@ -22,50 +43,91 @@ func Register(c *fiber.Ctx) error {
 		})
 	}
 
-	var data map[string]string
+	var data RegisterDTO
 	if err := c.BodyParser(&data); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
-	password, _ := bcrypt.GenerateFromPassword([]byte(data["password"]), 14)
-	birthDate, _ := time.Parse("2006-01-02", data["birth_date"])
+	password, _ := bcrypt.GenerateFromPassword([]byte(data.Password), 14)
+
+	birthTime, err := time.Parse("2006-01-02", data.BirthDate)
+	if err != nil {
+		birthTime = time.Now().AddDate(-18, 0, 0)
+	}
+
+	username := strings.ToLower(strings.ReplaceAll(data.Username, " ", ""))
+	if username == "" {
+		cleanName := strings.ToLower(strings.ReplaceAll(data.Name, " ", ""))
+		username = fmt.Sprintf("%s%d", cleanName, time.Now().Unix()%1000)
+	}
+
+	mainPhoto := data.Photo
+	if len(data.Photos) > 0 && mainPhoto == "" {
+		mainPhoto = data.Photos[0]
+	}
 
 	user := models.User{
-		Name:      data["name"],
-		Email:     data["email"],
-		Username:  data["username"],
+		Name:      data.Name,
+		Username:  username,
+		Email:     data.Email,
 		Password:  string(password),
-		Gender:    data["gender"],
-		BirthDate: birthDate,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		BirthDate: birthTime,
+		Gender:    data.Gender,
+		Photo:     mainPhoto,
+		Photos:    data.Photos,
+		Bio:       data.Bio,
+		Latitude:  data.Latitude,
+		Longitude: data.Longitude,
+		Location:  data.Location,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "El usuario o email ya existe"})
+		if strings.Contains(err.Error(), "username") {
+			return c.Status(400).JSON(fiber.Map{"error": "Ese nombre de usuario ya está en uso."})
+		}
+		return c.Status(500).JSON(fiber.Map{"error": "Error al crear cuenta. El email o usuario ya existe."})
 	}
 
-	return c.JSON(fiber.Map{"message": "Registro exitoso", "user": user})
+	if len(data.Interests) > 0 {
+		var finalInterests []models.Interest
+		for _, slug := range data.Interests {
+			var interest models.Interest
+			database.DB.Where(models.Interest{Slug: slug}).FirstOrCreate(&interest, models.Interest{
+				Name:     slug,
+				Slug:     slug,
+				Category: "General",
+			})
+			finalInterests = append(finalInterests, interest)
+		}
+		database.DB.Model(&user).Association("Interests").Append(finalInterests)
+	}
+
+	return c.JSON(fiber.Map{
+		"message":  "Usuario registrado",
+		"username": username,
+	})
 }
 
 func Login(c *fiber.Ctx) error {
 	var data map[string]string
 	if err := c.BodyParser(&data); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
+
+	email := strings.TrimSpace(data["email"])
+	password := strings.TrimSpace(data["password"])
 
 	var user models.User
-	database.DB.Where("email = ?", data["email"]).First(&user)
-
+	database.DB.Where("email = ?", email).First(&user)
 	if user.ID == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Credenciales incorrectas"})
+		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(data["password"])); err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Credenciales incorrectas"})
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Contraseña incorrecta"})
 	}
 
-	// Verificación de Suspensión
+	// ✅ Verificación de Suspensión Activa
 	if user.IsSuspended {
 		if user.SuspendedUntil != nil && user.SuspendedUntil.Before(time.Now()) {
 			database.DB.Model(&user).Updates(map[string]interface{}{
@@ -89,27 +151,105 @@ func Login(c *fiber.Ctx) error {
 	var maintenance models.Setting
 	database.DB.Where("key = ?", "maintenance_mode").First(&maintenance)
 	if maintenance.Value == "true" {
-		if user.Role == "user" || user.Role == "vip" {
+		validRoles := map[string]bool{"superadmin": true, "admin": true, "moderator": true, "support": true}
+		if !validRoles[user.Role] {
 			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-				"error":       "La plataforma está en mantenimiento. No se permiten accesos de usuarios en este momento.",
+				"error":       "La plataforma está en mantenimiento. No se permiten accesos en este momento.",
 				"maintenance": true,
 			})
 		}
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":  user.ID,
-		"exp": time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 días
+		"sub": float64(user.ID),
+		"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
 	})
 
-	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	t, err := token.SignedString([]byte("secreto-super-seguro"))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo generar el token"})
+		return c.Status(500).JSON(fiber.Map{"error": "Error generando token"})
 	}
+
+	cookie := new(fiber.Cookie)
+	cookie.Name = "jwt"
+	cookie.Value = t
+	cookie.Expires = time.Now().Add(time.Hour * 24 * 30)
+	cookie.HTTPOnly = true
+	c.Cookie(cookie)
 
 	return c.JSON(fiber.Map{
 		"message": "Login exitoso",
-		"token":   tokenString,
+		"token":   t,
+		"user": fiber.Map{
+			"id":       user.ID,
+			"name":     user.Name,
+			"username": user.Username,
+			"email":    user.Email,
+			"photo":    user.Photo,
+			"role":     user.Role,
+			"is_prime": user.IsPrime,
+		},
+	})
+}
+
+func GoogleLogin(c *fiber.Ctx) error {
+	var data map[string]string
+	if err := c.BodyParser(&data); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	email := strings.TrimSpace(data["email"])
+
+	var user models.User
+	database.DB.Where("email = ?", email).First(&user)
+
+	if user.ID == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado. Por favor, regístrate primero."})
+	}
+
+	// ✅ Verificación de Suspensión Activa para Google
+	if user.IsSuspended {
+		if user.SuspendedUntil != nil && user.SuspendedUntil.Before(time.Now()) {
+			database.DB.Model(&user).Updates(map[string]interface{}{
+				"is_suspended":      false,
+				"suspended_until":   nil,
+				"suspension_reason": "",
+			})
+		} else {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Tu cuenta ha sido suspendida.", "is_suspended": true})
+		}
+	}
+
+	// ✅ Bloqueo de Login por mantenimiento para Google
+	var maintenance models.Setting
+	database.DB.Where("key = ?", "maintenance_mode").First(&maintenance)
+	if maintenance.Value == "true" {
+		validRoles := map[string]bool{"superadmin": true, "admin": true, "moderator": true, "support": true}
+		if !validRoles[user.Role] {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "Plataforma en mantenimiento.", "maintenance": true})
+		}
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": float64(user.ID),
+		"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
+	})
+
+	t, err := token.SignedString([]byte("secreto-super-seguro"))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error generando token"})
+	}
+
+	cookie := new(fiber.Cookie)
+	cookie.Name = "jwt"
+	cookie.Value = t
+	cookie.Expires = time.Now().Add(time.Hour * 24 * 30)
+	cookie.HTTPOnly = true
+	c.Cookie(cookie)
+
+	return c.JSON(fiber.Map{
+		"message": "Login exitoso con Google",
+		"token":   t,
 		"user": fiber.Map{
 			"id":       user.ID,
 			"name":     user.Name,
