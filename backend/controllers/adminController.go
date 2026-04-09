@@ -21,11 +21,52 @@ func GetDashboardStats(c *fiber.Ctx) error {
 	database.DB.Model(&models.Post{}).Count(&totalPosts)
 	database.DB.Model(&models.User{}).Where("is_prime = ?", true).Count(&primeUsers)
 
+	type UserGrowth struct {
+		Name  string `json:"name"`
+		Users int64  `json:"users"`
+	}
+	var userGrowth []UserGrowth
+
+	// Obtener crecimiento real (últimos 7 días)
+	for i := 6; i >= 0; i-- {
+		date := time.Now().AddDate(0, 0, -i)
+		startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
+		endOfDay := startOfDay.Add(24 * time.Hour)
+
+		var count int64
+		database.DB.Model(&models.User{}).Where("created_at >= ? AND created_at < ?", startOfDay, endOfDay).Count(&count)
+
+		dayName := date.Format("Mon")
+		// Mapear nombres a español
+		switch date.Weekday() {
+		case time.Monday:
+			dayName = "Lun"
+		case time.Tuesday:
+			dayName = "Mar"
+		case time.Wednesday:
+			dayName = "Mie"
+		case time.Thursday:
+			dayName = "Jue"
+		case time.Friday:
+			dayName = "Vie"
+		case time.Saturday:
+			dayName = "Sab"
+		case time.Sunday:
+			dayName = "Dom"
+		}
+
+		userGrowth = append(userGrowth, UserGrowth{
+			Name:  dayName,
+			Users: count,
+		})
+	}
+
 	return c.JSON(fiber.Map{
 		"total_users":   totalUsers,
 		"total_matches": totalMatches,
 		"total_posts":   totalPosts,
 		"prime_users":   primeUsers,
+		"user_growth":   userGrowth,
 	})
 }
 
@@ -49,7 +90,7 @@ func GetAllUsersAdmin(c *fiber.Ctx) error {
 	var total int64
 	query.Count(&total)
 
-	if err := query.Select("id, name, username, email, role, is_prime, is_suspended, created_at").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+	if err := query.Offset(offset).Limit(limit).Find(&users).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al obtener usuarios"})
 	}
 
@@ -122,7 +163,8 @@ func VerifyPayment(c *fiber.Ctx) error {
 	}
 
 	var payload struct {
-		Action string `json:"action"` // "verify" or "reject"
+		Action   string `json:"action"` // "verify" or "reject"
+		GrantVIP bool   `json:"grant_vip"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
@@ -132,7 +174,7 @@ func VerifyPayment(c *fiber.Ctx) error {
 		payment.Status = "approved"
 
 		// If it's a VIP payment, give VIP
-		if payment.ItemType == "vip" || payment.ItemType == "prime" {
+		if (payment.ItemType == "vip" || payment.ItemType == "prime") && payload.GrantVIP {
 			database.DB.Model(&models.User{}).Where("id = ?", payment.UserID).Updates(map[string]interface{}{
 				"is_prime": true,
 				"prime_expires_at": time.Now().AddDate(0, 1, 0),

@@ -67,7 +67,7 @@ export default function AdminLayout({ children }) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white overflow-hidden">
+    <div className="flex h-screen bg-cuadralo-bgDark text-white overflow-hidden">
       {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {isSidebarOpen && (
@@ -85,9 +85,9 @@ export default function AdminLayout({ children }) {
       <motion.aside
         initial={{ x: -300 }}
         animate={{ x: isSidebarOpen ? 0 : window.innerWidth >= 768 ? 0 : -300 }}
-        className={`fixed md:relative z-50 w-64 h-full bg-gray-800 border-r border-gray-700 flex flex-col transition-transform duration-300`}
+        className={`fixed md:relative z-50 w-64 h-full bg-cuadralo-cardDark shadow-glass-dark border-r border-cuadralo-purple/30 flex flex-col transition-transform duration-300`}
       >
-        <div className="p-4 flex justify-between items-center border-b border-gray-700">
+        <div className="p-4 flex justify-between items-center border-b border-cuadralo-purple/30">
           <span className="text-xl font-bold text-white tracking-wide">Panel Cuadralo</span>
           <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setSidebarOpen(false)}>
             <X size={24} />
@@ -104,8 +104,8 @@ export default function AdminLayout({ children }) {
                     <span
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                         isActive
-                          ? "bg-purple-600 text-white"
-                          : "text-gray-400 hover:bg-gray-700 hover:text-white"
+                          ? "bg-gradient-to-r from-cuadralo-purple to-cuadralo-pink text-white shadow-md"
+                          : "text-gray-400 hover:bg-white/5 hover:text-white"
                       }`}
                       onClick={() => setSidebarOpen(false)}
                     >
@@ -119,10 +119,10 @@ export default function AdminLayout({ children }) {
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-cuadralo-purple/30">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:bg-gray-700 rounded-lg transition-colors"
+            className="w-full flex items-center gap-3 px-4 py-2 text-red-400 hover:bg-white/5 rounded-lg transition-colors"
           >
             <LogOut size={20} />
             Cerrar Sesión
@@ -131,8 +131,8 @@ export default function AdminLayout({ children }) {
       </motion.aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
-        <header className="bg-gray-800 border-b border-gray-700 p-4 flex items-center justify-between md:hidden">
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-cuadralo-bgDark">
+        <header className="bg-cuadralo-cardDark border-b border-cuadralo-purple/30 p-4 flex items-center justify-between md:hidden">
           <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white">
             <Menu size={24} />
           </button>

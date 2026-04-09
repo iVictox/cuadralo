@@ -24,10 +24,10 @@ export default function AdminPayments() {
     }
   };
 
-  const handleAction = async (id, action) => {
+  const handleAction = async (id, action, grantVip = false) => {
     if (!confirm(`¿Estás seguro de marcar este pago como ${action}?`)) return;
     try {
-      await api.put(`/admin/payments/${id}/verify`, { action });
+      await api.put(`/admin/payments/${id}/verify`, { action, grant_vip: grantVip });
       fetchPayments();
     } catch (error) {
       console.error(error);

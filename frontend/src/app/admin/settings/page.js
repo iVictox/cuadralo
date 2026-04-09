@@ -47,7 +47,7 @@ export default function AdminSettings() {
     <div className="max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold">Configuración del Sistema</h1>
 
-      <form onSubmit={handleSave} className="bg-gray-800 p-6 rounded-xl border border-gray-700 space-y-4">
+      <form onSubmit={handleSave} className="bg-cuadralo-cardDark p-6 rounded-xl border border-cuadralo-purple/30 space-y-6 shadow-glass-dark">
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-1">Nombre de la Plataforma</label>
           <input
@@ -55,7 +55,7 @@ export default function AdminSettings() {
             name="platform_name"
             value={settings.platform_name}
             onChange={handleChange}
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500"
+            className="w-full bg-cuadralo-bgDark border border-cuadralo-purple/30 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-cuadralo-pink focus:ring-1 focus:ring-cuadralo-pink transition-colors"
           />
         </div>
 
@@ -65,7 +65,7 @@ export default function AdminSettings() {
             name="maintenance_mode"
             value={settings.maintenance_mode}
             onChange={handleChange}
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500"
+            className="w-full bg-cuadralo-bgDark border border-cuadralo-purple/30 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-cuadralo-pink focus:ring-1 focus:ring-cuadralo-pink transition-colors"
           >
             <option value="false">Desactivado</option>
             <option value="true">Activado</option>
@@ -80,14 +80,14 @@ export default function AdminSettings() {
             name="vip_price_usd"
             value={settings.vip_price_usd}
             onChange={handleChange}
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500"
+            className="w-full bg-cuadralo-bgDark border border-cuadralo-purple/30 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-cuadralo-pink focus:ring-1 focus:ring-cuadralo-pink transition-colors"
           />
         </div>
 
         <button
           type="submit"
           disabled={saving}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+          className="w-full bg-gradient-to-r from-cuadralo-purple to-cuadralo-pink hover:opacity-90 text-white py-3 rounded-lg font-medium transition-opacity disabled:opacity-50 mt-4"
         >
           {saving ? "Guardando..." : "Guardar Cambios"}
         </button>

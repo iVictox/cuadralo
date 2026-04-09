@@ -9,16 +9,6 @@ export default function AdminDashboard() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Mock data for charts as requested by requirement, real implementation would fetch from backend
-  const userGrowthData = [
-    { name: 'Lun', users: 400 },
-    { name: 'Mar', users: 450 },
-    { name: 'Mie', users: 420 },
-    { name: 'Jue', users: 500 },
-    { name: 'Vie', users: 580 },
-    { name: 'Sab', users: 600 },
-    { name: 'Dom', users: 650 },
-  ];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -42,11 +32,13 @@ export default function AdminDashboard() {
   }
 
   const statCards = [
-    { title: "Usuarios Totales", value: stats?.total_users || 0, icon: Users, color: "bg-blue-500/10 text-blue-500" },
-    { title: "Usuarios VIP", value: stats?.prime_users || 0, icon: Crown, color: "bg-yellow-500/10 text-yellow-500" },
-    { title: "Publicaciones", value: stats?.total_posts || 0, icon: ImageIcon, color: "bg-green-500/10 text-green-500" },
-    { title: "Matches", value: stats?.total_matches || 0, icon: Heart, color: "bg-pink-500/10 text-pink-500" },
+    { title: "Usuarios Totales", value: stats?.total_users || 0, icon: Users, color: "bg-cuadralo-purple/20 text-cuadralo-purpleLight" },
+    { title: "Usuarios VIP", value: stats?.prime_users || 0, icon: Crown, color: "bg-yellow-500/20 text-yellow-400" },
+    { title: "Publicaciones", value: stats?.total_posts || 0, icon: ImageIcon, color: "bg-cuadralo-pink/20 text-cuadralo-pinkLight" },
+    { title: "Matches", value: stats?.total_matches || 0, icon: Heart, color: "bg-cuadralo-pinkDark/20 text-cuadralo-pink" },
   ];
+
+  const userGrowthData = stats?.user_growth || [];
 
   return (
     <div className="space-y-6">
@@ -54,7 +46,7 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat, index) => (
-          <div key={index} className="bg-gray-800 p-6 rounded-xl border border-gray-700 flex items-center gap-4">
+          <div key={index} className="bg-cuadralo-cardDark p-6 rounded-xl border border-cuadralo-purple/30 flex items-center gap-4">
             <div className={`p-4 rounded-lg ${stat.color}`}>
               <stat.icon size={24} />
             </div>
@@ -66,7 +58,7 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 mt-8">
+      <div className="bg-cuadralo-cardDark rounded-xl border border-cuadralo-purple/30 p-6 mt-8">
          <h2 className="text-xl font-bold mb-4">Crecimiento de Usuarios (Última Semana)</h2>
          <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -74,18 +66,18 @@ export default function AdminDashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis dataKey="name" stroke="#9ca3af" />
                 <YAxis stroke="#9ca3af" />
-                <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
-                <Line type="monotone" dataKey="users" stroke="#8b5cf6" strokeWidth={2} />
+                <Tooltip contentStyle={{ backgroundColor: '#150A21', border: '1px solid #551CA6' }} />
+                <Line type="monotone" dataKey="users" stroke="#F2138E" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
          </div>
       </div>
 
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 mt-8">
+      <div className="bg-cuadralo-cardDark rounded-xl border border-cuadralo-purple/30 p-6 mt-8">
         <h2 className="text-xl font-bold mb-4">Actividad Reciente del Sistema</h2>
         <div className="space-y-4">
           {logs.length > 0 ? logs.map((log) => (
-            <div key={log.id} className="flex items-center justify-between border-b border-gray-700 pb-3 last:border-0 last:pb-0">
+            <div key={log.id} className="flex items-center justify-between border-b border-cuadralo-purple/30 pb-3 last:border-0 last:pb-0">
               <div>
                 <p className="font-medium text-gray-200">
                   {log.admin?.name || `Admin #${log.admin_id}`} <span className="text-gray-400 font-normal">realizó</span> {log.action}
