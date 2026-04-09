@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/utils/api";
-import { Search, MoreVertical, ShieldAlert, Trash2, Ban, Eye } from "lucide-react";
+import { Search, ShieldAlert, Trash2, Ban, Eye, CheckCircle2 } from "lucide-react";
 import { useDebounce } from 'use-debounce';
 import UserDetailModal from "./UserDetailModal";
 
@@ -48,7 +48,7 @@ export default function AdminUsers() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("¿ESTÁS SEGURO? Esta acción borrará al usuario permanentemente.")) return;
+    if (!confirm("⚠️ ATENCIÓN: Esta acción borrará al usuario permanentemente. ¿Deseas continuar?")) return;
     try {
       await api.delete(`/admin/users/${id}`);
       fetchUsers();
@@ -58,7 +58,7 @@ export default function AdminUsers() {
   };
 
   const handleRoleChange = async (id, newRole) => {
-    if (!confirm(`¿Cambiar rol a ${newRole}?`)) return;
+    if (!confirm(`¿Cambiar el rol de este usuario a ${newRole.toUpperCase()}?`)) return;
     try {
       await api.put(`/admin/users/${id}/role`, { role: newRole });
       fetchUsers();
@@ -69,77 +69,92 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
-        <div className="relative">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Gestión de Usuarios</h1>
+          <p className="text-sm text-gray-400">Administra las cuentas registradas en Cuadralo.</p>
+        </div>
+        <div className="relative w-full md:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Buscar por nombre, ID..."
+            placeholder="Buscar ID, nombre, @usuario..."
             value={search}
             onChange={(e) => {setSearch(e.target.value); setPage(1);}}
-            className="pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-purple-500 w-64"
+            className="pl-10 pr-4 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 w-full md:w-72 transition-all"
           />
         </div>
       </div>
 
-      <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+      <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-300">
-            <thead className="bg-gray-900/50 text-gray-400">
+            <thead className="bg-gray-900 text-gray-400 font-semibold border-b border-gray-700">
               <tr>
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Usuario</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Rol</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3 text-right">Acciones</th>
+                <th className="px-6 py-4">Usuario</th>
+                <th className="px-6 py-4">Contacto</th>
+                <th className="px-6 py-4">Rol / Nivel</th>
+                <th className="px-6 py-4">Estado</th>
+                <th className="px-6 py-4 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-700/50">
               {loading ? (
-                <tr><td colSpan="6" className="text-center py-8">Cargando usuarios...</td></tr>
+                <tr><td colSpan="5" className="text-center py-12 text-purple-400 animate-pulse">Cargando base de datos...</td></tr>
+              ) : users.length === 0 ? (
+                <tr><td colSpan="5" className="text-center py-12 text-gray-500">No se encontraron usuarios.</td></tr>
               ) : users.map((user) => (
-                <tr key={user.id} className="border-t border-gray-700 hover:bg-gray-700/50">
-                  <td className="px-4 py-3">{user.id}</td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-white">{user.name}</div>
-                    <div className="text-xs text-gray-500">@{user.username}</div>
+                <tr key={user.id} className="hover:bg-gray-700/30 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-700 overflow-hidden shrink-0 border border-gray-600">
+                        {user.photo ? <img src={user.photo} alt={user.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-800" />}
+                      </div>
+                      <div>
+                        <div className="font-bold text-white">{user.name} <span className="text-xs text-gray-500 font-normal ml-1">#{user.id}</span></div>
+                        <div className="text-xs text-purple-400">@{user.username}</div>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-4 py-3">{user.email}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-xs ${user.role === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-gray-600 text-gray-300'}`}>
-                      {user.role}
-                    </span>
+                  <td className="px-6 py-4 font-mono text-xs">{user.email}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-2">
+                      <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}`}>
+                        {user.role}
+                      </span>
+                      {user.is_prime && (
+                        <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                          VIP
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4">
                     {user.is_suspended ? (
-                      <span className="text-red-400 text-xs flex items-center gap-1"><Ban size={12}/> Suspendido</span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                        <Ban size={12}/> Suspendido
+                      </span>
                     ) : (
-                      <span className="text-green-400 text-xs">Activo</span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+                        <CheckCircle2 size={12}/> Activo
+                      </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right space-x-2">
-                    <button
-                      onClick={() => setSelectedUser(user)}
-                      className="text-gray-400 hover:text-blue-400 p-1" title="Ver Detalles">
-                      <Eye size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleRoleChange(user.id, user.role === 'admin' ? 'user' : 'admin')}
-                      className="text-gray-400 hover:text-white p-1" title="Cambiar Rol">
-                      <ShieldAlert size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleSuspend(user.id, user.is_suspended)}
-                      className="text-gray-400 hover:text-yellow-400 p-1" title={user.is_suspended ? "Restaurar" : "Suspender"}>
-                      <Ban size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(user.id)}
-                      className="text-gray-400 hover:text-red-400 p-1" title="Eliminar">
-                      <Trash2 size={18} />
-                    </button>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button onClick={() => setSelectedUser(user)} className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors" title="Perfil Detallado">
+                        <Eye size={18} />
+                      </button>
+                      <button onClick={() => handleRoleChange(user.id, user.role === 'admin' ? 'user' : 'admin')} className={`p-2 rounded-lg transition-colors ${user.role === 'admin' ? 'text-purple-400 hover:bg-purple-500/10' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`} title="Alternar Permisos de Admin">
+                        <ShieldAlert size={18} />
+                      </button>
+                      <button onClick={() => handleSuspend(user.id, user.is_suspended)} className={`p-2 rounded-lg transition-colors ${user.is_suspended ? 'text-green-400 hover:bg-green-500/10' : 'text-yellow-500 hover:bg-yellow-500/10'}`} title={user.is_suspended ? "Quitar Suspensión" : "Suspender Cuenta"}>
+                        <Ban size={18} />
+                      </button>
+                      <button onClick={() => handleDelete(user.id)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Eliminar Definitivamente">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -147,39 +162,27 @@ export default function AdminUsers() {
           </table>
         </div>
 
-        {/* Pagination Controls */}
-        <div className="flex justify-between items-center p-4 border-t border-gray-700 text-sm">
-            <div>
-                Mostrando página {page} de {totalPages || 1}
+        {/* Paginación */}
+        <div className="flex flex-col sm:flex-row justify-between items-center p-4 bg-gray-900/50 border-t border-gray-700 text-sm gap-4">
+            <div className="text-gray-400">
+                Página <span className="font-bold text-white">{page}</span> de <span className="font-bold text-white">{totalPages || 1}</span>
             </div>
-            <div className="flex gap-2">
-                <button
-                    disabled={page === 1}
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600 disabled:opacity-50"
-                >
+            <div className="flex items-center gap-2">
+                <button disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors text-white">
                     Anterior
                 </button>
-                <button
-                    disabled={page >= totalPages}
-                    onClick={() => setPage(p => p + 1)}
-                    className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600 disabled:opacity-50"
-                >
+                <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors text-white">
                     Siguiente
                 </button>
-
-                <select
-                    value={limit}
-                    onChange={(e) => {setLimit(Number(e.target.value)); setPage(1);}}
-                    className="ml-4 bg-gray-700 rounded px-2 py-1"
-                >
-                    <option value={20}>20 por página</option>
-                    <option value={50}>50 por página</option>
-                    <option value={100}>100 por página</option>
+                <select value={limit} onChange={(e) => {setLimit(Number(e.target.value)); setPage(1);}} className="ml-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500 cursor-pointer">
+                    <option value={20}>20 filas</option>
+                    <option value={50}>50 filas</option>
+                    <option value={100}>100 filas</option>
                 </select>
             </div>
         </div>
       </div>
+
       {selectedUser && (
         <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} />
       )}

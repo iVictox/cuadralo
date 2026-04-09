@@ -9,27 +9,52 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// ✅ Obtiene las métricas generales para el Dashboard
+// ✅ Obtiene las métricas generales y reales para el Dashboard
 func GetDashboardStats(c *fiber.Ctx) error {
 	var totalUsers int64
 	var totalMatches int64
 	var totalPosts int64
 	var primeUsers int64
+	var totalPayments int64
 
 	database.DB.Model(&models.User{}).Count(&totalUsers)
 	database.DB.Model(&models.Match{}).Count(&totalMatches)
 	database.DB.Model(&models.Post{}).Count(&totalPosts)
 	database.DB.Model(&models.User{}).Where("is_prime = ?", true).Count(&primeUsers)
+	database.DB.Model(&models.PaymentReport{}).Count(&totalPayments)
+
+	// Datos reales de crecimiento de usuarios en los últimos 7 días
+	type DailyGrowth struct {
+		Date  string `json:"name"`
+		Users int64  `json:"users"`
+	}
+	var growth []DailyGrowth
+
+	// Consulta SQL nativa para PostgreSQL para agrupar usuarios creados por día
+	database.DB.Raw(`
+		SELECT TO_CHAR(DATE_TRUNC('day', created_at), 'Dy') as date, COUNT(*) as users
+		FROM users
+		WHERE created_at >= NOW() - INTERVAL '7 days'
+		GROUP BY DATE_TRUNC('day', created_at)
+		ORDER BY DATE_TRUNC('day', created_at) ASC
+	`).Scan(&growth)
+
+	// Si no hay crecimiento reciente, evitamos que el gráfico explote
+	if len(growth) == 0 {
+		growth = []DailyGrowth{{Date: "Hoy", Users: 0}}
+	}
 
 	return c.JSON(fiber.Map{
-		"total_users":   totalUsers,
-		"total_matches": totalMatches,
-		"total_posts":   totalPosts,
-		"prime_users":   primeUsers,
+		"total_users":    totalUsers,
+		"total_matches":  totalMatches,
+		"total_posts":    totalPosts,
+		"prime_users":    primeUsers,
+		"total_payments": totalPayments,
+		"user_growth":    growth,
 	})
 }
 
-// ✅ Obtiene la lista completa de usuarios para la tabla de administración
+// ✅ Obtiene la lista completa de usuarios para la tabla de administración sin omitir datos
 func GetAllUsersAdmin(c *fiber.Ctx) error {
 	var users []models.User
 
@@ -49,7 +74,8 @@ func GetAllUsersAdmin(c *fiber.Ctx) error {
 	var total int64
 	query.Count(&total)
 
-	if err := query.Select("id, name, username, email, role, is_prime, is_suspended, created_at").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+	// Preload Interests para enviar toda la data sin restricciones de Select
+	if err := query.Preload("Interests").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al obtener usuarios"})
 	}
 
@@ -122,7 +148,8 @@ func VerifyPayment(c *fiber.Ctx) error {
 	}
 
 	var payload struct {
-		Action string `json:"action"` // "verify" or "reject"
+		Action   string `json:"action"`    // "verify" or "reject"
+		GrantVIP bool   `json:"grant_vip"` // ✅ Añadido para forzar VIP desde el panel
 	}
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
@@ -131,19 +158,19 @@ func VerifyPayment(c *fiber.Ctx) error {
 	if payload.Action == "verify" {
 		payment.Status = "approved"
 
-		// If it's a VIP payment, give VIP
-		if payment.ItemType == "vip" || payment.ItemType == "prime" {
+		// Si es un producto VIP o el Admin marcó la casilla manualmente
+		if payment.ItemType == "vip" || payment.ItemType == "prime" || payload.GrantVIP {
 			database.DB.Model(&models.User{}).Where("id = ?", payment.UserID).Updates(map[string]interface{}{
-				"is_prime": true,
+				"is_prime":         true,
 				"prime_expires_at": time.Now().AddDate(0, 1, 0),
 			})
 
 			database.DB.Create(&models.Subscription{
-				UserID: payment.UserID,
-				Plan: "vip",
+				UserID:    payment.UserID,
+				Plan:      "vip",
 				StartDate: time.Now(),
-				EndDate: time.Now().AddDate(0, 1, 0),
-				Status: "active",
+				EndDate:   time.Now().AddDate(0, 1, 0),
+				Status:    "active",
 				CreatedAt: time.Now(),
 			})
 		}
@@ -191,7 +218,7 @@ func SuspendUser(c *fiber.Ctx) error {
 	}
 
 	var targetID = user.ID
-	LogAdminAction(adminID, action, &targetID, "User ID " + userID)
+	LogAdminAction(adminID, action, &targetID, "User ID "+userID)
 
 	return c.JSON(fiber.Map{"message": "Estado de usuario actualizado"})
 }
@@ -201,7 +228,7 @@ func RevokeVIP(c *fiber.Ctx) error {
 	adminID := uint(c.Locals("userId").(float64))
 
 	if err := database.DB.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"is_prime": false,
+		"is_prime":         false,
 		"prime_expires_at": time.Now(),
 	}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo revocar VIP"})
@@ -210,7 +237,7 @@ func RevokeVIP(c *fiber.Ctx) error {
 	var user models.User
 	database.DB.First(&user, userID)
 	var targetID = user.ID
-	LogAdminAction(adminID, "revoke_vip", &targetID, "User ID " + userID)
+	LogAdminAction(adminID, "revoke_vip", &targetID, "User ID "+userID)
 
 	return c.JSON(fiber.Map{"message": "VIP revocado con éxito"})
 }
@@ -239,7 +266,7 @@ func ExtendVIP(c *fiber.Ctx) error {
 	newExpiry = newExpiry.AddDate(0, 0, payload.Days)
 
 	if err := database.DB.Model(&user).Updates(map[string]interface{}{
-		"is_prime": true,
+		"is_prime":         true,
 		"prime_expires_at": newExpiry,
 	}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo extender VIP"})
@@ -263,7 +290,7 @@ func DeleteUserAdmin(c *fiber.Ctx) error {
 	database.DB.Delete(&user) // Soft delete
 
 	var targetID = user.ID
-	LogAdminAction(adminID, "delete_user", &targetID, "User ID " + userID)
+	LogAdminAction(adminID, "delete_user", &targetID, "User ID "+userID)
 
 	return c.JSON(fiber.Map{"message": "Usuario eliminado"})
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { api } from "@/utils/api";
-import { CheckCircle, XCircle, Clock, Eye } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Eye, Receipt } from "lucide-react";
 import PaymentDetailModal from "./PaymentDetailModal";
 
 export default function AdminPayments() {
@@ -24,73 +24,76 @@ export default function AdminPayments() {
     }
   };
 
-  const handleAction = async (id, action) => {
-    if (!confirm(`¿Estás seguro de marcar este pago como ${action}?`)) return;
+  const handleAction = async (id, action, grantVip = false) => {
+    if (!confirm(`¿Estás seguro de procesar este pago como: ${action.toUpperCase()}?`)) return;
     try {
-      await api.put(`/admin/payments/${id}/verify`, { action });
+      await api.put(`/admin/payments/${id}/verify`, { action, grant_vip: grantVip });
       fetchPayments();
     } catch (error) {
       console.error(error);
+      alert("Ocurrió un error al procesar el pago.");
     }
   };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Verificación de Pagos</h1>
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Receipt className="text-green-500" /> Verificación de Pagos
+          </h1>
+          <p className="text-sm text-gray-400">Revisa los reportes de transferencias y pagos móviles enviados por los usuarios.</p>
+        </div>
+      </div>
 
-      <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+      <div className="bg-gray-800 rounded-2xl border border-gray-700 shadow-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-300">
-            <thead className="bg-gray-900/50 text-gray-400">
+            <thead className="bg-gray-900 text-gray-400 font-semibold border-b border-gray-700">
               <tr>
-                <th className="px-4 py-3">ID / Fecha</th>
-                <th className="px-4 py-3">Usuario (ID)</th>
-                <th className="px-4 py-3">Monto / Ref</th>
-                <th className="px-4 py-3">Comprobante</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3 text-right">Acciones</th>
+                <th className="px-6 py-4">Ref. Sistema</th>
+                <th className="px-6 py-4">Usuario</th>
+                <th className="px-6 py-4">Monto / Datos del Banco</th>
+                <th className="px-6 py-4">Capture</th>
+                <th className="px-6 py-4">Estado</th>
+                <th className="px-6 py-4 text-right">Auditoría</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-700/50">
               {loading ? (
-                <tr><td colSpan="6" className="text-center py-8">Cargando pagos...</td></tr>
+                <tr><td colSpan="6" className="text-center py-12 text-purple-400 animate-pulse">Consultando transacciones...</td></tr>
               ) : payments.length === 0 ? (
-                <tr><td colSpan="6" className="text-center py-8">No hay pagos reportados.</td></tr>
+                <tr><td colSpan="6" className="text-center py-12 text-gray-500">Bandeja limpia. No hay pagos pendientes.</td></tr>
               ) : payments.map((p) => (
-                <tr key={p.id} className="border-t border-gray-700 hover:bg-gray-700/50">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">#{p.id}</div>
-                    <div className="text-xs text-gray-500">{new Date(p.created_at).toLocaleDateString()}</div>
+                <tr key={p.id} className="hover:bg-gray-700/30 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="font-mono text-white text-base">#{p.id}</div>
+                    <div className="text-xs text-gray-500">{new Date(p.created_at).toLocaleString()}</div>
                   </td>
-                  <td className="px-4 py-3">User #{p.user_id}</td>
-                  <td className="px-4 py-3">
-                    <div className="text-white">${p.amount_usd} ({p.amount_ves} Bs)</div>
-                    <div className="text-xs text-gray-500">Ref: {p.reference} - {p.bank}</div>
+                  <td className="px-6 py-4 font-medium text-purple-400">ID #{p.user_id}</td>
+                  <td className="px-6 py-4">
+                    <div className="text-green-400 font-bold text-base">${p.amount_usd} <span className="text-gray-400 text-xs font-normal">({p.amount_ves} Bs)</span></div>
+                    <div className="text-xs text-gray-400 mt-1">Ref: <span className="font-mono text-white">{p.reference}</span></div>
+                    <div className="text-[10px] text-gray-500 uppercase">{p.bank}</div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4">
                     {p.receipt ? (
-                      <a href={p.receipt} target="_blank" rel="noreferrer" className="text-purple-400 hover:underline text-xs">Ver imagen</a>
-                    ) : "N/A"}
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.status === 'pending' && <span className="text-yellow-400 flex items-center gap-1 text-xs"><Clock size={12}/> Pendiente</span>}
-                    {p.status === 'approved' && <span className="text-green-400 flex items-center gap-1 text-xs"><CheckCircle size={12}/> Aprobado</span>}
-                    {p.status === 'rejected' && <span className="text-red-400 flex items-center gap-1 text-xs"><XCircle size={12}/> Rechazado</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right space-x-2">
-                    <button onClick={() => setSelectedPayment(p)} className="text-gray-400 hover:text-blue-400 p-1" title="Ver Detalles">
-                       <Eye size={18} />
-                    </button>
-                    {p.status === 'pending' && (
-                      <>
-                        <button onClick={() => handleAction(p.id, 'verify')} className="text-gray-400 hover:text-green-400 p-1" title="Aprobar">
-                          <CheckCircle size={18} />
-                        </button>
-                        <button onClick={() => handleAction(p.id, 'reject')} className="text-gray-400 hover:text-red-400 p-1" title="Rechazar">
-                          <XCircle size={18} />
-                        </button>
-                      </>
+                      <button onClick={() => setSelectedPayment(p)} className="flex items-center gap-1 text-purple-400 hover:text-purple-300 transition-colors text-xs font-medium bg-purple-500/10 px-3 py-1.5 rounded-lg border border-purple-500/20">
+                        <Eye size={14}/> Ver Capture
+                      </button>
+                    ) : (
+                      <span className="text-gray-600 text-xs italic">Sin imagen</span>
                     )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {p.status === 'pending' && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-yellow-500/10 text-yellow-500 border border-yellow-500/20"><Clock size={12}/> Pendiente</span>}
+                    {p.status === 'approved' && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-500/10 text-green-400 border border-green-500/20"><CheckCircle size={12}/> Aprobado</span>}
+                    {p.status === 'rejected' && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20"><XCircle size={12}/> Rechazado</span>}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button onClick={() => setSelectedPayment(p)} className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                      Gestionar
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -98,6 +101,7 @@ export default function AdminPayments() {
           </table>
         </div>
       </div>
+      
       {selectedPayment && (
         <PaymentDetailModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} onAction={handleAction} />
       )}
