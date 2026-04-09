@@ -47,6 +47,13 @@ func Connect() {
 		&models.Report{},
 		&models.Follow{},
 		&models.Interest{},
+		&models.Subscription{},
+		&models.Boost{},
+		&models.Transaction{},
+		&models.PaymentReport{},
+		&models.AdminLog{},
+		&models.Setting{},
+
 	)
 
 	DB = db
