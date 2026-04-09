@@ -91,21 +91,37 @@ func Setup(app *fiber.App) {
 
 	admin.Get("/stats", controllers.GetDashboardStats)
 
-	// ✅ Gestión de Usuarios
+	// Gestión de Usuarios
 	admin.Get("/users/suspended", controllers.GetSuspendedUsersAdmin)
 	admin.Get("/users/deleted", controllers.GetDeletedUsersAdmin)
 	admin.Get("/users", controllers.GetAllUsersAdmin)
 
 	admin.Put("/users/:id/suspend", controllers.SuspendUser)
-	admin.Put("/users/:id/restore", controllers.RestoreDeletedUser) // Saca de la papelera
+	admin.Put("/users/:id/restore", controllers.RestoreDeletedUser)
 
+	// Pagos y VIP
 	admin.Get("/payments", controllers.GetAllPaymentsAdmin)
 	admin.Put("/payments/:id/verify", controllers.VerifyPayment)
-
 	admin.Get("/vip-users", controllers.GetVipUsersAdmin)
 	admin.Put("/users/:id/vip/revoke", controllers.RevokeVIP)
 	admin.Put("/users/:id/vip/extend", controllers.ExtendVIP)
 	admin.Put("/users/:id/vip/grant", controllers.GrantVIPManual)
+
+	// ✅ MODERACIÓN (Nuevas Rutas)
+	admin.Get("/moderation/messages", controllers.GetAllMessagesAdmin)
+	admin.Delete("/moderation/messages/:id", controllers.DeleteMessageAdmin)
+
+	admin.Get("/moderation/matches", controllers.GetAllMatchesAdmin)
+	admin.Delete("/moderation/matches/:id", controllers.DeleteMatchAdmin)
+
+	admin.Get("/moderation/posts", controllers.GetAllPostsAdmin)
+	admin.Delete("/moderation/posts/:id", controllers.DeletePostAdmin)
+
+	admin.Get("/moderation/comments", controllers.GetAllCommentsAdmin)
+	admin.Delete("/moderation/comments/:id", controllers.DeleteCommentAdmin)
+
+	admin.Get("/moderation/media", controllers.GetAllMediaAdmin)
+	admin.Get("/moderation/flagged", controllers.GetFlaggedContentAdmin)
 
 	admin.Get("/logs", controllers.GetAdminLogs)
 	admin.Get("/settings", controllers.GetSystemSettings)
