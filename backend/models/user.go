@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// StringArray permite manejar []string como JSON en la BD para evitar errores de Scan
 type StringArray []string
 
 func (a StringArray) Value() (driver.Value, error) {
@@ -46,18 +45,24 @@ type User struct {
 	Photo  string      `json:"photo"`
 	Photos StringArray `gorm:"type:text" json:"photos"`
 
-	// ✅ AÑADIDO: Campo para guardar los filtros de búsqueda en la BD
 	Preferences string `gorm:"type:text" json:"preferences"`
 
-	// Relaciones
 	Interests     []Interest `gorm:"many2many:user_interests;" json:"-"`
 	InterestsList []string   `gorm:"-" json:"interests"`
 
 	FollowersCount int `gorm:"default:0" json:"followers_count"`
 	FollowingCount int `gorm:"default:0" json:"following_count"`
 
-	IsSuspended bool `json:"is_suspended" gorm:"default:false"`
-	Role           string    `json:"role" gorm:"default:'user'"`
+	// ✅ FIX CRÍTICO: Campos de suspensión mejorados
+	IsSuspended      bool       `json:"is_suspended" gorm:"default:false"`
+	SuspendedUntil   *time.Time `json:"suspended_until"`
+	SuspensionReason string     `json:"suspension_reason"`
+
+	// Roles: 'user', 'vip', 'admin', 'moderator', 'support', 'superadmin'
+	Role             string `json:"role" gorm:"default:'user'"`
+	TwoFactorEnabled bool   `json:"two_factor_enabled" gorm:"default:false"`
+	TwoFactorSecret  string `json:"-"`
+
 	IsPrime        bool      `json:"is_prime" gorm:"default:false"`
 	PrimeExpiresAt time.Time `json:"prime_expires_at"`
 	IsBoosted      bool      `json:"is_boosted" gorm:"default:false"`

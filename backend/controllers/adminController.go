@@ -9,7 +9,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// ✅ Obtiene las métricas generales y reales para el Dashboard
+// LogAdminAction is a helper function to record admin activities
+func LogAdminAction(adminID uint, action string, targetID *uint, details string) {
+	log := models.AdminLog{
+		AdminID:   adminID,
+		Action:    action,
+		TargetID:  targetID,
+		Details:   details,
+		CreatedAt: time.Now(),
+	}
+	database.DB.Create(&log)
+}
+
 func GetDashboardStats(c *fiber.Ctx) error {
 	var totalUsers int64
 	var totalMatches int64
@@ -21,16 +32,14 @@ func GetDashboardStats(c *fiber.Ctx) error {
 	database.DB.Model(&models.Match{}).Count(&totalMatches)
 	database.DB.Model(&models.Post{}).Count(&totalPosts)
 	database.DB.Model(&models.User{}).Where("is_prime = ?", true).Count(&primeUsers)
-	database.DB.Model(&models.PaymentReport{}).Count(&totalPayments)
+	database.DB.Model(&models.PaymentReport{}).Where("status = ?", "pending").Count(&totalPayments)
 
-	// Datos reales de crecimiento de usuarios en los últimos 7 días
 	type DailyGrowth struct {
 		Date  string `json:"name"`
 		Users int64  `json:"users"`
 	}
 	var growth []DailyGrowth
 
-	// Consulta SQL nativa para PostgreSQL para agrupar usuarios creados por día
 	database.DB.Raw(`
 		SELECT TO_CHAR(DATE_TRUNC('day', created_at), 'Dy') as date, COUNT(*) as users
 		FROM users
@@ -39,7 +48,6 @@ func GetDashboardStats(c *fiber.Ctx) error {
 		ORDER BY DATE_TRUNC('day', created_at) ASC
 	`).Scan(&growth)
 
-	// Si no hay crecimiento reciente, evitamos que el gráfico explote
 	if len(growth) == 0 {
 		growth = []DailyGrowth{{Date: "Hoy", Users: 0}}
 	}
@@ -54,19 +62,14 @@ func GetDashboardStats(c *fiber.Ctx) error {
 	})
 }
 
-// ✅ Obtiene la lista completa de usuarios para la tabla de administración sin omitir datos
 func GetAllUsersAdmin(c *fiber.Ctx) error {
 	var users []models.User
-
-	// Pagination setup
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
 	offset := (page - 1) * limit
-
 	search := c.Query("search", "")
 
 	query := database.DB.Model(&models.User{})
-
 	if search != "" {
 		query = query.Where("name ILIKE ? OR username ILIKE ? OR id::text = ?", "%"+search+"%", "%"+search+"%", search)
 	}
@@ -74,7 +77,6 @@ func GetAllUsersAdmin(c *fiber.Ctx) error {
 	var total int64
 	query.Count(&total)
 
-	// Preload Interests para enviar toda la data sin restricciones de Select
 	if err := query.Preload("Interests").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al obtener usuarios"})
 	}
@@ -87,55 +89,178 @@ func GetAllUsersAdmin(c *fiber.Ctx) error {
 	})
 }
 
-// ✅ Permite cambiar el rol a un usuario (Ej. de user a admin) o banearlo
-func UpdateUserRole(c *fiber.Ctx) error {
-	userId := c.Params("id")
+// ✅ FIX CRÍTICO: Nueva lógica de Suspensión con Tiempo y Razón
+func SuspendUser(c *fiber.Ctx) error {
+	userID := c.Params("id")
+	adminID := uint(c.Locals("userId").(float64))
+	adminRole := c.Locals("userRole").(string)
 
 	var payload struct {
-		Role string `json:"role"`
+		IsSuspended bool   `json:"is_suspended"`
+		Days        int    `json:"days"` // 0 = Permanent
+		Reason      string `json:"reason"`
 	}
 
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
-	if payload.Role != "user" && payload.Role != "admin" && payload.Role != "banned" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Rol no válido"})
+	var targetUser models.User
+	if err := database.DB.First(&targetUser, userID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	if err := database.DB.Model(&models.User{}).Where("id = ?", userId).Update("role", payload.Role).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo actualizar el rol"})
+	// Protección: Un moderador o admin no puede suspender a un SuperAdmin
+	if targetUser.Role == "superadmin" && adminRole != "superadmin" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "No puedes suspender a un SuperAdministrador."})
 	}
 
-	return c.JSON(fiber.Map{"message": "Rol actualizado con éxito"})
+	updates := map[string]interface{}{}
+	action := "restore_user"
+	details := "Suspensión levantada manualmente."
+
+	if payload.IsSuspended {
+		updates["is_suspended"] = true
+		updates["suspension_reason"] = payload.Reason
+		action = "suspend_user"
+		details = "Suspendido por: " + payload.Reason
+
+		if payload.Days > 0 {
+			expiry := time.Now().AddDate(0, 0, payload.Days)
+			updates["suspended_until"] = expiry
+			details += " (Hasta " + expiry.Format("02/01/2006") + ")"
+		} else {
+			updates["suspended_until"] = nil // Permanente
+			details += " (PERMANENTE)"
+		}
+	} else {
+		updates["is_suspended"] = false
+		updates["suspended_until"] = nil
+		updates["suspension_reason"] = ""
+	}
+
+	if err := database.DB.Model(&targetUser).Updates(updates).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al aplicar suspensión"})
+	}
+
+	LogAdminAction(adminID, action, &targetUser.ID, details)
+	return c.JSON(fiber.Map{"message": "Estado de cuenta actualizado correctamente."})
 }
 
-// LogAdminAction is a helper function to record admin activities
-func LogAdminAction(adminID uint, action string, targetID *uint, details string) {
-	log := models.AdminLog{
-		AdminID:   adminID,
-		Action:    action,
-		TargetID:  targetID,
-		Details:   details,
-		CreatedAt: time.Now(),
+// ✅ FIX CRÍTICO: Solicitudes de Administración (Reemplaza la asignación directa)
+func RequestAdminRole(c *fiber.Ctx) error {
+	userID := uint(c.Locals("userId").(float64))
+	var payload struct {
+		Role   string `json:"role"`
+		Reason string `json:"reason"`
 	}
-	database.DB.Create(&log)
+
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	if payload.Role != "admin" && payload.Role != "moderator" && payload.Role != "support" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Rol solicitado no es válido"})
+	}
+
+	req := models.AdminRequest{
+		UserID:        userID,
+		RequestedRole: payload.Role,
+		Reason:        payload.Reason,
+		Status:        "pending",
+		CreatedAt:     time.Now(),
+	}
+
+	if err := database.DB.Create(&req).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al procesar la solicitud"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Solicitud enviada a los SuperAdministradores. Pendiente de aprobación."})
 }
 
+func GetAdminRequests(c *fiber.Ctx) error {
+	var requests []models.AdminRequest
+	if err := database.DB.Preload("User").Where("status = ?", "pending").Order("created_at desc").Find(&requests).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error obteniendo solicitudes"})
+	}
+	return c.JSON(requests)
+}
+
+func ProcessAdminRequest(c *fiber.Ctx) error {
+	reqID := c.Params("id")
+	superAdminID := uint(c.Locals("userId").(float64))
+
+	var payload struct {
+		Action string `json:"action"` // approve, deny
+		Reason string `json:"reason"`
+	}
+
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	var req models.AdminRequest
+	if err := database.DB.First(&req, reqID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Solicitud no encontrada"})
+	}
+
+	if payload.Action == "approve" {
+		req.Status = "approved"
+		req.ApprovedByID = &superAdminID
+		// Otorgar el rol
+		database.DB.Model(&models.User{}).Where("id = ?", req.UserID).Update("role", req.RequestedRole)
+		LogAdminAction(superAdminID, "grant_admin_role", &req.UserID, "Rol otorgado: "+req.RequestedRole)
+	} else {
+		req.Status = "denied"
+		req.DeniedReason = payload.Reason
+		LogAdminAction(superAdminID, "deny_admin_role", &req.UserID, "Denegado por: "+payload.Reason)
+	}
+
+	database.DB.Save(&req)
+	return c.JSON(fiber.Map{"message": "Solicitud procesada con éxito"})
+}
+
+// Obtener la lista del staff
+func GetAdminStaff(c *fiber.Ctx) error {
+	var staff []models.User
+	roles := []string{"superadmin", "admin", "moderator", "support"}
+	if err := database.DB.Where("role IN ?", roles).Select("id, name, username, email, role, is_suspended").Find(&staff).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error obteniendo staff"})
+	}
+	return c.JSON(staff)
+}
+
+// Revocar rol administratvo (Solo Superadmin)
+func RevokeAdminRole(c *fiber.Ctx) error {
+	targetID := c.Params("id")
+	superAdminID := uint(c.Locals("userId").(float64))
+
+	var targetUser models.User
+	if err := database.DB.First(&targetUser, targetID).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Usuario no encontrado"})
+	}
+
+	if targetUser.Role == "superadmin" {
+		var count int64
+		database.DB.Model(&models.User{}).Where("role = ?", "superadmin").Count(&count)
+		if count <= 1 {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "No puedes degradar al último SuperAdministrador del sistema."})
+		}
+	}
+
+	database.DB.Model(&targetUser).Update("role", "user")
+	LogAdminAction(superAdminID, "revoke_admin_role", &targetUser.ID, "Rol administrativo revocado")
+
+	return c.JSON(fiber.Map{"message": "Privilegios revocados exitosamente"})
+}
+
+// RESTO DE FUNCIONES (Pagos, Configuración, Logs)
 func GetAllPaymentsAdmin(c *fiber.Ctx) error {
 	var payments []models.PaymentReport
 	if err := database.DB.Order("created_at desc").Find(&payments).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al obtener pagos"})
 	}
 	return c.JSON(payments)
-}
-
-func GetAdminLogs(c *fiber.Ctx) error {
-	var logs []models.AdminLog
-	if err := database.DB.Preload("Admin").Order("created_at desc").Limit(50).Find(&logs).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al obtener registros"})
-	}
-	return c.JSON(logs)
 }
 
 func VerifyPayment(c *fiber.Ctx) error {
@@ -148,8 +273,8 @@ func VerifyPayment(c *fiber.Ctx) error {
 	}
 
 	var payload struct {
-		Action   string `json:"action"`    // "verify" or "reject"
-		GrantVIP bool   `json:"grant_vip"` // ✅ Añadido para forzar VIP desde el panel
+		Action   string `json:"action"`
+		GrantVIP bool   `json:"grant_vip"`
 	}
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
@@ -158,7 +283,6 @@ func VerifyPayment(c *fiber.Ctx) error {
 	if payload.Action == "verify" {
 		payment.Status = "approved"
 
-		// Si es un producto VIP o el Admin marcó la casilla manualmente
 		if payment.ItemType == "vip" || payment.ItemType == "prime" || payload.GrantVIP {
 			database.DB.Model(&models.User{}).Where("id = ?", payment.UserID).Updates(map[string]interface{}{
 				"is_prime":         true,
@@ -174,108 +298,24 @@ func VerifyPayment(c *fiber.Ctx) error {
 				CreatedAt: time.Now(),
 			})
 		}
-
 	} else if payload.Action == "reject" {
 		payment.Status = "rejected"
 	} else if payload.Action == "pending" {
 		payment.Status = "pending"
-	} else {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Acción inválida"})
 	}
 
-	if err := database.DB.Save(&payment).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al guardar el estado del pago"})
-	}
-
+	database.DB.Save(&payment)
 	var targetID = payment.ID
 	LogAdminAction(adminID, "update_payment_status", &targetID, "Status changed to "+payment.Status)
-
 	return c.JSON(fiber.Map{"message": "Estado de pago actualizado"})
 }
 
-func SuspendUser(c *fiber.Ctx) error {
-	userID := c.Params("id")
-	adminID := uint(c.Locals("userId").(float64))
-
-	var payload struct {
-		IsSuspended bool `json:"is_suspended"`
+func GetAdminLogs(c *fiber.Ctx) error {
+	var logs []models.AdminLog
+	if err := database.DB.Order("created_at desc").Limit(100).Find(&logs).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error al obtener registros"})
 	}
-
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
-	}
-
-	if err := database.DB.Model(&models.User{}).Where("id = ?", userID).Update("is_suspended", payload.IsSuspended).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo actualizar la suspensión del usuario"})
-	}
-
-	var user models.User
-	database.DB.First(&user, userID)
-
-	action := "suspend_user"
-	if !payload.IsSuspended {
-		action = "restore_user"
-	}
-
-	var targetID = user.ID
-	LogAdminAction(adminID, action, &targetID, "User ID "+userID)
-
-	return c.JSON(fiber.Map{"message": "Estado de usuario actualizado"})
-}
-
-func RevokeVIP(c *fiber.Ctx) error {
-	userID := c.Params("id")
-	adminID := uint(c.Locals("userId").(float64))
-
-	if err := database.DB.Model(&models.User{}).Where("id = ?", userID).Updates(map[string]interface{}{
-		"is_prime":         false,
-		"prime_expires_at": time.Now(),
-	}).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo revocar VIP"})
-	}
-
-	var user models.User
-	database.DB.First(&user, userID)
-	var targetID = user.ID
-	LogAdminAction(adminID, "revoke_vip", &targetID, "User ID "+userID)
-
-	return c.JSON(fiber.Map{"message": "VIP revocado con éxito"})
-}
-
-func ExtendVIP(c *fiber.Ctx) error {
-	userID := c.Params("id")
-	adminID := uint(c.Locals("userId").(float64))
-
-	var payload struct {
-		Days int `json:"days"`
-	}
-
-	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
-	}
-
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Usuario no encontrado"})
-	}
-
-	newExpiry := user.PrimeExpiresAt
-	if time.Now().After(newExpiry) {
-		newExpiry = time.Now()
-	}
-	newExpiry = newExpiry.AddDate(0, 0, payload.Days)
-
-	if err := database.DB.Model(&user).Updates(map[string]interface{}{
-		"is_prime":         true,
-		"prime_expires_at": newExpiry,
-	}).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "No se pudo extender VIP"})
-	}
-
-	var targetID = user.ID
-	LogAdminAction(adminID, "extend_vip", &targetID, "Extended by days")
-
-	return c.JSON(fiber.Map{"message": "VIP extendido con éxito", "new_expiry": newExpiry})
+	return c.JSON(logs)
 }
 
 func DeleteUserAdmin(c *fiber.Ctx) error {
@@ -287,24 +327,23 @@ func DeleteUserAdmin(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	database.DB.Delete(&user) // Soft delete
+	if user.Role == "superadmin" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Acción denegada."})
+	}
 
+	database.DB.Delete(&user)
 	var targetID = user.ID
 	LogAdminAction(adminID, "delete_user", &targetID, "User ID "+userID)
-
 	return c.JSON(fiber.Map{"message": "Usuario eliminado"})
 }
 
 func GetSystemSettings(c *fiber.Ctx) error {
 	var settings []models.Setting
 	database.DB.Find(&settings)
-
-	// Convert to map for easy JSON serialization
 	settingsMap := make(map[string]string)
 	for _, s := range settings {
 		settingsMap[s.Key] = s.Value
 	}
-
 	return c.JSON(settingsMap)
 }
 
@@ -318,7 +357,6 @@ func UpdateSystemSettings(c *fiber.Ctx) error {
 
 	for key, val := range payload {
 		var setting models.Setting
-		// Upsert logic
 		if err := database.DB.First(&setting, "key = ?", key).Error; err != nil {
 			setting = models.Setting{Key: key, Value: val}
 			database.DB.Create(&setting)
@@ -328,7 +366,6 @@ func UpdateSystemSettings(c *fiber.Ctx) error {
 		}
 	}
 
-	LogAdminAction(adminID, "update_settings", nil, "System settings updated")
-
-	return c.JSON(fiber.Map{"message": "Configuraciones actualizadas"})
+	LogAdminAction(adminID, "update_settings", nil, "System settings updated globally")
+	return c.JSON(fiber.Map{"message": "Configuraciones actualizadas en toda la plataforma."})
 }

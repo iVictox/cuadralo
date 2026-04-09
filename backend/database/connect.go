@@ -31,8 +31,7 @@ func Connect() {
 		panic("No se pudo conectar a la base de datos")
 	}
 
-	// Migrar el esquema
-	// ✅ IMPORTANTE: Agregamos StoryView y Notification aquí para que se creen las tablas
+	// Migrar el esquema incluyendo los nuevos modelos del Admin
 	db.AutoMigrate(
 		&models.User{},
 		&models.Match{},
@@ -42,8 +41,8 @@ func Connect() {
 		&models.Comment{},
 		&models.CommentLike{},
 		&models.Story{},
-		&models.StoryView{},    // <-- FALTABA ESTO (Soluciona el error 42P01)
-		&models.Notification{}, // <-- FALTABA ESTO (Para notificaciones de likes/comments)
+		&models.StoryView{},
+		&models.Notification{},
 		&models.Report{},
 		&models.Follow{},
 		&models.Interest{},
@@ -53,18 +52,26 @@ func Connect() {
 		&models.PaymentReport{},
 		&models.AdminLog{},
 		&models.Setting{},
-
+		&models.AdminRequest{},    // NUEVO: Flujo de admins
+		&models.UserActivityLog{}, // NUEVO: Logs de usuarios
 	)
 
 	DB = db
 
-	// Ejecutar el semillero de intereses
 	SeedInterests()
+	EnsureSuperAdminExists() // NUEVO: Garantiza acceso de seguridad
 }
 
-// Función para poblar la base de datos con intereses organizados
+func EnsureSuperAdminExists() {
+	var count int64
+	DB.Model(&models.User{}).Where("role = ?", "superadmin").Count(&count)
+
+	if count == 0 {
+		fmt.Println("⚠️ ALERTA: No existe ningún SuperAdmin en el sistema. Asegúrate de actualizar el rol del usuario principal a 'superadmin' directamente en la base de datos para acceder al panel de seguridad.")
+	}
+}
+
 func SeedInterests() {
-	// Mapa de Categoría -> Lista de Intereses
 	data := map[string][]string{
 		"Deportes":       {"Fútbol", "Gym", "Baloncesto", "Tenis", "Natación", "Ciclismo", "Yoga", "Running", "Crossfit"},
 		"Creatividad":    {"Arte", "Diseño", "Fotografía", "Escritura", "Música", "Baile", "Moda", "Maquillaje", "Arquitectura"},
@@ -76,12 +83,9 @@ func SeedInterests() {
 
 	for category, interests := range data {
 		for _, name := range interests {
-			// Crear Slug (usamos el nombre por ahora)
 			slug := name
-
 			var count int64
 			DB.Model(&models.Interest{}).Where("name = ?", name).Count(&count)
-
 			if count == 0 {
 				interest := models.Interest{
 					Name:     name,
@@ -89,7 +93,6 @@ func SeedInterests() {
 					Category: category,
 				}
 				DB.Create(&interest)
-				fmt.Printf("🌱 Interés creado: %s (%s)\n", name, category)
 			}
 		}
 	}

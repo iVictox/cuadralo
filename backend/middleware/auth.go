@@ -4,77 +4,110 @@ import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
 	"fmt"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func IsAuthenticated(c *fiber.Ctx) error {
-	// 1. Obtener Token de la Cookie o Header
-	tokenString := c.Cookies("jwt")
-
-	if tokenString == "" {
-		// Intentar leer del Header Authorization: Bearer <token>
+func Protected() fiber.Handler {
+	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
-		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
-			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "No autorizado, token faltante"})
 		}
-	}
 
-	if tokenString == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "No autenticado"})
-	}
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("método de firma inesperado")
+			}
+			return []byte(os.Getenv("JWT_SECRET")), nil
+		})
 
-	// 2. Validar Firma del Token
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("método de firma inesperado")
+		if err != nil || !token.Valid {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Token inválido o expirado"})
 		}
-		return []byte("secreto-super-seguro"), nil
-	})
 
-	if err != nil || !token.Valid {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Token inválido"})
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Reclamos del token inválidos"})
+		}
+
+		userIDFloat, ok := claims["id"].(float64)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "ID de usuario inválido en el token"})
+		}
+
+		userID := uint(userIDFloat)
+
+		// ✅ FIX CRÍTICO: Verificación estricta de suspensión a nivel de base de datos
+		var user models.User
+		if err := database.DB.Select("id, is_suspended, suspended_until, suspension_reason").First(&user, userID).Error; err == nil {
+			if user.IsSuspended {
+				// Revisar si la suspensión ya expiró
+				if user.SuspendedUntil != nil && user.SuspendedUntil.Before(time.Now()) {
+					database.DB.Model(&user).Updates(map[string]interface{}{
+						"is_suspended":      false,
+						"suspended_until":   nil,
+						"suspension_reason": "",
+					})
+				} else {
+					// Rechazar el acceso. La cuenta sigue suspendida.
+					msg := "Tu cuenta ha sido suspendida."
+					if user.SuspensionReason != "" {
+						msg += " Razón: " + user.SuspensionReason
+					}
+					if user.SuspendedUntil != nil {
+						msg += fmt.Sprintf(". Expira el: %s", user.SuspendedUntil.Format("02/01/2006 15:04"))
+					}
+					return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+						"error":        msg,
+						"is_suspended": true,
+					})
+				}
+			}
+		}
+
+		c.Locals("userId", userIDFloat)
+		return c.Next()
 	}
-
-	// 3. Extraer ID del Usuario
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Claims inválidos"})
-	}
-
-	userIdFloat, ok := claims["sub"].(float64)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "ID de usuario inválido en token"})
-	}
-	userId := uint(userIdFloat)
-
-	// --- CORRECCIÓN CRÍTICA: Verificar si el usuario existe en la BD ---
-	var user models.User
-	if err := database.DB.First(&user, userId).Error; err != nil {
-		// Si no se encuentra el usuario (fue borrado), invalidamos el acceso
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Usuario no encontrado o eliminado"})
-	}
-	// ------------------------------------------------------------------
-
-	// 4. Guardar ID y Rol en el contexto para usarlos en los controladores
-	c.Locals("userId", userIdFloat) // Mantenemos float64 para compatibilidad con tus controladores actuales
-	c.Locals("userRole", user.Role) // ✅ NUEVO: Guardamos el rol para validarlo en rutas de administrador
-
-	return c.Next()
 }
 
-// ✅ NUEVO: Middleware exclusivo para el panel de control
-func IsAdmin(c *fiber.Ctx) error {
-	role := c.Locals("userRole")
+// Middleware genérico para panel admin (Cualquier nivel de admin)
+func AdminRequired() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userID := uint(c.Locals("userId").(float64))
+		var user models.User
+		if err := database.DB.Select("role").First(&user, userID).Error; err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Usuario no encontrado"})
+		}
 
-	// Si no hay rol o no es admin, bloqueamos con un 403 Forbidden
-	if role == nil || role.(string) != "admin" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Acceso denegado. Privilegios de administrador requeridos.",
-		})
+		validRoles := map[string]bool{"superadmin": true, "admin": true, "moderator": true, "support": true}
+		if !validRoles[user.Role] {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Acceso denegado. Se requieren privilegios de administrador."})
+		}
+
+		c.Locals("userRole", user.Role)
+		return c.Next()
 	}
+}
 
-	return c.Next()
+// Middleware estricto solo para gestión de administradores (SuperAdmin)
+func SuperAdminRequired() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		userID := uint(c.Locals("userId").(float64))
+		var user models.User
+		if err := database.DB.Select("role").First(&user, userID).Error; err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Usuario no encontrado"})
+		}
+
+		if user.Role != "superadmin" {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Zona de alto riesgo. Acceso restringido exclusivamente a SuperAdministradores."})
+		}
+		return c.Next()
+	}
 }
