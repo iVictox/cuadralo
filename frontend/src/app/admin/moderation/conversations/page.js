@@ -177,7 +177,7 @@ export default function AdminConversations() {
               {/* Área de Mensajes */}
               <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-4 bg-gradient-to-b from-[#0b0f19] to-[#05070a]">
                   {loadingChat ? (
-                      <div className="flex justify-center items-center h-full text-purple-500 animate-pulse">Desencriptando historial...</div>
+                      <div className="flex justify-center items-center h-full text-purple-500 animate-pulse font-bold">Desencriptando historial de la base de datos...</div>
                   ) : chatHistory.length === 0 ? (
                       <div className="flex justify-center items-center h-full text-gray-600">No hay mensajes registrados.</div>
                   ) : (
@@ -190,15 +190,21 @@ export default function AdminConversations() {
                                   <span className={`text-[10px] font-bold mb-1 px-1 ${isUser1 ? 'text-purple-400' : 'text-pink-400'}`}>
                                       @{isUser1 ? selectedConv.user1_name : selectedConv.user2_name}
                                   </span>
+                                  
                                   <div className={`max-w-[75%] px-4 py-3 rounded-2xl ${isUser1 ? 'bg-gray-800 text-gray-200 rounded-tl-sm' : 'bg-purple-600 text-white rounded-tr-sm shadow-[0_4px_15px_rgba(147,51,234,0.3)]'}`}>
-                                      {/* Si hay imagen en el mensaje (Depende de tu modelo, asumo msg.image o image_url) */}
-                                      {(msg.image || msg.image_url) && (
-                                          <img src={msg.image || msg.image_url} alt="Adjunto" className="w-full rounded-xl mb-2 max-h-60 object-cover" />
+                                      {/* ✅ FIX: Verificación correcta del tipo de mensaje basado en tu base de datos */}
+                                      {msg.type === 'image' ? (
+                                          <img src={msg.content} alt="Adjunto" className="w-full rounded-xl max-h-64 object-contain bg-black/20" />
+                                      ) : msg.type === 'screenshot_alert' ? (
+                                          <div className="flex items-center gap-2 text-yellow-400 font-bold text-xs"><ShieldAlert size={14}/> {msg.content}</div>
+                                      ) : (
+                                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                                       )}
-                                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                                   </div>
-                                  <span className="text-[9px] text-gray-600 font-mono mt-1 px-1">
+                                  
+                                  <span className="text-[9px] text-gray-600 font-mono mt-1 px-1 flex items-center gap-1">
                                       {new Date(msg.created_at).toLocaleString()}
+                                      {msg.type === 'image' && msg.is_viewed && <span className="text-green-500">(Visto)</span>}
                                   </span>
                               </div>
                           );
