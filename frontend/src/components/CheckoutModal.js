@@ -62,21 +62,23 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
       };
   }, []);
 
+  // ✅ Extrae y utiliza LA TASA EXACTA almacenada por el administrador en la base de datos
   useEffect(() => {
       const fetchRate = async () => {
           try {
               const res = await api.get("/premium/rate");
-              if (res.rate) {
+              if (res.rate && res.price) {
                   setBcvRate(res.rate);
+                  // Usamos el product.price (que ya viene de la BD) multiplicado por la tasa
                   setAmountVES((product.price * res.rate).toFixed(2));
               } else {
-                  throw new Error("Tasa no recibida");
+                  throw new Error("Configuración incompleta");
               }
           } catch (error) {
-              console.error("Fallo obteniendo la tasa del servidor:", error);
-              const emergencyRate = 512.22; 
-              setBcvRate(emergencyRate); 
-              setAmountVES((product.price * emergencyRate).toFixed(2));
+              console.error("Fallo obteniendo la configuración:", error);
+              const fallbackRate = 45.00; // Fallback Euro aprox
+              setBcvRate(fallbackRate); 
+              setAmountVES((product.price * fallbackRate).toFixed(2));
           }
       };
       fetchRate();
@@ -102,7 +104,7 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
 
           await api.post("/premium/report-payment", {
               item_type: product.id,
-              amount_usd: product.price,
+              amount_usd: product.price, // Registramos en DB (funciona lógicamente como EUROS)
               amount_ves: parseFloat(amountVES),
               rate: bcvRate,
               reference: formData.reference,
@@ -129,7 +131,6 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
         transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
         className="relative w-full max-w-5xl h-[95vh] md:h-[90vh] bg-white rounded-t-[2rem] md:rounded-[2.5rem] overflow-hidden shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.5)] md:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] text-zinc-900 flex flex-col"
       >
-        {/* Header Superior */}
         <div className="bg-white border-b border-zinc-100 p-4 sm:p-5 flex items-center justify-between shrink-0 z-10 relative">
             <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-zinc-50 rounded-xl flex items-center justify-center text-zinc-800 shadow-sm border border-zinc-200">
@@ -147,17 +148,12 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
             </button>
         </div>
 
-        {/* ✅ SOLUCIÓN AL SCROLLBAR: Se añadió 'overflow-x-hidden' al contenedor principal */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-white relative">
             <AnimatePresence mode="wait">
                 
-                {/* =========================================
-                    PASO 1: RESUMEN DE COMPRA
-                ============================================= */}
                 {step === 1 && (
                     <motion.div key="step1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex flex-col md:flex-row min-h-full">
                         
-                        {/* Columna Izquierda */}
                         <div className="w-full md:w-5/12 bg-zinc-50/50 p-6 sm:p-10 flex flex-col border-b md:border-b-0 md:border-r border-zinc-100">
                             <span className="text-[10px] sm:text-xs font-black text-zinc-400 uppercase tracking-widest mb-4 block">Estás comprando</span>
                             
@@ -191,15 +187,14 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
                             </div>
                         </div>
 
-                        {/* Columna Derecha */}
                         <div className="w-full md:w-7/12 bg-white p-6 sm:p-10 flex flex-col relative">
                             <h4 className="text-xl sm:text-2xl font-black text-zinc-900 mb-6">Resumen del Pago</h4>
 
-                            {/* Ticket de Pago */}
                             <div className="bg-zinc-50 rounded-3xl p-6 sm:p-8 border border-zinc-200 mb-8">
                                 <div className="flex justify-between items-center mb-4">
                                     <span className="text-zinc-600 text-sm sm:text-base font-bold">Subtotal ({product.name})</span>
-                                    <span className="text-lg sm:text-xl font-black text-zinc-900">${product.price.toFixed(2)} USD</span>
+                                    {/* ✅ Símbolo de Euros */}
+                                    <span className="text-lg sm:text-xl font-black text-zinc-900">€{product.price.toFixed(2)} EUR</span>
                                 </div>
                                 <div className="flex justify-between items-center pb-4 sm:pb-6 border-b border-zinc-200 border-dashed">
                                     <span className="text-zinc-500 text-xs sm:text-sm font-semibold flex items-center gap-2">
@@ -223,7 +218,6 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
                                 </div>
                             </div>
 
-                            {/* Selector de Pago */}
                             <div>
                                 <span className="text-[10px] sm:text-xs font-black text-zinc-400 uppercase tracking-widest mb-3 block">Selecciona tu método</span>
                                 <button 
@@ -245,7 +239,6 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
                                 </button>
                             </div>
 
-                            {/* Enlaces Legales */}
                             <div className="mt-8 pt-8 flex flex-col items-center justify-center text-center">
                                 <p className="text-[10px] sm:text-xs font-semibold text-zinc-400 mb-3">
                                     Al procesar el pago, aceptas nuestras políticas de seguridad.
@@ -262,9 +255,6 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
                     </motion.div>
                 )}
 
-                {/* =========================================
-                    PASO 2: FORMULARIO DE PAGO MÓVIL
-                ============================================= */}
                 {step === 2 && (
                     <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="p-6 sm:p-10">
                         <div className="flex items-center gap-4 mb-8">
@@ -275,16 +265,12 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-                            
-                            {/* Info del Banco */}
                             <div>
                                 <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-6 sm:p-10 relative h-full shadow-sm">
-                                    
                                     <div className="flex items-center gap-2 mb-6 sm:mb-8 text-zinc-800 border-b border-zinc-200 pb-4 sm:pb-5">
                                         <Info size={20} strokeWidth={2.5} />
                                         <span className="text-xs sm:text-sm font-black uppercase tracking-widest">Datos de Transferencia</span>
                                     </div>
-                                    
                                     <div className="space-y-6 sm:space-y-8">
                                         <div><span className="text-zinc-500 block text-xs sm:text-sm font-black uppercase tracking-widest mb-1">Banco</span><span className="text-xl sm:text-2xl font-black text-zinc-900">{MY_BANK_DETAILS.bank}</span></div>
                                         <div><span className="text-zinc-500 block text-xs sm:text-sm font-black uppercase tracking-widest mb-1">Teléfono</span><span className="text-xl sm:text-2xl font-black text-zinc-900">{MY_BANK_DETAILS.phone}</span></div>
@@ -297,7 +283,6 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
                                 </div>
                             </div>
 
-                            {/* Formulario */}
                             <div className="space-y-5 sm:space-y-6">
                                 <div>
                                     <label className="text-[10px] sm:text-xs font-black text-zinc-600 uppercase tracking-widest mb-2 block">Banco Emisor</label>
@@ -364,9 +349,6 @@ export default function CheckoutModal({ product, onClose, onSuccess }) {
                     </motion.div>
                 )}
 
-                {/* =========================================
-                    PASO 3: ÉXITO
-                ============================================= */}
                 {step === 3 && (
                     <motion.div key="step3" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-20 px-6 text-center h-full">
                         <div className="relative mb-8">

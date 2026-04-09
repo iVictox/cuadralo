@@ -1,25 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Crown, Eye, Infinity as InfinityIcon, RotateCcw, Zap, MessageCircle, Check } from "lucide-react";
+import { X, Crown, Eye, Infinity as InfinityIcon, RotateCcw, Zap, MessageCircle, Check, Loader2 } from "lucide-react";
 import CheckoutModal from "@/components/CheckoutModal"; 
+import { api } from "@/utils/api";
 
 export default function PrimeModal({ onClose }) {
   const [showCheckout, setShowCheckout] = useState(false);
+  const [vipPrice, setVipPrice] = useState(null); // Empezamos en null para mostrar el loader
+  const [loading, setLoading] = useState(true);
+
+  // ✅ Extrae el precio exacto guardado por el Admin en Base de Datos
+  useEffect(() => {
+    const fetchConfig = async () => {
+        try {
+            const res = await api.get("/premium/rate");
+            if (res.price) {
+                setVipPrice(res.price);
+            } else {
+                setVipPrice(4.99); // Fallback
+            }
+        } catch (error) {
+            console.error("Error obteniendo precio:", error);
+            setVipPrice(4.99);
+        } finally {
+            setLoading(false);
+        }
+    };
+    fetchConfig();
+  }, []);
 
   const vipProduct = {
       id: "vip",
       name: "Cuadralo VIP",
       desc: "Suscripción mensual (Pase de Acceso Total)",
-      price: 4.99,
+      price: vipPrice,
       type: "subscription"
   };
 
   return (
     <>
-      {/* ✅ CORRECCIÓN: El modal VIP ya NO se oculta violentamente. 
-          Permanece de fondo para evitar que Framer Motion se congele. */}
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all duration-300">
         <motion.div 
           initial={{ opacity: 0, y: 30, scale: 0.95 }}
@@ -73,16 +94,21 @@ export default function PrimeModal({ onClose }) {
               <div className="flex justify-between items-end mb-5 px-2">
                   <span className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Total mensual</span>
                   <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-black text-white">${vipProduct.price}</span>
+                      {loading ? (
+                          <Loader2 className="animate-spin text-yellow-500 mb-1" size={24} />
+                      ) : (
+                          <span className="text-4xl font-black text-white">€{vipProduct.price}</span>
+                      )}
                       <span className="text-gray-500 text-xs font-bold uppercase">/ mes</span>
                   </div>
               </div>
 
               <button 
                   onClick={() => setShowCheckout(true)}
-                  className="w-full py-4 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-black uppercase tracking-widest text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-[0_5px_20px_-5px_rgba(234,179,8,0.4)]"
+                  disabled={loading}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-black uppercase tracking-widest text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-[0_5px_20px_-5px_rgba(234,179,8,0.4)] disabled:opacity-50 disabled:hover:scale-100"
               >
-                  Continuar al Pago
+                  {loading ? "Cargando..." : "Continuar al Pago"}
               </button>
               <p className="text-center text-[10px] text-gray-600 mt-4 font-medium uppercase tracking-wider">
                   Cancela cuando quieras
@@ -91,7 +117,6 @@ export default function PrimeModal({ onClose }) {
         </motion.div>
       </div>
 
-      {/* ✅ CORRECCIÓN: El Checkout ahora maneja onClose (Cancelar/Volver a VIP) y onSuccess (Cerrar TODO) de manera independiente */}
       <AnimatePresence>
           {showCheckout && (
               <CheckoutModal 

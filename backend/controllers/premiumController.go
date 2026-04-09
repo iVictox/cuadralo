@@ -3,14 +3,12 @@ package controllers
 import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
-	"encoding/json"
-	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-// GetMyPlan: Obtener estado actual de mi suscripción, inventarios y destellos activos
 func GetMyPlan(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	var user models.User
@@ -18,13 +16,11 @@ func GetMyPlan(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	// 1. Verificar si expiró Prime
 	if user.IsPrime && time.Now().After(user.PrimeExpiresAt) {
 		user.IsPrime = false
 		database.DB.Save(&user)
 	}
 
-	// 2. Verificar si expiró el Destello actual
 	if user.IsBoosted && time.Now().After(user.BoostExpiresAt) {
 		user.IsBoosted = false
 		database.DB.Save(&user)
@@ -40,7 +36,6 @@ func GetMyPlan(c *fiber.Ctx) error {
 	})
 }
 
-// BuyPrime: Comprar Suscripción "Cuadralo Prime" ($4.99/mes)
 func BuyPrime(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	var user models.User
@@ -55,24 +50,20 @@ func BuyPrime(c *fiber.Ctx) error {
 		user.PrimeExpiresAt = time.Now().Add(30 * 24 * time.Hour)
 	}
 
-	// ✅ FASE 2: Bono Mensual Prime (1 Destello y 3 Rompehielos)
 	user.BoostsCount += 1
 	user.RompehielosCount += 3
-
 	database.DB.Save(&user)
 
 	return c.JSON(fiber.Map{
-		"message": "¡Bienvenido a Cuadralo Prime! Disfruta de tus bonos mensuales.",
+		"message": "¡Bienvenido a Cuadralo VIP! Disfruta de tus bonos mensuales.",
 		"user":    user,
 	})
 }
 
-// BuyBoost: Comprar Paquetes de Destellos (Suma al inventario)
 func BuyBoost(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
-
 	var data struct {
-		Amount int `json:"amount"` // 1, 5, o 10
+		Amount int `json:"amount"`
 	}
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
@@ -87,7 +78,6 @@ func BuyBoost(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	// ✅ Agregamos los destellos al inventario (No se activan todavía)
 	user.BoostsCount += data.Amount
 	database.DB.Save(&user)
 
@@ -97,12 +87,10 @@ func BuyBoost(c *fiber.Ctx) error {
 	})
 }
 
-// BuyRompehielos: Comprar Paquetes de Rompehielos (Suma al inventario)
 func BuyRompehielos(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
-
 	var data struct {
-		Amount int `json:"amount"` // 1, 5, o 15
+		Amount int `json:"amount"`
 	}
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
@@ -117,7 +105,6 @@ func BuyRompehielos(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
 	}
 
-	// Agregamos al inventario
 	user.RompehielosCount += data.Amount
 	database.DB.Save(&user)
 
@@ -127,10 +114,8 @@ func BuyRompehielos(c *fiber.Ctx) error {
 	})
 }
 
-// ✅ FASE 2: Activar Destello (Gastar del inventario)
 func ActivateBoost(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
-
 	var user models.User
 	if err := database.DB.First(&user, userId).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
@@ -144,7 +129,6 @@ func ActivateBoost(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Ya tienes un destello activo."})
 	}
 
-	// Restamos del inventario y activamos por 30 minutos
 	user.BoostsCount -= 1
 	user.IsBoosted = true
 	user.BoostExpiresAt = time.Now().Add(30 * time.Minute)
@@ -157,10 +141,9 @@ func ActivateBoost(c *fiber.Ctx) error {
 	})
 }
 
-// Estructura para recibir los datos del frontend
 type PaymentReportInput struct {
 	ItemType  string  `json:"item_type"`
-	AmountUSD float64 `json:"amount_usd"`
+	AmountUSD float64 `json:"amount_usd"` // Usado en la BD, pero lógicamente representa EUROS
 	AmountVES float64 `json:"amount_ves"`
 	Rate      float64 `json:"rate"`
 	Reference string  `json:"reference"`
@@ -169,16 +152,13 @@ type PaymentReportInput struct {
 	Receipt   string  `json:"receipt"`
 }
 
-// ✅ NUEVO: Endpoint para recibir el reporte de pago
 func ReportPayment(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
-
 	var input PaymentReportInput
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
-	// Validar que se enviaron los datos clave
 	if input.Reference == "" || input.Receipt == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "La referencia y el comprobante son obligatorios"})
 	}
@@ -193,7 +173,7 @@ func ReportPayment(c *fiber.Ctx) error {
 		Bank:      input.Bank,
 		Phone:     input.Phone,
 		Receipt:   input.Receipt,
-		Status:    "pending", // El pago queda pendiente de aprobación por el Admin
+		Status:    "pending",
 		CreatedAt: time.Now(),
 	}
 
@@ -206,43 +186,37 @@ func ReportPayment(c *fiber.Ctx) error {
 	})
 }
 
-// ✅ NUEVA FUNCIÓN ULTRA ROBUSTA: Múltiples APIs de respaldo para el EURO BCV
+// ✅ FIX: Ahora la App consume la configuración EXACTA guardada por el Admin
 func GetExchangeRate(c *fiber.Ctx) error {
-	fallbackRate := 512.22
+	var settings []models.Setting
+	database.DB.Where("key IN ?", []string{"vip_price_eur", "vip_price_usd", "bs_exchange_rate"}).Find(&settings)
 
-	// --- Intento 1: DolarAPI (Endpoint específico de Euros Oficiales BCV) ---
-	// Es la más rápida, estable y no requiere parseo complejo
-	resp1, err1 := http.Get("https://ve.dolarapi.com/v1/euros/oficial")
-	if err1 == nil && resp1.StatusCode == 200 {
-		defer resp1.Body.Close()
-		var data struct {
-			Promedio float64 `json:"promedio"`
-		}
-		if err := json.NewDecoder(resp1.Body).Decode(&data); err == nil && data.Promedio > 0 {
-			return c.JSON(fiber.Map{"rate": data.Promedio})
-		}
-	}
+	var price float64 = 4.99 // Fallback
+	var rate float64 = 45.00 // Fallback
+	var foundEurPrice bool = false
 
-	// --- Intento 2: PyDolarVenezuela (Respaldo) ---
-	resp2, err2 := http.Get("https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv")
-	if err2 == nil && resp2.StatusCode == 200 {
-		defer resp2.Body.Close()
-		var result map[string]interface{}
-		if err := json.NewDecoder(resp2.Body).Decode(&result); err == nil {
-			if monitors, ok := result["monitors"].(map[string]interface{}); ok {
-				// Buscamos la clave del euro dinámicamente ("eur" o "euro")
-				for _, key := range []string{"eur", "euro"} {
-					if currency, ok := monitors[key].(map[string]interface{}); ok {
-						if price, ok := currency["price"].(float64); ok && price > 0 {
-							return c.JSON(fiber.Map{"rate": price})
-						}
-					}
-				}
+	for _, s := range settings {
+		if s.Key == "vip_price_eur" {
+			if val, err := strconv.ParseFloat(s.Value, 64); err == nil {
+				price = val
+				foundEurPrice = true
+			}
+		}
+		// Compatibilidad hacia atrás si solo guardó en USD antes
+		if s.Key == "vip_price_usd" && !foundEurPrice {
+			if val, err := strconv.ParseFloat(s.Value, 64); err == nil {
+				price = val
+			}
+		}
+		if s.Key == "bs_exchange_rate" {
+			if val, err := strconv.ParseFloat(s.Value, 64); err == nil {
+				rate = val
 			}
 		}
 	}
 
-	// --- Intento 3: Tasa de Emergencia ---
-	// Si ambas APIs están caídas o el servidor no tiene salida a internet, usamos esta
-	return c.JSON(fiber.Map{"rate": fallbackRate})
+	return c.JSON(fiber.Map{
+		"rate":  rate,
+		"price": price,
+	})
 }
