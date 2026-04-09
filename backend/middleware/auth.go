@@ -12,8 +12,16 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// ✅ FIX CRÍTICO: Función unificada para garantizar la misma firma en toda la app
+func getJWTSecret() string {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return "secreto-super-seguro"
+	}
+	return secret
+}
+
 func IsAuthenticated(c *fiber.Ctx) error {
-	// 1. Obtener Token de la Cookie o Header
 	tokenString := c.Cookies("jwt")
 
 	if tokenString == "" {
@@ -27,31 +35,24 @@ func IsAuthenticated(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "No autenticado"})
 	}
 
-	// 2. Validar Firma del Token (Soporta env o el secreto en duro)
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "secreto-super-seguro"
-	}
-
+	// Parsing seguro con la misma firma del controlador
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("método de firma inesperado")
 		}
-		return []byte(secret), nil
+		return []byte(getJWTSecret()), nil
 	})
 
 	if err != nil || !token.Valid {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Token inválido"})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Token inválido o expirado"})
 	}
 
-	// 3. Extraer ID del Usuario (✅ FIX CRÍTICO: Soluciona la "App Muerta")
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Claims inválidos"})
 	}
 
 	var userIdFloat float64
-	// Soportamos tokens viejos ("sub") y nuevos ("id") para no cerrar la sesión de nadie
 	if id, ok := claims["id"].(float64); ok {
 		userIdFloat = id
 	} else if sub, ok := claims["sub"].(float64); ok {
@@ -62,13 +63,11 @@ func IsAuthenticated(c *fiber.Ctx) error {
 
 	userId := uint(userIdFloat)
 
-	// 4. Verificaciones de Base de Datos
 	var user models.User
 	if err := database.DB.Select("id, role, is_suspended, suspended_until, suspension_reason").First(&user, userId).Error; err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Usuario no encontrado o eliminado"})
 	}
 
-	// ✅ A. Bloqueo por Suspensión Activa
 	if user.IsSuspended {
 		if user.SuspendedUntil != nil && user.SuspendedUntil.Before(time.Now()) {
 			database.DB.Model(&user).Updates(map[string]interface{}{
@@ -84,7 +83,6 @@ func IsAuthenticated(c *fiber.Ctx) error {
 		}
 	}
 
-	// ✅ B. Escudo de Modo Mantenimiento Real
 	var maintenance models.Setting
 	database.DB.Where("key = ?", "maintenance_mode").First(&maintenance)
 
@@ -98,14 +96,12 @@ func IsAuthenticated(c *fiber.Ctx) error {
 		}
 	}
 
-	// 5. Guardar ID y Rol en el contexto
 	c.Locals("userId", userIdFloat)
 	c.Locals("userRole", user.Role)
 
 	return c.Next()
 }
 
-// ✅ Middleware para todo el staff (Admin, SuperAdmin, Moderadores)
 func IsAdmin(c *fiber.Ctx) error {
 	role := c.Locals("userRole")
 	if role == nil {
@@ -122,7 +118,6 @@ func IsAdmin(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-// ✅ Middleware Exclusivo para gestión de seguridad y settings (El dueño)
 func IsSuperAdmin(c *fiber.Ctx) error {
 	role := c.Locals("userRole")
 	if role == nil || role.(string) != "superadmin" {

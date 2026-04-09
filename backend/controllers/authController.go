@@ -4,6 +4,7 @@ import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -11,6 +12,15 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// ✅ FIX CRÍTICO: Misma función de firma que el middleware
+func getJWTSecret() string {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return "secreto-super-seguro"
+	}
+	return secret
+}
 
 type RegisterDTO struct {
 	Name        string   `json:"name"`
@@ -34,7 +44,6 @@ type RegisterDTO struct {
 }
 
 func Register(c *fiber.Ctx) error {
-	// ✅ Bloqueo de registro por mantenimiento
 	var maintenance models.Setting
 	database.DB.Where("key = ?", "maintenance_mode").First(&maintenance)
 	if maintenance.Value == "true" {
@@ -127,7 +136,6 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Contraseña incorrecta"})
 	}
 
-	// ✅ Verificación de Suspensión Activa
 	if user.IsSuspended {
 		if user.SuspendedUntil != nil && user.SuspendedUntil.Before(time.Now()) {
 			database.DB.Model(&user).Updates(map[string]interface{}{
@@ -147,7 +155,6 @@ func Login(c *fiber.Ctx) error {
 		}
 	}
 
-	// ✅ Bloqueo de Login por mantenimiento (Deja pasar solo a Admins)
 	var maintenance models.Setting
 	database.DB.Where("key = ?", "maintenance_mode").First(&maintenance)
 	if maintenance.Value == "true" {
@@ -165,7 +172,8 @@ func Login(c *fiber.Ctx) error {
 		"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
 	})
 
-	t, err := token.SignedString([]byte("secreto-super-seguro"))
+	// Se usa getJWTSecret()
+	t, err := token.SignedString([]byte(getJWTSecret()))
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error generando token"})
 	}
@@ -207,7 +215,6 @@ func GoogleLogin(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado. Por favor, regístrate primero."})
 	}
 
-	// ✅ Verificación de Suspensión Activa para Google
 	if user.IsSuspended {
 		if user.SuspendedUntil != nil && user.SuspendedUntil.Before(time.Now()) {
 			database.DB.Model(&user).Updates(map[string]interface{}{
@@ -220,7 +227,6 @@ func GoogleLogin(c *fiber.Ctx) error {
 		}
 	}
 
-	// ✅ Bloqueo de Login por mantenimiento para Google
 	var maintenance models.Setting
 	database.DB.Where("key = ?", "maintenance_mode").First(&maintenance)
 	if maintenance.Value == "true" {
@@ -235,7 +241,8 @@ func GoogleLogin(c *fiber.Ctx) error {
 		"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
 	})
 
-	t, err := token.SignedString([]byte("secreto-super-seguro"))
+	// Se usa getJWTSecret()
+	t, err := token.SignedString([]byte(getJWTSecret()))
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error generando token"})
 	}
