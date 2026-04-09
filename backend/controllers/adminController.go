@@ -3,6 +3,7 @@ package controllers
 import (
 	"cuadralo-backend/database"
 	"cuadralo-backend/models"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -89,7 +90,6 @@ func GetAllUsersAdmin(c *fiber.Ctx) error {
 	})
 }
 
-// ✅ FIX CRÍTICO: Nueva lógica de Suspensión con Tiempo y Razón
 func SuspendUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	adminID := uint(c.Locals("userId").(float64))
@@ -147,7 +147,6 @@ func SuspendUser(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Estado de cuenta actualizado correctamente."})
 }
 
-// ✅ FIX CRÍTICO: Solicitudes de Administración (Reemplaza la asignación directa)
 func RequestAdminRole(c *fiber.Ctx) error {
 	userID := uint(c.Locals("userId").(float64))
 	var payload struct {
@@ -207,7 +206,6 @@ func ProcessAdminRequest(c *fiber.Ctx) error {
 	if payload.Action == "approve" {
 		req.Status = "approved"
 		req.ApprovedByID = &superAdminID
-		// Otorgar el rol
 		database.DB.Model(&models.User{}).Where("id = ?", req.UserID).Update("role", req.RequestedRole)
 		LogAdminAction(superAdminID, "grant_admin_role", &req.UserID, "Rol otorgado: "+req.RequestedRole)
 	} else {
@@ -220,7 +218,6 @@ func ProcessAdminRequest(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Solicitud procesada con éxito"})
 }
 
-// Obtener la lista del staff
 func GetAdminStaff(c *fiber.Ctx) error {
 	var staff []models.User
 	roles := []string{"superadmin", "admin", "moderator", "support"}
@@ -230,7 +227,6 @@ func GetAdminStaff(c *fiber.Ctx) error {
 	return c.JSON(staff)
 }
 
-// Revocar rol administratvo (Solo Superadmin)
 func RevokeAdminRole(c *fiber.Ctx) error {
 	targetID := c.Params("id")
 	superAdminID := uint(c.Locals("userId").(float64))
@@ -254,7 +250,6 @@ func RevokeAdminRole(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Privilegios revocados exitosamente"})
 }
 
-// RESTO DE FUNCIONES (Pagos, Configuración, Logs)
 func GetAllPaymentsAdmin(c *fiber.Ctx) error {
 	var payments []models.PaymentReport
 	if err := database.DB.Order("created_at desc").Find(&payments).Error; err != nil {
@@ -347,25 +342,30 @@ func GetSystemSettings(c *fiber.Ctx) error {
 	return c.JSON(settingsMap)
 }
 
+// ✅ FIX CRÍTICO: Conversión segura de tipos de datos para prevenir el error "Datos inválidos"
 func UpdateSystemSettings(c *fiber.Ctx) error {
-	var payload map[string]string
+	var payload map[string]interface{}
+
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
 	adminID := uint(c.Locals("userId").(float64))
 
+	// Iteramos y forzamos todo a ser un String (para que pase limpiamente a la BD)
 	for key, val := range payload {
+		strVal := fmt.Sprintf("%v", val)
+
 		var setting models.Setting
 		if err := database.DB.First(&setting, "key = ?", key).Error; err != nil {
-			setting = models.Setting{Key: key, Value: val}
+			setting = models.Setting{Key: key, Value: strVal}
 			database.DB.Create(&setting)
 		} else {
-			setting.Value = val
+			setting.Value = strVal
 			database.DB.Save(&setting)
 		}
 	}
 
-	LogAdminAction(adminID, "update_settings", nil, "System settings updated globally")
-	return c.JSON(fiber.Map{"message": "Configuraciones actualizadas en toda la plataforma."})
+	LogAdminAction(adminID, "update_settings", nil, "Configuración del sistema actualizada")
+	return c.JSON(fiber.Map{"message": "Configuraciones guardadas y activadas con éxito."})
 }

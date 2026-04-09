@@ -13,6 +13,15 @@ import (
 )
 
 func Register(c *fiber.Ctx) error {
+	// ✅ Bloqueo de registro por mantenimiento
+	var maintenance models.Setting
+	database.DB.Where("key = ?", "maintenance_mode").First(&maintenance)
+	if maintenance.Value == "true" {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error": "Los registros están deshabilitados temporalmente por mantenimiento general.",
+		})
+	}
+
 	var data map[string]string
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Datos inválidos"})
@@ -56,10 +65,9 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Credenciales incorrectas"})
 	}
 
-	// ✅ FIX CRÍTICO: Bloquear acceso en el Login si está suspendido
+	// Verificación de Suspensión
 	if user.IsSuspended {
 		if user.SuspendedUntil != nil && user.SuspendedUntil.Before(time.Now()) {
-			// Levantar suspensión silenciosamente
 			database.DB.Model(&user).Updates(map[string]interface{}{
 				"is_suspended":      false,
 				"suspended_until":   nil,
@@ -74,6 +82,18 @@ func Login(c *fiber.Ctx) error {
 				msg += fmt.Sprintf(". Expiración: %s", user.SuspendedUntil.Format("02/01/2006 15:04"))
 			}
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": msg, "is_suspended": true})
+		}
+	}
+
+	// ✅ Bloqueo de Login por mantenimiento (Deja pasar solo a Admins)
+	var maintenance models.Setting
+	database.DB.Where("key = ?", "maintenance_mode").First(&maintenance)
+	if maintenance.Value == "true" {
+		if user.Role == "user" || user.Role == "vip" {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error":       "La plataforma está en mantenimiento. No se permiten accesos de usuarios en este momento.",
+				"maintenance": true,
+			})
 		}
 	}
 

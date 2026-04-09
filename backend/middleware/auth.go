@@ -44,11 +44,12 @@ func Protected() fiber.Handler {
 
 		userID := uint(userIDFloat)
 
-		// ✅ FIX CRÍTICO: Verificación estricta de suspensión a nivel de base de datos
+		// Extraemos el rol también para validar mantenimientos
 		var user models.User
-		if err := database.DB.Select("id, is_suspended, suspended_until, suspension_reason").First(&user, userID).Error; err == nil {
+		if err := database.DB.Select("id, role, is_suspended, suspended_until, suspension_reason").First(&user, userID).Error; err == nil {
+
+			// 1. Verificación de Suspensión
 			if user.IsSuspended {
-				// Revisar si la suspensión ya expiró
 				if user.SuspendedUntil != nil && user.SuspendedUntil.Before(time.Now()) {
 					database.DB.Model(&user).Updates(map[string]interface{}{
 						"is_suspended":      false,
@@ -56,7 +57,6 @@ func Protected() fiber.Handler {
 						"suspension_reason": "",
 					})
 				} else {
-					// Rechazar el acceso. La cuenta sigue suspendida.
 					msg := "Tu cuenta ha sido suspendida."
 					if user.SuspensionReason != "" {
 						msg += " Razón: " + user.SuspensionReason
@@ -70,6 +70,20 @@ func Protected() fiber.Handler {
 					})
 				}
 			}
+
+			// ✅ FIX CRÍTICO: Escudo de Modo Mantenimiento Real
+			var maintenance models.Setting
+			database.DB.Where("key = ?", "maintenance_mode").First(&maintenance)
+
+			if maintenance.Value == "true" {
+				// Solo personal autorizado pasa el escudo
+				if user.Role != "admin" && user.Role != "superadmin" && user.Role != "moderator" && user.Role != "support" {
+					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+						"error":       "La plataforma se encuentra en mantenimiento programado. Intenta de nuevo más tarde.",
+						"maintenance": true,
+					})
+				}
+			}
 		}
 
 		c.Locals("userId", userIDFloat)
@@ -77,7 +91,6 @@ func Protected() fiber.Handler {
 	}
 }
 
-// Middleware genérico para panel admin (Cualquier nivel de admin)
 func AdminRequired() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userID := uint(c.Locals("userId").(float64))
@@ -96,7 +109,6 @@ func AdminRequired() fiber.Handler {
 	}
 }
 
-// Middleware estricto solo para gestión de administradores (SuperAdmin)
 func SuperAdminRequired() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userID := uint(c.Locals("userId").(float64))
