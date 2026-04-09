@@ -9,7 +9,63 @@ import (
 )
 
 // ==========================================
-// 💬 CONVERSACIONES Y MENSAJES
+// 🗨️ CONVERSACIONES (Agrupadas)
+// ==========================================
+
+func GetAllConversationsAdmin(c *fiber.Ctx) error {
+	type ConversationResult struct {
+		User1ID   uint   `json:"user1_id"`
+		User1Name string `json:"user1_name"`
+		User2ID   uint   `json:"user2_id"`
+		User2Name string `json:"user2_name"`
+		LastMsg   string `json:"last_message"`
+		Date      string `json:"date"`
+	}
+
+	var convs []ConversationResult
+
+	// Query nativo para agrupar mensajes únicos por par de usuarios
+	query := `
+	SELECT 
+		u1.id as user1_id, u1.username as user1_name, 
+		u2.id as user2_id, u2.username as user2_name, 
+		m.content as last_msg, m.created_at as date
+	FROM messages m
+	JOIN users u1 ON m.sender_id = u1.id
+	JOIN users u2 ON m.receiver_id = u2.id
+	WHERE m.id IN (
+		SELECT MAX(id)
+		FROM messages
+		GROUP BY LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id)
+	)
+	ORDER BY m.created_at DESC
+	LIMIT 50;
+	`
+
+	if err := database.DB.Raw(query).Scan(&convs).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener conversaciones"})
+	}
+
+	return c.JSON(fiber.Map{"conversations": convs})
+}
+
+func DeleteConversationAdmin(c *fiber.Ctx) error {
+	u1 := c.Query("u1")
+	u2 := c.Query("u2")
+
+	if u1 == "" || u2 == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Faltan parámetros de usuarios"})
+	}
+
+	if err := database.DB.Where("(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)", u1, u2, u2, u1).Delete(&models.Message{}).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error al eliminar la conversación"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Conversación eliminada por completo."})
+}
+
+// ==========================================
+// 💬 MENSAJES INDIVIDUALES
 // ==========================================
 
 func GetAllMessagesAdmin(c *fiber.Ctx) error {
@@ -148,7 +204,6 @@ func GetAllMediaAdmin(c *fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit", "50"))
 	offset := (page - 1) * limit
 
-	// Buscar todos los posts que tengan imágenes
 	query := database.DB.Model(&models.Post{}).Preload("User").Where("images IS NOT NULL AND images != '[]'")
 
 	var total int64
@@ -167,7 +222,6 @@ func GetAllMediaAdmin(c *fiber.Ctx) error {
 // ==========================================
 
 func GetFlaggedContentAdmin(c *fiber.Ctx) error {
-	// Lista básica de palabras a detectar (Idealmente esto iría en la BD más adelante)
 	bannedWords := []string{"puta", "mierda", "matar", "droga", "nudes", "pack"}
 
 	var flaggedPosts []models.Post

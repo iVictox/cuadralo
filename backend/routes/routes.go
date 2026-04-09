@@ -120,6 +120,9 @@ func Setup(app *fiber.App) {
 	admin.Get("/moderation/comments", controllers.GetAllCommentsAdmin)
 	admin.Delete("/moderation/comments/:id", controllers.DeleteCommentAdmin)
 
+	admin.Get("/moderation/conversations", controllers.GetAllConversationsAdmin)
+	admin.Delete("/moderation/conversations", controllers.DeleteConversationAdmin)
+
 	admin.Get("/moderation/media", controllers.GetAllMediaAdmin)
 	admin.Get("/moderation/flagged", controllers.GetFlaggedContentAdmin)
 
