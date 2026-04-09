@@ -79,9 +79,24 @@ func Setup(app *fiber.App) {
 	api.Post("/premium/rompehielos/buy", controllers.BuyRompehielos)
 	api.Post("/premium/report-payment", controllers.ReportPayment)
 
+
 	// --- ADMIN ---
 	admin := api.Group("/admin", middleware.IsAdmin)
 	admin.Get("/stats", controllers.GetDashboardStats)
 	admin.Get("/users", controllers.GetAllUsersAdmin)
 	admin.Put("/users/:id/role", controllers.UpdateUserRole)
+	admin.Put("/users/:id/suspend", controllers.SuspendUser)
+	admin.Delete("/users/:id", controllers.DeleteUserAdmin)
+
+	admin.Get("/payments", controllers.GetAllPaymentsAdmin)
+	admin.Put("/payments/:id/verify", controllers.VerifyPayment)
+
+	admin.Put("/users/:id/vip/revoke", controllers.RevokeVIP)
+	admin.Put("/users/:id/vip/extend", controllers.ExtendVIP)
+
+	admin.Get("/logs", controllers.GetAdminLogs)
+
+	admin.Get("/settings", controllers.GetSystemSettings)
+	admin.Put("/settings", controllers.UpdateSystemSettings)
+
 }

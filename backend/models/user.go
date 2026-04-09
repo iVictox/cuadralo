@@ -56,6 +56,7 @@ type User struct {
 	FollowersCount int `gorm:"default:0" json:"followers_count"`
 	FollowingCount int `gorm:"default:0" json:"following_count"`
 
+	IsSuspended bool `json:"is_suspended" gorm:"default:false"`
 	Role           string    `json:"role" gorm:"default:'user'"`
 	IsPrime        bool      `json:"is_prime" gorm:"default:false"`
 	PrimeExpiresAt time.Time `json:"prime_expires_at"`

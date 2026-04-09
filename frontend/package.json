@@ -26,9 +26,11 @@
     "react-dom": "19.2.3",
     "react-draggable": "^4.5.0",
     "react-easy-crop": "^5.5.6",
+    "recharts": "^3.8.1",
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss": "^3.4.19"
+    "tailwindcss": "^3.4.19",
+    "use-debounce": "^10.1.1"
   },
   "devDependencies": {
     "eslint": "^9",
