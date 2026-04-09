@@ -185,7 +185,15 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
             </div>
         </div>
 
-        {showComments && <CommentsModal post={post} onClose={() => setShowComments(false)} />}
+        {showComments && (
+            <CommentsModal
+                post={post}
+                onClose={() => setShowComments(false)}
+                liked={liked}
+                likesCount={likesCount}
+                onLikeToggle={handleLike}
+            />
+        )}
     </>
   );
 }

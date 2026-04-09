@@ -7,7 +7,7 @@ import { api } from "@/utils/api";
 import { useToast } from "@/context/ToastContext";
 import { useConfirm } from "@/context/ConfirmContext";
 
-export default function CommentsModal({ onClose, post }) {
+export default function CommentsModal({ onClose, post, liked, likesCount, onLikeToggle }) {
   const postId = post?.id;
   const postAuthor = post?.user?.name;
   const postOwnerId = post?.user?.id;
@@ -22,9 +22,6 @@ export default function CommentsModal({ onClose, post }) {
   
   const [replyingTo, setReplyingTo] = useState(null); 
   const [visibleReplyCounts, setVisibleReplyCounts] = useState({});
-
-  const [liked, setLiked] = useState(post?.is_liked || false);
-  const [likesCount, setLikesCount] = useState(post?.likes_count || 0);
 
   const commentsEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -106,13 +103,10 @@ export default function CommentsModal({ onClose, post }) {
       } catch (error) { showToast("Error al eliminar", "error"); }
   };
 
-  const handleLikePost = async () => {
-    const prevLiked = liked;
-    const prevCount = likesCount;
-    setLiked(!liked);
-    setLikesCount(prev => prev + (liked ? -1 : 1));
-    try { await api.post(`/social/posts/${postId}/like`); }
-    catch (error) { setLiked(prevLiked); setLikesCount(prevCount); }
+  const handleLikePost = () => {
+      if (onLikeToggle) {
+          onLikeToggle();
+      }
   };
 
   const handleLikeComment = async (commentId) => {
