@@ -90,14 +90,18 @@ func Setup(app *fiber.App) {
 	admin := api.Group("/admin", middleware.IsAdmin)
 
 	admin.Get("/stats", controllers.GetDashboardStats)
-	admin.Get("/users", controllers.GetAllUsersAdmin)
-	admin.Put("/users/:id/suspend", controllers.SuspendUser)
 
-	// Pagos
+	// ✅ Gestión de Usuarios
+	admin.Get("/users/suspended", controllers.GetSuspendedUsersAdmin)
+	admin.Get("/users/deleted", controllers.GetDeletedUsersAdmin)
+	admin.Get("/users", controllers.GetAllUsersAdmin)
+
+	admin.Put("/users/:id/suspend", controllers.SuspendUser)
+	admin.Put("/users/:id/restore", controllers.RestoreDeletedUser) // Saca de la papelera
+
 	admin.Get("/payments", controllers.GetAllPaymentsAdmin)
 	admin.Put("/payments/:id/verify", controllers.VerifyPayment)
 
-	// ✅ Gestión Exclusiva VIP
 	admin.Get("/vip-users", controllers.GetVipUsersAdmin)
 	admin.Put("/users/:id/vip/revoke", controllers.RevokeVIP)
 	admin.Put("/users/:id/vip/extend", controllers.ExtendVIP)
@@ -111,7 +115,9 @@ func Setup(app *fiber.App) {
 	// ==========================================
 	superAdmin := api.Group("/admin", middleware.IsSuperAdmin)
 
-	superAdmin.Delete("/users/:id", controllers.DeleteUserAdmin)
+	superAdmin.Delete("/users/:id/force", controllers.ForceDeleteUser) // ✅ Purga Definitiva
+	superAdmin.Delete("/users/:id", controllers.DeleteUserAdmin)       // Soft Delete (Papelera)
+
 	superAdmin.Put("/settings", controllers.UpdateSystemSettings)
 	superAdmin.Get("/requests", controllers.GetAdminRequests)
 	superAdmin.Put("/requests/:id", controllers.ProcessAdminRequest)

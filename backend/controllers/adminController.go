@@ -89,6 +89,93 @@ func GetAllUsersAdmin(c *fiber.Ctx) error {
 	})
 }
 
+// ✅ NUEVA FUNCION: Obtener solo usuarios suspendidos
+func GetSuspendedUsersAdmin(c *fiber.Ctx) error {
+	var users []models.User
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	offset := (page - 1) * limit
+	search := c.Query("search", "")
+
+	query := database.DB.Model(&models.User{}).Where("is_suspended = ?", true)
+	if search != "" {
+		query = query.Where("(name ILIKE ? OR username ILIKE ? OR id::text = ?)", "%"+search+"%", "%"+search+"%", search)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	if err := query.Order("suspended_until desc").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener usuarios suspendidos"})
+	}
+
+	return c.JSON(fiber.Map{"users": users, "total": total, "page": page, "limit": limit})
+}
+
+// ✅ NUEVA FUNCION: Obtener solo usuarios eliminados (En Papelera)
+func GetDeletedUsersAdmin(c *fiber.Ctx) error {
+	var users []models.User
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	offset := (page - 1) * limit
+	search := c.Query("search", "")
+
+	// Unscoped() permite buscar registros que tienen DeletedAt lleno
+	query := database.DB.Unscoped().Model(&models.User{}).Where("deleted_at IS NOT NULL")
+	if search != "" {
+		query = query.Where("(name ILIKE ? OR username ILIKE ? OR id::text = ?)", "%"+search+"%", "%"+search+"%", search)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	if err := query.Order("deleted_at desc").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener usuarios eliminados"})
+	}
+
+	return c.JSON(fiber.Map{"users": users, "total": total, "page": page, "limit": limit})
+}
+
+// ✅ NUEVA FUNCION: Restaurar usuario de la papelera
+func RestoreDeletedUser(c *fiber.Ctx) error {
+	userID := c.Params("id")
+	adminID := uint(c.Locals("userId").(float64))
+
+	// Hacemos Update a nil para limpiarlo de la papelera
+	if err := database.DB.Unscoped().Model(&models.User{}).Where("id = ?", userID).Update("deleted_at", nil).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "No se pudo restaurar el usuario"})
+	}
+
+	var targetID uint
+	idInt, _ := strconv.Atoi(userID)
+	targetID = uint(idInt)
+	LogAdminAction(adminID, "restore_deleted_user", &targetID, "Usuario restaurado de la papelera")
+
+	return c.JSON(fiber.Map{"message": "Usuario restaurado con éxito."})
+}
+
+// ✅ NUEVA FUNCION: Purgar permanentemente de la base de datos (Solo SuperAdmin)
+func ForceDeleteUser(c *fiber.Ctx) error {
+	userID := c.Params("id")
+	adminID := uint(c.Locals("userId").(float64))
+
+	var user models.User
+	if err := database.DB.Unscoped().First(&user, userID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Usuario no encontrado"})
+	}
+
+	if user.Role == "superadmin" {
+		return c.Status(403).JSON(fiber.Map{"error": "No puedes purgar a un SuperAdministrador."})
+	}
+
+	// Unscoped Delete lo borra FÍSICAMENTE de la base de datos para siempre
+	database.DB.Unscoped().Delete(&user)
+
+	var targetID = user.ID
+	LogAdminAction(adminID, "force_delete_user", &targetID, "Usuario purgado permanentemente")
+	return c.JSON(fiber.Map{"message": "Usuario eliminado de forma permanente."})
+}
+
 func SuspendUser(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	adminID := uint(c.Locals("userId").(float64))
@@ -145,17 +232,12 @@ func SuspendUser(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Estado de cuenta actualizado correctamente."})
 }
 
-// ===============================================
-// ✅ SECCIÓN DE GESTIÓN EXCLUSIVA VIP (Corregida)
-// ===============================================
-
 func GetVipUsersAdmin(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
 	offset := (page - 1) * limit
 	search := c.Query("search", "")
 
-	// ✅ FIX: Filtramos estrictamente solo a los usuarios que TIENEN VIP
 	query := database.DB.Model(&models.User{}).Where("is_prime = ?", true)
 
 	if search != "" {
@@ -179,21 +261,18 @@ func GetVipUsersAdmin(c *fiber.Ctx) error {
 	var response []VipResponse
 	for _, u := range users {
 
-		// ✅ FIX: Evitamos borrar el VIP si la fecha está vacía (0001-01-01) en registros viejos
 		if !u.PrimeExpiresAt.IsZero() && time.Now().After(u.PrimeExpiresAt) {
 			database.DB.Model(&u).Update("is_prime", false)
-			continue // Como ya venció, no lo enviamos al frontend
+			continue
 		}
 
 		vipUser := VipResponse{User: u}
 
-		// Busca el pago aprobado que activó este VIP
 		var payment models.PaymentReport
 		if err := database.DB.Where("user_id = ? AND item_type IN ('vip', 'prime') AND status = 'approved'", u.ID).Order("updated_at desc").First(&payment).Error; err == nil {
 			vipUser.PurchaseDate = &payment.CreatedAt
 			vipUser.ApprovalDate = &payment.UpdatedAt
 		} else {
-			// Si no hay pago (Carga Manual o Apple/Google)
 			var sub models.Subscription
 			if err := database.DB.Where("user_id = ? AND plan = 'vip'", u.ID).Order("created_at desc").First(&sub).Error; err == nil {
 				vipUser.PurchaseDate = &sub.CreatedAt
@@ -481,6 +560,7 @@ func GetAdminLogs(c *fiber.Ctx) error {
 	return c.JSON(logs)
 }
 
+// ✅ FIX: Ahora el Delete por defecto es un Soft Delete (Envía a papelera)
 func DeleteUserAdmin(c *fiber.Ctx) error {
 	userID := c.Params("id")
 	adminID := uint(c.Locals("userId").(float64))
@@ -491,13 +571,15 @@ func DeleteUserAdmin(c *fiber.Ctx) error {
 	}
 
 	if user.Role == "superadmin" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Acción denegada."})
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Acción denegada. Usa el panel de seguridad."})
 	}
 
+	// Al tener el campo DeletedAt en el modelo, esto ejecuta un Soft Delete (Update deleted_at)
 	database.DB.Delete(&user)
+
 	var targetID = user.ID
-	LogAdminAction(adminID, "delete_user", &targetID, "User ID "+userID)
-	return c.JSON(fiber.Map{"message": "Usuario eliminado"})
+	LogAdminAction(adminID, "delete_user", &targetID, "Usuario enviado a la papelera (Soft Delete)")
+	return c.JSON(fiber.Map{"message": "Usuario enviado a la papelera."})
 }
 
 func GetSystemSettings(c *fiber.Ctx) error {

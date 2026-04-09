@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type StringArray []string
@@ -53,12 +55,10 @@ type User struct {
 	FollowersCount int `gorm:"default:0" json:"followers_count"`
 	FollowingCount int `gorm:"default:0" json:"following_count"`
 
-	// ✅ FIX CRÍTICO: Campos de suspensión mejorados
 	IsSuspended      bool       `json:"is_suspended" gorm:"default:false"`
 	SuspendedUntil   *time.Time `json:"suspended_until"`
 	SuspensionReason string     `json:"suspension_reason"`
 
-	// Roles: 'user', 'vip', 'admin', 'moderator', 'support', 'superadmin'
 	Role             string `json:"role" gorm:"default:'user'"`
 	TwoFactorEnabled bool   `json:"two_factor_enabled" gorm:"default:false"`
 	TwoFactorSecret  string `json:"-"`
@@ -77,6 +77,7 @@ type User struct {
 	HasStory       bool `gorm:"-" json:"has_story"`
 	HasUnseenStory bool `gorm:"-" json:"has_unseen_story"`
 
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at"` // ✅ Activa el Soft Delete (Papelera)
 }
