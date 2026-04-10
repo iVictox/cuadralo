@@ -168,10 +168,10 @@ func GetAllPostsAdmin(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 	search := c.Query("search", "")
 
-	query := database.DB.Model(&models.Post{}).Preload("User")
+	query := database.DB.Model(&models.Post{}).Preload("User").Preload("Likes")
 
 	if search != "" {
-		query = query.Where("content ILIKE ?", "%"+search+"%")
+		query = query.Where("caption ILIKE ?", "%"+search+"%")
 	}
 
 	var total int64
@@ -182,15 +182,33 @@ func GetAllPostsAdmin(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener posts"})
 	}
 
+	for i := range posts {
+		posts[i].LikesCount = int64(len(posts[i].Likes))
+	}
+
 	return c.JSON(fiber.Map{"posts": posts, "total": total, "page": page, "limit": limit})
 }
 
+// ✅ FIX CRÍTICO: Eliminación en Cascada (Admin)
 func DeletePostAdmin(c *fiber.Ctx) error {
 	postID := c.Params("id")
-	if err := database.DB.Delete(&models.Post{}, postID).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Error al eliminar el post"})
+
+	var post models.Post
+	if err := database.DB.First(&post, postID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Post no encontrado"})
 	}
-	return c.JSON(fiber.Map{"message": "Publicación eliminada."})
+
+	database.DB.Where("post_id = ?", post.ID).Delete(&models.Notification{})
+	database.DB.Where("post_id = ?", post.ID).Delete(&models.Report{})
+	database.DB.Where("post_id = ?", post.ID).Delete(&models.PostLike{})
+	database.DB.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE post_id = ?)", post.ID)
+	database.DB.Where("post_id = ? AND parent_id IS NOT NULL", post.ID).Delete(&models.Comment{})
+	database.DB.Where("post_id = ?", post.ID).Delete(&models.Comment{})
+
+	if err := database.DB.Delete(&post).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error de base de datos al eliminar el post"})
+	}
+	return c.JSON(fiber.Map{"message": "Publicación eliminada correctamente."})
 }
 
 func GetAllCommentsAdmin(c *fiber.Ctx) error {
@@ -216,16 +234,27 @@ func GetAllCommentsAdmin(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"comments": comments, "total": total, "page": page, "limit": limit})
 }
 
+// ✅ FIX CRÍTICO: Eliminación en Cascada (Admin)
 func DeleteCommentAdmin(c *fiber.Ctx) error {
 	commentID := c.Params("id")
-	if err := database.DB.Delete(&models.Comment{}, commentID).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Error al eliminar el comentario"})
+
+	var comment models.Comment
+	if err := database.DB.First(&comment, commentID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Comentario no encontrado"})
 	}
-	return c.JSON(fiber.Map{"message": "Comentario eliminado."})
+
+	database.DB.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE parent_id = ?)", comment.ID)
+	database.DB.Where("parent_id = ?", comment.ID).Delete(&models.Comment{})
+	database.DB.Where("comment_id = ?", comment.ID).Delete(&models.CommentLike{})
+
+	if err := database.DB.Delete(&comment).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error de base de datos al eliminar el comentario"})
+	}
+	return c.JSON(fiber.Map{"message": "Comentario eliminado correctamente."})
 }
 
 // ==========================================
-// 📸 GALERÍA CENTRAL DE MEDIA (Multiorigen)
+// 📸 GALERÍA CENTRAL DE MEDIA
 // ==========================================
 
 type MediaResponse struct {
@@ -247,7 +276,6 @@ func GetAllMediaAdmin(c *fiber.Ctx) error {
 	var mediaList []MediaResponse
 	var total int64
 
-	// ✅ FIX CRÍTICO: Buscar ImageURL en vez de Images
 	if filter == "posts" {
 		var posts []models.Post
 		query := database.DB.Model(&models.Post{}).Where("image_url IS NOT NULL AND image_url != ''")
@@ -257,7 +285,7 @@ func GetAllMediaAdmin(c *fiber.Ctx) error {
 		for _, p := range posts {
 			mediaList = append(mediaList, MediaResponse{
 				ID:       fmt.Sprintf("post-%d", p.ID),
-				URL:      p.ImageURL, // ✅ Corregido
+				URL:      p.ImageURL,
 				Type:     "post",
 				SourceID: p.ID,
 				Username: p.User.Username,
@@ -331,9 +359,22 @@ func DeleteMediaAdmin(c *fiber.Ctx) error {
 	}
 
 	if mediaType == "post" {
-		if err := database.DB.Delete(&models.Post{}, sourceID).Error; err != nil {
+		var post models.Post
+		if err := database.DB.First(&post, sourceID).Error; err != nil {
+			return c.Status(404).JSON(fiber.Map{"error": "Post no encontrado"})
+		}
+
+		database.DB.Where("post_id = ?", post.ID).Delete(&models.Notification{})
+		database.DB.Where("post_id = ?", post.ID).Delete(&models.Report{})
+		database.DB.Where("post_id = ?", post.ID).Delete(&models.PostLike{})
+		database.DB.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE post_id = ?)", post.ID)
+		database.DB.Where("post_id = ? AND parent_id IS NOT NULL", post.ID).Delete(&models.Comment{})
+		database.DB.Where("post_id = ?", post.ID).Delete(&models.Comment{})
+
+		if err := database.DB.Delete(&post).Error; err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "Error eliminando publicación"})
 		}
+
 	} else if mediaType == "chat" {
 		if err := database.DB.Delete(&models.Message{}, sourceID).Error; err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "Error eliminando mensaje de chat"})
@@ -364,9 +405,9 @@ func GetFlaggedContentAdmin(c *fiber.Ctx) error {
 
 	for i, word := range bannedWords {
 		if i == 0 {
-			postQuery = postQuery.Where("content ILIKE ?", "%"+word+"%")
+			postQuery = postQuery.Where("caption ILIKE ?", "%"+word+"%")
 		} else {
-			postQuery = postQuery.Or("content ILIKE ?", "%"+word+"%")
+			postQuery = postQuery.Or("caption ILIKE ?", "%"+word+"%")
 		}
 	}
 	postQuery.Order("created_at desc").Limit(20).Find(&flaggedPosts)
