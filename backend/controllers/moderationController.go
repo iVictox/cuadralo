@@ -168,10 +168,12 @@ func GetAllPostsAdmin(c *fiber.Ctx) error {
 	offset := (page - 1) * limit
 	search := c.Query("search", "")
 
-	query := database.DB.Model(&models.Post{}).Preload("User")
+	// ✅ FIX: Preload("Likes") para poder calcular el número de me gustas
+	query := database.DB.Model(&models.Post{}).Preload("User").Preload("Likes")
 
 	if search != "" {
-		query = query.Where("content ILIKE ?", "%"+search+"%")
+		// ✅ FIX: "caption" en lugar de "content"
+		query = query.Where("caption ILIKE ?", "%"+search+"%")
 	}
 
 	var total int64
@@ -180,6 +182,11 @@ func GetAllPostsAdmin(c *fiber.Ctx) error {
 	var posts []models.Post
 	if err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&posts).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error al obtener posts"})
+	}
+
+	// ✅ FIX: Calculamos los LikesCount de forma manual antes de devolver el JSON
+	for i := range posts {
+		posts[i].LikesCount = int64(len(posts[i].Likes))
 	}
 
 	return c.JSON(fiber.Map{"posts": posts, "total": total, "page": page, "limit": limit})
@@ -225,7 +232,7 @@ func DeleteCommentAdmin(c *fiber.Ctx) error {
 }
 
 // ==========================================
-// 📸 GALERÍA CENTRAL DE MEDIA (Multiorigen)
+// 📸 GALERÍA CENTRAL DE MEDIA
 // ==========================================
 
 type MediaResponse struct {
@@ -247,7 +254,6 @@ func GetAllMediaAdmin(c *fiber.Ctx) error {
 	var mediaList []MediaResponse
 	var total int64
 
-	// ✅ FIX CRÍTICO: Buscar ImageURL en vez de Images
 	if filter == "posts" {
 		var posts []models.Post
 		query := database.DB.Model(&models.Post{}).Where("image_url IS NOT NULL AND image_url != ''")
@@ -257,7 +263,7 @@ func GetAllMediaAdmin(c *fiber.Ctx) error {
 		for _, p := range posts {
 			mediaList = append(mediaList, MediaResponse{
 				ID:       fmt.Sprintf("post-%d", p.ID),
-				URL:      p.ImageURL, // ✅ Corregido
+				URL:      p.ImageURL,
 				Type:     "post",
 				SourceID: p.ID,
 				Username: p.User.Username,
@@ -364,9 +370,10 @@ func GetFlaggedContentAdmin(c *fiber.Ctx) error {
 
 	for i, word := range bannedWords {
 		if i == 0 {
-			postQuery = postQuery.Where("content ILIKE ?", "%"+word+"%")
+			// ✅ FIX: "caption" en lugar de "content" en los Posts
+			postQuery = postQuery.Where("caption ILIKE ?", "%"+word+"%")
 		} else {
-			postQuery = postQuery.Or("content ILIKE ?", "%"+word+"%")
+			postQuery = postQuery.Or("caption ILIKE ?", "%"+word+"%")
 		}
 	}
 	postQuery.Order("created_at desc").Limit(20).Find(&flaggedPosts)
