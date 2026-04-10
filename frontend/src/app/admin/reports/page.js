@@ -1,157 +1,129 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { api } from "@/utils/api";
-import { AlertTriangle, FileText, MessageCircle, Users, MessageSquare, CheckCircle, Check, Trash2, ExternalLink, ShieldAlert } from "lucide-react";
-import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { AlertTriangle, FileText, MessageCircle, Users, MessageSquare, CheckCircle, ChevronRight } from "lucide-react";
 
-const TABS = [
-  { id: "post", name: "Posts", icon: FileText },
-  { id: "comment", name: "Comentarios", icon: MessageCircle },
-  { id: "user", name: "Usuarios", icon: Users },
-  { id: "message", name: "Mensajes", icon: MessageSquare },
-  { id: "resolved", name: "Resueltos", icon: CheckCircle }
-];
-
-export default function AdminReports() {
-  const searchParams = useSearchParams();
+export default function AdminReportsOverview() {
   const router = useRouter();
-  
-  const defaultTab = searchParams.get("tab") || "post";
-  const [activeTab, setActiveTab] = useState(defaultTab);
-  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reportCounts, setReportCounts] = useState({
+      posts: 0,
+      comments: 0,
+      users: 0,
+      messages: 0,
+      resolved: 0
+  });
 
-  // Sync state con URL para que el menú lateral funcione perfecto
+  // Nota: Idealmente en un futuro agregarás un endpoint en Go que devuelva estas métricas agrupadas,
+  // por ahora cargaremos la vista inicial de la interfaz base para simular la arquitectura.
   useEffect(() => {
-      const tab = searchParams.get("tab");
-      if (tab) setActiveTab(tab);
-  }, [searchParams]);
+     // Simulación de carga de la bandeja de entrada
+     setTimeout(() => {
+         setLoading(false);
+     }, 600);
+  }, []);
 
-  useEffect(() => {
-      const fetchReports = async () => {
-          setLoading(true);
-          try {
-              const data = await api.get(`/admin/reports?type=${activeTab}`);
-              setReports(data || []);
-          } catch (error) { console.error(error); } 
-          finally { setLoading(false); }
-      };
-      fetchReports();
-  }, [activeTab]);
-
-  const handleResolve = async (id, action) => {
-      const isDelete = action === 'delete_content';
-      if (isDelete && !confirm("⚠️ ¿Eliminar el contenido infractor y aplicar castigos de forma irreversible?")) return;
-      
-      try {
-          await api.put(`/admin/reports/${id}/resolve`, { 
-              action, 
-              admin_notes: isDelete ? "Infracción confirmada. Contenido removido." : "Reporte descartado. Falsa alarma." 
-          });
-          setReports(prev => prev.filter(r => r.id !== id));
-      } catch (error) {
-          alert("Error al procesar el reporte.");
+  const reportCategories = [
+      {
+          id: "posts",
+          title: "Posts Reportados",
+          desc: "Publicaciones del feed que los usuarios han denunciado como inapropiadas o spam.",
+          icon: FileText,
+          color: "text-blue-500",
+          bg: "bg-blue-500/10",
+          path: "/admin/reports/posts"
+      },
+      {
+          id: "comments",
+          title: "Comentarios Reportados",
+          desc: "Respuestas y comentarios en publicaciones que infringen las normas.",
+          icon: MessageCircle,
+          color: "text-pink-500",
+          bg: "bg-pink-500/10",
+          path: "/admin/reports/comments"
+      },
+      {
+          id: "users",
+          title: "Usuarios Reportados",
+          desc: "Perfiles que han sido denunciados por acoso, suplantación o comportamiento indebido.",
+          icon: Users,
+          color: "text-orange-500",
+          bg: "bg-orange-500/10",
+          path: "/admin/reports/users"
+      },
+      {
+          id: "messages",
+          title: "Mensajes Privados (DM)",
+          desc: "Reportes originados desde conversaciones privadas entre usuarios.",
+          icon: MessageSquare,
+          color: "text-purple-500",
+          bg: "bg-purple-500/10",
+          path: "/admin/reports/messages"
       }
-  };
+  ];
+
+  if (loading) {
+    return <div className="text-center py-20 text-red-500 font-black animate-pulse">Sincronizando Central de Denuncias...</div>;
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-6xl">
       <div>
-        <h1 className="text-3xl font-black text-white flex items-center gap-3">
-            <AlertTriangle className="text-orange-500" /> Central de Reportes
+        <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-3">
+            <AlertTriangle className="text-red-500" size={36} strokeWidth={2.5}/> Central de Denuncias
         </h1>
-        <p className="text-gray-400 mt-1">Supervisa y sanciona el contenido denunciado por la comunidad.</p>
+        <p className="text-gray-400 mt-2 text-sm md:text-base">
+            Bandeja de entrada de moderación. Revisa y toma acción sobre el contenido reportado por la comunidad.
+        </p>
       </div>
 
-      <div className="flex gap-2 bg-gray-900 p-1.5 rounded-xl border border-gray-800 shadow-inner overflow-x-auto no-scrollbar">
-          {TABS.map(tab => (
-              <button 
-                  key={tab.id}
-                  onClick={() => router.push(`/admin/reports?tab=${tab.id}`)}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-orange-600 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {reportCategories.map((cat) => (
+              <div 
+                  key={cat.id} 
+                  onClick={() => router.push(cat.path)}
+                  className="bg-gray-900 border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-xl hover:shadow-red-500/5 hover:border-gray-700 transition-all cursor-pointer group flex flex-col relative overflow-hidden"
               >
-                  <tab.icon size={16} /> {tab.name}
-              </button>
+                  <div className="flex justify-between items-start mb-4">
+                      <div className={`w-14 h-14 rounded-2xl ${cat.bg} flex items-center justify-center border border-gray-800 group-hover:scale-110 transition-transform`}>
+                          <cat.icon size={28} className={cat.color} />
+                      </div>
+                      
+                      {/* Badge dinámico de pendientes (Placeholder para conexión a BD) */}
+                      <div className="bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-lg text-xs font-black tracking-widest uppercase shadow-inner">
+                          Revisar
+                      </div>
+                  </div>
+
+                  <h3 className="text-xl font-black text-white mb-2 group-hover:text-red-400 transition-colors">{cat.title}</h3>
+                  <p className="text-gray-400 text-sm font-medium leading-relaxed mb-6 flex-1">
+                      {cat.desc}
+                  </p>
+
+                  <div className="flex items-center text-xs font-bold uppercase tracking-widest text-gray-500 group-hover:text-white transition-colors mt-auto pt-4 border-t border-gray-800">
+                      Abrir Bandeja <ChevronRight size={16} className="ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all"/>
+                  </div>
+              </div>
           ))}
       </div>
 
-      <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-2xl overflow-hidden">
-          <table className="w-full text-left text-sm text-gray-300">
-              <thead className="bg-gray-950 text-gray-400 font-bold border-b border-gray-800 uppercase tracking-widest text-[10px]">
-                  <tr>
-                      <th className="px-6 py-4">Denunciante</th>
-                      <th className="px-6 py-4 w-1/3">Evidencia (Acusado)</th>
-                      <th className="px-6 py-4">Motivo del Reporte</th>
-                      <th className="px-6 py-4 text-right">Acción</th>
-                  </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800/50">
-                  {loading ? (
-                      <tr><td colSpan="4" className="text-center py-16 text-orange-500 animate-pulse font-bold">Analizando denuncias...</td></tr>
-                  ) : reports.length === 0 ? (
-                      <tr><td colSpan="4" className="text-center py-16 text-gray-500">Bandeja limpia. No hay denuncias en esta categoría.</td></tr>
-                  ) : reports.map((r) => (
-                      <tr key={r.id} className="hover:bg-gray-800/30 transition-colors group">
-                          
-                          <td className="px-6 py-4 font-bold text-gray-400">
-                              @{r.reporter}
-                              <div className="text-[9px] font-mono mt-1 text-gray-600">{new Date(r.created_at).toLocaleString()}</div>
-                          </td>
-                          
-                          <td className="px-6 py-4">
-                              <span className="text-orange-400 font-bold text-xs uppercase tracking-widest block mb-1">@{r.target_user}</span>
-                              <div className="bg-gray-950 p-3 rounded-xl border border-gray-800 relative">
-                                  {r.target_image && (
-                                      <img src={r.target_image} className="w-full max-h-24 object-cover rounded-lg mb-2 opacity-80" />
-                                  )}
-                                  <p className="font-medium text-gray-200 line-clamp-2 italic">"{r.target_preview}"</p>
-                              </div>
-                          </td>
-
-                          <td className="px-6 py-4">
-                              <span className="inline-block bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">
-                                  {r.reason}
-                              </span>
-                          </td>
-
-                          <td className="px-6 py-4 text-right">
-                              {activeTab === 'resolved' ? (
-                                  <span className="text-gray-500 font-bold text-xs uppercase tracking-widest border border-gray-700 px-3 py-1.5 rounded-lg">Cerrado</span>
-                              ) : (
-                                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button 
-                                          onClick={() => handleResolve(r.id, 'dismiss')}
-                                          title="Descartar (Falsa alarma)"
-                                          className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors"
-                                      >
-                                          <Check size={16} />
-                                      </button>
-                                      
-                                      {/* Link dinámico dependiendo del tipo */}
-                                      {(r.target_type === 'post' || r.target_type === 'comment') && (
-                                          <Link href={`/post/${r.target_type === 'comment' ? r.parent_post_id : r.target_id}`} target="_blank" className="p-2 bg-blue-900/20 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-900/50 rounded-lg transition-colors"><ExternalLink size={16}/></Link>
-                                      )}
-                                      {r.target_type === 'user' && (
-                                          <Link href={`/u/${r.target_user}`} target="_blank" className="p-2 bg-blue-900/20 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-900/50 rounded-lg transition-colors"><ExternalLink size={16}/></Link>
-                                      )}
-
-                                      <button 
-                                          onClick={() => handleResolve(r.id, 'delete_content')}
-                                          title="Aplicar Castigo Severo"
-                                          className="p-2 bg-red-950/50 hover:bg-red-600 text-red-500 hover:text-white border border-red-900 hover:border-red-600 rounded-lg transition-colors"
-                                      >
-                                          {r.target_type === 'user' ? <ShieldAlert size={16}/> : <Trash2 size={16} />}
-                                      </button>
-                                  </div>
-                              )}
-                          </td>
-                      </tr>
-                  ))}
-              </tbody>
-          </table>
+      <div 
+          onClick={() => router.push('/admin/reports/resolved')}
+          className="mt-8 bg-gray-900/50 border border-gray-800 border-dashed rounded-2xl p-6 flex items-center justify-between cursor-pointer hover:bg-gray-800/50 transition-colors group"
+      >
+          <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 border border-green-500/20 group-hover:scale-110 transition-transform">
+                  <CheckCircle size={24} />
+              </div>
+              <div>
+                  <h4 className="text-white font-bold text-lg">Historial de Reportes Resueltos</h4>
+                  <p className="text-gray-500 text-sm">Visualiza las acciones tomadas anteriormente por el equipo de moderación.</p>
+              </div>
+          </div>
+          <ChevronRight size={20} className="text-gray-600 group-hover:text-white transition-colors" />
       </div>
+
     </div>
   );
 }
