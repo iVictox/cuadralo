@@ -24,11 +24,20 @@ export default function ReportModal({ targetType, targetId, onClose }) {
 
     setLoading(true);
     try {
-      await api.post("/reports", {
-        target_type: targetType,
-        target_id: Number(targetId),
+      // ✅ FIX CRÍTICO: Enrutamiento dinámico alineado con el Backend (socialController.go)
+      let endpoint = "";
+      if (targetType === "post") {
+          endpoint = `/social/posts/${targetId}/report`;
+      } else if (targetType === "comment") {
+          endpoint = `/social/comments/${targetId}/report`; // Por si lo usas en comentarios a futuro
+      } else {
+          endpoint = `/reports`; // Fallback
+      }
+
+      await api.post(endpoint, {
         reason: finalReason
       });
+
       setSuccess(true);
       setTimeout(() => onClose(), 2000);
     } catch (error) {

@@ -6,6 +6,7 @@ import { api } from "@/utils/api";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import CommentsModal from "./CommentsModal";
+import ReportModal from "./ReportModal"; // ✅ FIX: Importamos el Modal de Reportes
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/context/ConfirmContext";
@@ -22,6 +23,7 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
   
   const [showMenu, setShowMenu] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showReport, setShowReport] = useState(false); // ✅ FIX: Estado para controlar el modal de reporte
   
   const userStr = typeof window !== 'undefined' ? localStorage.getItem("user") : null;
   const currentUser = userStr ? JSON.parse(userStr) : null;
@@ -30,7 +32,6 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
   const hasStory = post.user?.has_story;
   const hasUnseen = post.user?.has_unseen_story;
   
-  // Anillo de historia minimalista
   const ringClass = hasStory 
     ? (hasUnseen ? "ring-2 ring-cuadralo-pink ring-offset-2 dark:ring-offset-cuadralo-bgDark ring-offset-cuadralo-bgLight" : "ring-2 ring-gray-300 dark:ring-gray-600 ring-offset-2")
     : "";
@@ -76,7 +77,6 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
     <>
         <div className="w-full bg-cuadralo-cardLight dark:bg-cuadralo-cardDark rounded-3xl overflow-hidden shadow-glass-light dark:shadow-glass-dark border border-gray-100 dark:border-white/5 transition-colors duration-500">
             
-            {/* CABECERA */}
             <div className="flex justify-between items-center p-4">
                 <div className="flex items-center gap-3">
                     <img 
@@ -113,7 +113,8 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                                         <Trash2 size={16} /> Eliminar
                                     </button>
                                 ) : (
-                                    <button className="w-full text-left px-4 py-2 text-yellow-600 dark:text-yellow-500 hover:bg-gray-50 dark:hover:bg-white/5 text-sm flex items-center gap-2 transition-colors">
+                                    // ✅ FIX: Se agregó el onClick para abrir el modal
+                                    <button onClick={() => { setShowMenu(false); setShowReport(true); }} className="w-full text-left px-4 py-2 text-yellow-600 dark:text-yellow-500 hover:bg-gray-50 dark:hover:bg-white/5 text-sm flex items-center gap-2 transition-colors">
                                         <Flag size={16} /> Reportar
                                     </button>
                                 )}
@@ -123,7 +124,6 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                 </div>
             </div>
 
-            {/* IMAGEN */}
             <div className="relative w-full aspect-square md:aspect-[4/5] bg-gray-100 dark:bg-black">
                 <img 
                     src={post.image_url} 
@@ -139,7 +139,6 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                 />
             </div>
 
-            {/* ACCIONES Y TEXTO */}
             <div className="p-4">
                 <div className="flex gap-5 mb-3 items-center">
                     <button onClick={handleLike} className="focus:outline-none">
@@ -161,7 +160,6 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                     {likesCount} Me gusta
                 </div>
 
-                {/* ✅ SOLUCIÓN: Cambiamos a post.caption, que es la variable real que envía el backend */}
                 {post.caption && (
                     <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-1">
                         <span className="font-semibold text-cuadralo-textLight dark:text-cuadralo-textDark mr-2 cursor-pointer hover:underline" onClick={() => router.push(`/u/${post.user.username}`)}>
@@ -171,7 +169,6 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                     </p>
                 )}
 
-                {/* UBICACIÓN */}
                 {post.location && (
                     <div className="flex items-center gap-1.5 mb-3 text-gray-500 dark:text-gray-400">
                         <MapPin size={14} />
@@ -192,6 +189,15 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                 liked={liked}
                 likesCount={likesCount}
                 onLikeToggle={handleLike}
+            />
+        )}
+
+        {/* ✅ FIX: Renderizado del modal de reporte */}
+        {showReport && (
+            <ReportModal
+                targetType="post"
+                targetId={post.id}
+                onClose={() => setShowReport(false)}
             />
         )}
     </>
