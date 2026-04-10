@@ -21,7 +21,7 @@ type Post struct {
 type Comment struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	PostID    uint      `json:"post_id"`
-	Post      Post      `json:"post" gorm:"foreignKey:PostID"` // ✅ FIX: Relación indispensable
+	Post      Post      `json:"post" gorm:"foreignKey:PostID"`
 	UserID    uint      `json:"user_id"`
 	User      User      `json:"user"`
 	Content   string    `json:"content"`
@@ -64,12 +64,19 @@ type StoryView struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// ✅ FIX: Nuevo Motor Universal de Reportes
 type Report struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	UserID    uint      `json:"user_id"`
-	PostID    uint      `json:"post_id"`
-	Reason    string    `json:"reason"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           uint       `gorm:"primaryKey" json:"id"`
+	ReporterID   uint       `json:"reporter_id"`
+	Reporter     User       `gorm:"foreignKey:ReporterID" json:"reporter"`
+	TargetType   string     `json:"target_type"` // "post", "comment", "user", "message"
+	TargetID     uint       `json:"target_id"`
+	Reason       string     `json:"reason"`
+	Status       string     `json:"status" gorm:"default:'pending'"` // "pending", "resolved", "dismissed"
+	ResolvedByID *uint      `json:"resolved_by_id"`
+	AdminNotes   string     `json:"admin_notes"`
+	ResolvedAt   *time.Time `json:"resolved_at"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 type Notification struct {

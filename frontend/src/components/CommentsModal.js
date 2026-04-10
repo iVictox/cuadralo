@@ -1,319 +1,241 @@
 "use client";
-
-import { useState, useEffect, useRef } from "react";
-import { X, Send, Trash2, Loader2, Heart, Share2 } from "lucide-react";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { X, Send, Heart, Trash2, Reply, CornerDownRight, MoreVertical, Flag } from "lucide-react";
 import { api } from "@/utils/api";
-import { useToast } from "@/context/ToastContext";
-import { useConfirm } from "@/context/ConfirmContext";
+import ReportModal from "./ReportModal"; // ✅ IMPORTANTE
 
-export default function CommentsModal({ onClose, post, liked, likesCount, onLikeToggle }) {
-  const postId = post?.id;
-  const postAuthor = post?.user?.name;
-  const postOwnerId = post?.user?.id;
-  const { showToast } = useToast();
-  const { confirm } = useConfirm();
-  
+export default function CommentsModal({ postId, onClose }) {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
+  const [replyingTo, setReportingTo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   
-  const [replyingTo, setReplyingTo] = useState(null); 
-  const [visibleReplyCounts, setVisibleReplyCounts] = useState({});
-
-  const commentsEndRef = useRef(null);
-  const inputRef = useRef(null);
+  // ✅ Estado para el Modal de Reportes
+  const [reportingComment, setReportingComment] = useState(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) setCurrentUser(JSON.parse(userStr));
-
-    const fetchComments = async () => {
-        try {
-            const data = await api.get(`/social/posts/${postId}/comments`);
-            setComments(Array.isArray(data) ? data : []);
-        } catch (error) {
-            console.error("Error comments", error);
-            showToast("Error al cargar comentarios", "error");
-        } finally {
-            setLoading(false);
-        }
-    };
-    
-    if (postId) fetchComments();
+    fetchComments();
   }, [postId]);
 
-  useEffect(() => {
-      if (!replyingTo && !loading) {
-          commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const fetchComments = async () => {
+    try {
+      const data = await api.get(`/social/posts/${postId}/comments`);
+      setComments(data || []);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+
+    try {
+      const payload = { content: newComment };
+      if (replyingTo) {
+        payload.parent_id = replyingTo.id;
       }
-  }, [comments, loading]);
-
-  const handleSend = async () => {
-      if (!newComment.trim()) return;
-      setSending(true);
-
-      try {
-          let finalContent = newComment;
-          if (replyingTo && !finalContent.startsWith(`@${replyingTo.username}`)) {
-              finalContent = `@${replyingTo.username} ${finalContent}`;
-          }
-
-          const payload = { content: finalContent };
-          if (replyingTo) payload.parent_id = Number(replyingTo.id);
-
-          const comment = await api.post(`/social/posts/${postId}/comments`, payload);
-          
-          // ✅ SOLUCIÓN: Aseguramos que el parent_id esté inyectado y atado correctamente 
-          // a la respuesta para que React lo coloque en el árbol instantáneamente.
-          const newCommentObj = {
-              ...comment,
-              parent_id: payload.parent_id || comment.parent_id,
-              user: comment.user || currentUser 
-          };
-
-          setComments([...comments, newCommentObj]);
-          setNewComment("");
-          setReplyingTo(null); 
-          
-          if (payload.parent_id) {
-              setVisibleReplyCounts(prev => ({ 
-                  ...prev, 
-                  [payload.parent_id]: (prev[payload.parent_id] || 2) + 1 
-              }));
-          }
-
-      } catch (error) {
-          showToast("Error al enviar", "error");
-      } finally {
-          setSending(false);
-      }
+      
+      await api.post(`/social/posts/${postId}/comments`, payload);
+      setNewComment("");
+      setReportingTo(null);
+      fetchComments();
+    } catch (error) {
+      console.error("Error posting comment:", error);
+    }
   };
 
   const handleDelete = async (commentId) => {
-      const ok = await confirm({ title: "¿Borrar comentario?", message: "Se borrarán también las respuestas.", confirmText: "Borrar", variant: "danger" });
-      if (!ok) return;
-
-      try {
-          await api.delete(`/social/comments/${commentId}`);
-          setComments(comments.filter(c => c.id !== commentId && c.parent_id !== commentId));
-          showToast("Eliminado", "success");
-      } catch (error) { showToast("Error al eliminar", "error"); }
+    if (!confirm("¿Eliminar este comentario?")) return;
+    try {
+      await api.delete(`/social/comments/${commentId}`);
+      fetchComments();
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+    }
   };
 
-  const handleLikePost = () => {
-      if (onLikeToggle) {
-          onLikeToggle();
-      }
-  };
-
-  const handleLikeComment = async (commentId) => {
+  const handleLike = async (commentId) => {
+    try {
+      const res = await api.post(`/social/comments/${commentId}/like`);
       setComments(prev => prev.map(c => {
-          if (c.id === commentId) {
-              const isLiking = !c.is_liked;
-              return { ...c, is_liked: isLiking, likes_count: isLiking ? (c.likes_count||0)+1 : (c.likes_count||0)-1 };
-          }
-          return c;
+        if (c.id === commentId) {
+          return {
+            ...c,
+            is_liked: res.is_liked,
+            likes_count: res.is_liked ? c.likes_count + 1 : c.likes_count - 1
+          };
+        }
+        return c;
       }));
-      try { await api.post(`/social/comments/${commentId}/like`, {}); } catch (e) { }
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    }
   };
 
-  const handleStartReply = (comment) => {
-      const parentId = comment.parent_id || comment.id;
-      setReplyingTo({ id: parentId, username: comment.user?.username || comment.user?.name });
-      inputRef.current?.focus();
-  };
+  // Organizar comentarios (Raíz y Respuestas)
+  const rootComments = comments.filter(c => !c.parent_id);
+  const replies = comments.filter(c => c.parent_id);
 
-  const handleShowMore = (parentId) => {
-      setVisibleReplyCounts(prev => ({
-          ...prev,
-          [parentId]: (prev[parentId] || 2) + 5
-      }));
-  };
-
-  const CommentItem = ({ c, isReply = false }) => {
-      // Extraer la mención si existe al principio del contenido
-      let isMention = false;
-      let mention = null;
-      let restContent = c.content;
-
-      if (c.content && c.content.trim().startsWith('@')) {
-          const words = c.content.trim().split(' ');
-          mention = words[0];
-          isMention = true;
-          restContent = words.slice(1).join(' ');
-      }
-
-      return (
-      <div className={`flex gap-3 group items-start ${isReply ? "mt-3" : "mt-4"}`}>
-          <img src={c.user?.photo || "https://via.placeholder.com/150"} className="w-8 h-8 rounded-full object-cover border border-white/10 mt-1" alt="User" />
-          <div className="flex-1">
-              <div className="bg-white/5 p-3 rounded-2xl inline-block min-w-[120px]">
-                  <span className="text-xs font-bold text-white block mb-0.5">{c.user?.name}</span>
-                  <p className="text-sm text-gray-200 break-words whitespace-pre-wrap">
-                      {isMention && <span className="text-cuadralo-pink font-semibold mr-1">{mention}</span>}
-                      {restContent}
-                  </p>
-              </div>
-              
-              <div className="flex items-center gap-4 mt-1 ml-1">
-                  <span className="text-[10px] text-gray-500">{new Date(c.created_at).toLocaleDateString()}</span>
-                  <button onClick={() => handleStartReply(c)} className="text-[10px] font-bold text-gray-400 hover:text-white transition-colors">Responder</button>
-                  {(currentUser?.id === c.user_id || currentUser?.id === postOwnerId) && (
-                      <button onClick={() => handleDelete(c.id)} className="text-[10px] text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={10} /></button>
-                  )}
-              </div>
+  const CommentItem = ({ c, isReply = false }) => (
+    <div className={`flex gap-3 group ${isReply ? 'ml-8 mt-2' : 'mt-4'}`}>
+      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden shrink-0">
+        {c.user?.photo ? (
+          <img src={c.user.photo} alt={c.user.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold text-xs uppercase">
+            {c.user?.username?.charAt(0)}
           </div>
-          
-          <div className="flex flex-col items-center gap-0.5 mt-2">
-              <button onClick={() => handleLikeComment(c.id)} className="active:scale-90 transition-transform">
-                  <Heart size={14} className={c.is_liked ? "text-red-500 fill-red-500" : "text-gray-500"} />
-              </button>
-              {(c.likes_count > 0) && <span className="text-[9px] text-gray-400">{c.likes_count}</span>}
-          </div>
+        )}
       </div>
+      <div className="flex-1 min-w-0">
+        <div className="bg-gray-100 dark:bg-[#1a1a1a] rounded-2xl rounded-tl-none px-4 py-2 inline-block max-w-full">
+          <span className="font-bold text-sm text-gray-900 dark:text-white mr-2">@{c.user?.username}</span>
+          <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words inline">{c.content}</p>
+        </div>
+        <div className="flex items-center gap-4 mt-1 ml-2">
+          <span className="text-[10px] text-gray-500 font-medium">
+            {new Date(c.created_at).toLocaleDateString()}
+          </span>
+          <button 
+            onClick={() => handleLike(c.id)}
+            className={`text-[10px] font-bold flex items-center gap-1 transition-colors ${c.is_liked ? 'text-cuadralo-pink' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            {c.likes_count > 0 && c.likes_count} Me gusta
+          </button>
+          {!isReply && (
+            <button 
+              onClick={() => setReportingTo(c)}
+              className="text-[10px] font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            >
+              Responder
+            </button>
+          )}
+          {currentUser?.id === c.user_id ? (
+             <button 
+                onClick={() => handleDelete(c.id)}
+                className="text-[10px] text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+             >
+                Eliminar
+             </button>
+          ) : (
+             // ✅ BOTÓN DE REPORTE PARA COMENTARIOS AJENOS
+             <button 
+                onClick={() => setReportingComment(c)} 
+                className="text-[10px] text-orange-400 hover:text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+             >
+                <Flag size={10} /> Reportar
+             </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
-  };
-
-  const rootComments = comments.filter(c => !c.parent_id || Number(c.parent_id) === 0);
-  const getReplies = (parentId) => comments.filter(c => Number(c.parent_id) === Number(parentId));
-
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end md:justify-center items-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-        
-        <motion.div 
-            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full h-[85vh] md:h-[650px] md:max-w-4xl lg:max-w-5xl bg-[#1a0b2e] md:bg-transparent border-t md:border-0 border-white/10 md:rounded-3xl flex flex-col md:flex-row shadow-2xl relative overflow-hidden"
+    <>
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm sm:backdrop-blur-md transition-all duration-300">
+        <motion.div
+          initial={{ opacity: 0, y: "100%" }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: "100%" }}
+          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+          className="w-full max-w-lg bg-white dark:bg-[#0a0a0a] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-[85vh] sm:h-[80vh] overflow-hidden border border-gray-200 dark:border-gray-800"
         >
-            <button
-                onClick={onClose}
-                className="absolute top-4 right-4 z-10 p-2 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 md:hidden"
-            >
-                <X size={20} />
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-10">
+            <h3 className="font-black text-lg text-gray-900 dark:text-white flex items-center gap-2">
+              Comentarios <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs px-2 py-0.5 rounded-full">{comments.length}</span>
+            </h3>
+            <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-400 transition-colors">
+              <X size={20} />
             </button>
+          </div>
 
-            {/* Left Column: Post Preview (Hidden on small mobile if you want, or kept stacked. Let's keep it stacked but mostly for md+) */}
-            <div className="hidden md:flex w-[50%] lg:w-[55%] bg-black relative flex-col items-center justify-center overflow-hidden group">
-                <img
-                    src={post?.image_url}
-                    alt="Post"
-                    className="absolute inset-0 w-full h-full object-cover"
+          {/* Lista de Comentarios */}
+          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-gray-50 dark:bg-[#0a0a0a]">
+            {loading ? (
+              <div className="flex justify-center items-center h-40">
+                <div className="w-8 h-8 border-4 border-cuadralo-pink border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : rootComments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-gray-400 dark:text-gray-600">
+                <MessageVertical size={40} className="mb-2 opacity-50" />
+                <p className="font-medium text-sm">Sé el primero en comentar</p>
+              </div>
+            ) : (
+              <div className="pb-4">
+                {rootComments.map(c => (
+                  <div key={c.id}>
+                    <CommentItem c={c} />
+                    {/* Renderizar respuestas asociadas */}
+                    {replies.filter(r => r.parent_id === c.id).map(reply => (
+                      <CommentItem key={reply.id} c={reply} isReply={true} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Formulario de Comentario */}
+          <div className="p-3 bg-white dark:bg-[#0a0a0a] border-t border-gray-200 dark:border-gray-800">
+            {replyingTo && (
+              <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-900 px-4 py-2 rounded-xl mb-3 border border-gray-200 dark:border-gray-800">
+                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 truncate">
+                  <Reply size={14} className="text-cuadralo-pink shrink-0" />
+                  <span className="truncate">Respondiendo a <span className="font-bold text-gray-900 dark:text-white">@{replyingTo.user?.username}</span>: "{replyingTo.content}"</span>
+                </div>
+                <button onClick={() => setReportingTo(null)} className="text-gray-400 hover:text-gray-900 dark:hover:text-white shrink-0 ml-2">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            
+            <form onSubmit={handleSubmit} className="flex items-end gap-2 relative">
+              <div className="flex-1 bg-gray-100 dark:bg-[#1a1a1a] rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden relative focus-within:ring-2 focus-within:ring-cuadralo-pink/20 focus-within:border-cuadralo-pink transition-all">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder={replyingTo ? "Escribe tu respuesta..." : "Añade un comentario..."}
+                  className="w-full bg-transparent text-gray-900 dark:text-white text-sm px-4 py-3 focus:outline-none resize-none max-h-32 min-h-[44px] custom-scrollbar block"
+                  rows={1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit(e);
+                    }
+                  }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-
-                <div className="absolute bottom-0 left-0 w-full p-6 flex flex-col gap-4">
-                    {/* Interaction Tools */}
-                    <div className="flex gap-4 items-center">
-                        <div className="flex items-center gap-1.5">
-                            <button onClick={handleLikePost} className="focus:outline-none transition-transform active:scale-90 hover:-translate-y-0.5">
-                                <Heart size={28} className={`transition-colors duration-300 ${liked ? "fill-cuadralo-pink text-cuadralo-pink" : "text-white hover:text-gray-200"}`} strokeWidth={liked ? 0 : 2} />
-                            </button>
-                            <span className="text-white font-semibold text-sm drop-shadow-md">{likesCount}</span>
-                        </div>
-                        <button className="text-white hover:text-gray-200 transition-all hover:-translate-y-0.5 focus:outline-none">
-                            <Share2 size={26} strokeWidth={2} />
-                        </button>
-                    </div>
-
-                    {/* User and Caption */}
-                    <div className="flex items-start gap-3">
-                        <img src={post?.user?.photo || "https://via.placeholder.com/150"} alt={postAuthor} className="w-10 h-10 rounded-full object-cover border border-white/20 mt-1" />
-                        <div>
-                            <h3 className="text-white font-bold text-base drop-shadow-md">{postAuthor}</h3>
-                            {post?.caption && <p className="text-sm text-gray-100 mt-1 drop-shadow-md">{post.caption}</p>}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Right Column: Comments Section */}
-            <div className="w-full md:w-[50%] lg:w-[45%] h-full bg-[#1a0b2e] flex flex-col border-l border-white/10 relative">
-                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#0f0518]">
-                    <div className="flex items-center gap-3 md:hidden">
-                        <img src={post?.user?.photo || "https://via.placeholder.com/150"} alt={postAuthor} className="w-10 h-10 rounded-full object-cover border border-white/10" />
-                        <div>
-                            <h3 className="text-white font-bold text-sm">{postAuthor}</h3>
-                            {post?.caption && <p className="text-xs text-gray-300 line-clamp-1">{post.caption}</p>}
-                        </div>
-                    </div>
-                    <div className="hidden md:flex flex-1 justify-center items-center">
-                        <h3 className="text-white font-bold text-sm">Comentarios</h3>
-                    </div>
-                    <button onClick={onClose} className="hidden md:block absolute right-4 p-2 bg-white/5 rounded-full text-white hover:bg-white/10"><X size={20} /></button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 no-scrollbar flex flex-col">
-                    {loading ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" /></div> :
-                     comments.length === 0 ? <div className="text-center text-gray-500 py-10 text-sm">Sé el primero en comentar 👇</div> : (
-                        rootComments.map((root) => {
-                            const replies = getReplies(root.id);
-                            const currentLimit = visibleReplyCounts[root.id] || 2;
-                            const visibleReplies = replies.slice(0, currentLimit);
-                            const remaining = replies.length - visibleReplies.length;
-                            const nextBatchSize = Math.min(5, remaining);
-
-                            return (
-                                <div key={root.id} className="mb-4">
-                                    <CommentItem c={root} />
-                                    {replies.length > 0 && (
-                                        <div className="ml-12 border-l-2 border-white/5 pl-4">
-                                            {visibleReplies.map(reply => (
-                                                <CommentItem key={reply.id} c={reply} isReply={true} />
-                                            ))}
-                                            {remaining > 0 && (
-                                                <button
-                                                    onClick={() => handleShowMore(root.id)}
-                                                    className="mt-3 text-xs text-gray-400 hover:text-white flex items-center gap-2 font-bold transition-colors"
-                                                >
-                                                    <div className="w-6 h-[1px] bg-gray-600"></div>
-                                                    Ver {nextBatchSize} respuestas más
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })
-                    )}
-                    <div ref={commentsEndRef} />
-                </div>
-
-            <div className="bg-[#0f0518] border-t border-white/10">
-                {replyingTo && (
-                    <div className="px-4 py-2 bg-white/5 flex justify-between items-center text-xs text-gray-300">
-                        <span>Respondiendo a <span className="text-cuadralo-pink font-bold">@{replyingTo.username}</span></span>
-                        <button onClick={() => setReplyingTo(null)}><X size={14}/></button>
-                    </div>
-                )}
-                
-                <div className="p-4 flex gap-3 items-center">
-                    <img src={currentUser?.photo} className="w-10 h-10 rounded-full object-cover border-2 border-white/10 shadow-sm" />
-                    <div className="flex-1 flex gap-2 bg-[#1a0b2e] rounded-3xl border border-white/10 p-1.5 focus-within:border-cuadralo-pink/50 transition-colors shadow-inner">
-                        <input 
-                            ref={inputRef}
-                            type="text" 
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                            placeholder={replyingTo ? `Responde a ${replyingTo.username}...` : "Escribe un comentario..."}
-                            className="w-full bg-transparent text-white text-sm pl-4 focus:outline-none placeholder:text-gray-500"
-                        />
-                        <button 
-                            onClick={handleSend}
-                            disabled={!newComment.trim() || sending}
-                            className="w-10 h-10 flex items-center justify-center bg-gradient-to-tr from-cuadralo-pink to-purple-600 rounded-full text-white disabled:opacity-40 disabled:grayscale hover:scale-105 active:scale-95 transition-all shadow-md shadow-cuadralo-pink/20 flex-shrink-0"
-                        >
-                            {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                        </button>
-                    </div>
-                </div>
-            </div>
-            </div>
+              </div>
+              <button 
+                type="submit" 
+                disabled={!newComment.trim()}
+                className="p-3 rounded-full bg-cuadralo-pink text-white disabled:opacity-50 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm"
+              >
+                <Send size={18} className={newComment.trim() ? "translate-x-0.5 -translate-y-0.5" : ""} />
+              </button>
+            </form>
+          </div>
         </motion.div>
-    </div>
+      </div>
+
+      {/* ✅ INYECCIÓN DEL MODAL UNIVERSAL DE REPORTES */}
+      <AnimatePresence>
+          {reportingComment && (
+              <ReportModal 
+                 targetType="comment" 
+                 targetId={reportingComment.id} 
+                 onClose={() => setReportingComment(null)} 
+              />
+          )}
+      </AnimatePresence>
+    </>
   );
 }

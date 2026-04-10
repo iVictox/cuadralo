@@ -33,7 +33,7 @@ func Setup(app *fiber.App) {
 	api.Get("/social/feed", controllers.GetSocialFeed)
 	api.Post("/social/posts", controllers.CreatePost)
 	api.Delete("/social/posts/:id", controllers.DeletePost)
-	api.Post("/social/posts/:id/report", controllers.ReportPost)
+	api.Post("/reports", controllers.SubmitReport)
 	api.Post("/social/posts/:id/like", controllers.TogglePostLike)
 	api.Get("/social/posts/:id", controllers.GetSinglePost)
 	api.Get("/users/:id/posts", controllers.GetUserPosts)
@@ -130,6 +130,9 @@ func Setup(app *fiber.App) {
 
 	admin.Get("/logs", controllers.GetAdminLogs)
 	admin.Get("/settings", controllers.GetSystemSettings)
+
+	admin.Get("/reports", controllers.GetAdminReports)
+	admin.Put("/reports/:id/resolve", controllers.ResolveAdminReport)
 
 	// ==========================================
 	// 🔴 PANEL DE ALTO RIESGO (Solo SuperAdmin)

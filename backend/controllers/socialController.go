@@ -10,10 +10,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// ==========================================
-// 🚀 FEED Y POSTS
-// ==========================================
-
 func GetSocialFeed(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	tab := c.Query("tab", "for_you")
@@ -140,7 +136,6 @@ func CreatePost(c *fiber.Ctx) error {
 	return c.JSON(post)
 }
 
-// ✅ FIX CRÍTICO: Eliminación en Cascada Estricta
 func DeletePost(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	postId := c.Params("id")
@@ -155,7 +150,7 @@ func DeletePost(c *fiber.Ctx) error {
 	}
 
 	// 1. Limpiar Reportes y Notificaciones asociados al post
-	database.DB.Where("post_id = ?", post.ID).Delete(&models.Report{})
+	database.DB.Where("target_type = 'post' AND target_id = ?", post.ID).Delete(&models.Report{})
 	database.DB.Where("post_id = ?", post.ID).Delete(&models.Notification{})
 
 	// 2. Limpiar Likes del Post
@@ -164,11 +159,11 @@ func DeletePost(c *fiber.Ctx) error {
 	// 3. Limpiar los Likes de los comentarios de este post
 	database.DB.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE post_id = ?)", post.ID)
 
-	// 4. Limpiar los Comentarios (Primero respuestas secundarias, luego comentarios raíz)
+	// 4. Limpiar los Comentarios
 	database.DB.Where("post_id = ? AND parent_id IS NOT NULL", post.ID).Delete(&models.Comment{})
 	database.DB.Where("post_id = ?", post.ID).Delete(&models.Comment{})
 
-	// 5. Finalmente, eliminar el Post. Verificando el error real.
+	// 5. Eliminar el Post.
 	if err := database.DB.Delete(&post).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error interno: No se pudo eliminar la publicación."})
 	}
@@ -228,24 +223,42 @@ func GetUserPosts(c *fiber.Ctx) error {
 	return c.JSON(posts)
 }
 
-func ReportPost(c *fiber.Ctx) error {
+// ✅ NUEVO: Sistema Universal de Reportes para Usuarios
+func SubmitReport(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
-	postId := c.Params("id")
 
-	var data map[string]string
-	if err := c.BodyParser(&data); err != nil {
+	var payload struct {
+		TargetType string `json:"target_type"`
+		TargetID   uint   `json:"target_id"`
+		Reason     string `json:"reason"`
+	}
+
+	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
-	report := models.Report{
-		UserID:    userId,
-		PostID:    func() uint { var id uint; fmt.Sscanf(postId, "%d", &id); return id }(),
-		Reason:    data["reason"],
-		CreatedAt: time.Now(),
+	// Evitar spam de reportes (No dejar que un usuario reporte lo mismo dos veces si está pendiente)
+	var count int64
+	database.DB.Model(&models.Report{}).Where("reporter_id = ? AND target_type = ? AND target_id = ? AND status = 'pending'", userId, payload.TargetType, payload.TargetID).Count(&count)
+
+	if count > 0 {
+		return c.Status(400).JSON(fiber.Map{"error": "Ya enviaste un reporte para este contenido. Está en revisión."})
 	}
 
-	database.DB.Create(&report)
-	return c.JSON(fiber.Map{"message": "Reporte enviado"})
+	report := models.Report{
+		ReporterID: userId,
+		TargetType: payload.TargetType,
+		TargetID:   payload.TargetID,
+		Reason:     payload.Reason,
+		Status:     "pending",
+		CreatedAt:  time.Now(),
+	}
+
+	if err := database.DB.Create(&report).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error al registrar el reporte en el sistema."})
+	}
+
+	return c.JSON(fiber.Map{"message": "Reporte enviado al equipo de moderación exitosamente."})
 }
 
 // ==========================================
@@ -321,7 +334,6 @@ func CreateComment(c *fiber.Ctx) error {
 	return c.JSON(comment)
 }
 
-// ✅ FIX CRÍTICO: Eliminación en Cascada Estricta para Comentarios
 func DeleteComment(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	commentId := c.Params("id")
@@ -335,14 +347,11 @@ func DeleteComment(c *fiber.Ctx) error {
 		return c.Status(403).JSON(fiber.Map{"error": "No autorizado"})
 	}
 
-	// 1. Limpiar likes de los comentarios que son respuestas a este
 	database.DB.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE parent_id = ?)", comment.ID)
-	// 2. Limpiar las respuestas
 	database.DB.Where("parent_id = ?", comment.ID).Delete(&models.Comment{})
-	// 3. Limpiar los likes del comentario principal
 	database.DB.Where("comment_id = ?", comment.ID).Delete(&models.CommentLike{})
+	database.DB.Where("target_type = 'comment' AND target_id = ?", comment.ID).Delete(&models.Report{})
 
-	// 4. Borrar comentario
 	if err := database.DB.Delete(&comment).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error interno al eliminar comentario"})
 	}
@@ -478,7 +487,6 @@ func CreateStory(c *fiber.Ctx) error {
 	return c.JSON(story)
 }
 
-// ✅ FIX CRÍTICO: Eliminación en Cascada Estricta para Historias
 func DeleteStory(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	storyId := c.Params("id")
@@ -492,10 +500,8 @@ func DeleteStory(c *fiber.Ctx) error {
 		return c.Status(403).JSON(fiber.Map{"error": "No autorizado"})
 	}
 
-	// 1. Limpiar el historial de vistas
 	database.DB.Where("story_id = ?", story.ID).Delete(&models.StoryView{})
 
-	// 2. Eliminar historia
 	if err := database.DB.Delete(&story).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error interno al borrar la historia"})
 	}
