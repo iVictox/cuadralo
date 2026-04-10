@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { api } from "@/utils/api";
 import Link from "next/link";
 import { 
@@ -8,7 +8,6 @@ import {
   Settings, Crown, FileText, Server, LineChart, ChevronDown, 
   LogOut, Menu, X
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 
 const menuCategories = [
   {
@@ -45,12 +44,11 @@ const menuCategories = [
     title: "REPORTES",
     icon: AlertTriangle,
     items: [
-      // ✅ FIX: Rutas directas a las pestañas del Dashboard Unificado
-      { name: "Posts Reportados", path: "/admin/reports?tab=post" },
-      { name: "Comentarios Reportados", path: "/admin/reports?tab=comment" },
-      { name: "Usuarios Reportados", path: "/admin/reports?tab=user" },
-      { name: "Mensajes Reportados", path: "/admin/reports?tab=message" },
-      { name: "Reportes Resueltos", path: "/admin/reports?tab=resolved" }
+      { name: "Posts Reportados", path: "/admin/reports/posts" },
+      { name: "Comentarios Reportados", path: "/admin/reports/comments" },
+      { name: "Usuarios Reportados", path: "/admin/reports/users" },
+      { name: "Mensajes Reportados", path: "/admin/reports/messages" },
+      { name: "Reportes Resueltos", path: "/admin/reports/resolved" }
     ]
   },
   {
@@ -122,33 +120,28 @@ const menuCategories = [
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
-  // Calcula la categoría activa considerando también los parámetros (tab)
+  // ✅ FIX: Calculamos la categoría activa instantáneamente basándonos en la URL actual
   const initialCategory = useMemo(() => {
+    // Caso especial para el dashboard principal que es la raíz exacta "/admin"
     if (pathname === "/admin") return "DASHBOARD";
     
-    // Construir la URL virtual para comparar (para que el menú de reportes funcione con tabs)
-    const currentTab = searchParams.get("tab");
-    const virtualPath = currentTab && pathname === "/admin/reports" ? `${pathname}?tab=${currentTab}` : pathname;
-
+    // Buscamos en qué categoría encaja la ruta actual
     const foundCategory = menuCategories.find(cat => 
-      cat.items.some(item => 
-          item.path !== "/admin" && 
-          (virtualPath === item.path || pathname.startsWith(item.path.split('?')[0] + '/'))
-      )
+      cat.items.some(item => item.path !== "/admin" && (pathname === item.path || pathname.startsWith(item.path + '/')))
     );
     
     return foundCategory ? foundCategory.title : "DASHBOARD";
-  }, [pathname, searchParams]);
+  }, [pathname]);
 
   const [openCategory, setOpenCategory] = useState(initialCategory);
 
+  // Mantenemos sincronizado el acordeón si el usuario navega usando botones internos (no el menú)
   useEffect(() => {
      setOpenCategory(initialCategory);
   }, [initialCategory]);
@@ -205,6 +198,7 @@ export default function AdminLayout({ children }) {
   return (
     <div className="flex h-screen bg-[#050505] text-gray-200 overflow-hidden selection:bg-purple-500/30">
       
+      {/* Overlay Oscuro para Móviles */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
@@ -212,6 +206,7 @@ export default function AdminLayout({ children }) {
         />
       )}
 
+      {/* Sidebar Fija */}
       <aside 
         className={`fixed lg:static inset-y-0 left-0 z-50 w-72 h-full bg-[#0a0a0a] border-r border-gray-800/60 flex flex-col transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
@@ -225,10 +220,12 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
 
+        {/* Menú Acordeón */}
         <nav className="flex-1 overflow-y-auto py-4 custom-scrollbar px-4 space-y-1">
           {menuCategories.map((category, idx) => {
             if (category.roles && !category.roles.includes(userRole)) return null;
 
+            // ✅ Lógica estricta para saber si la categoría entera está activa
             const isCategoryActive = category.title === initialCategory;
             const isOpen = openCategory === category.title;
 
@@ -256,11 +253,8 @@ export default function AdminLayout({ children }) {
                 >
                   <ul className="pl-9 pr-2 py-1 space-y-1 border-l border-gray-800/60 ml-5">
                     {category.items.map((item) => {
-                      
-                      // Comparación exacta incluyendo parámetros (Tabs de Reportes)
-                      const currentTab = searchParams.get("tab");
-                      const virtualPath = currentTab && pathname === "/admin/reports" ? `${pathname}?tab=${currentTab}` : pathname;
-                      const isItemActive = virtualPath === item.path;
+                      // ✅ Lógica estricta para el sub-ítem exacto
+                      const isItemActive = pathname === item.path;
                       
                       return (
                         <li key={item.path}>
