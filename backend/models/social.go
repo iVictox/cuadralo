@@ -64,13 +64,18 @@ type StoryView struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// ✅ FIX: Modelo de Reportes Mejorado
+// ✅ FIX: El modelo de Reporte ahora soporta denuncias tanto a Posts como a Comentarios
 type Report struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	UserID    uint      `json:"user_id"`
-	Reporter  User      `json:"reporter" gorm:"foreignKey:UserID"`
-	PostID    *uint     `json:"post_id"` // Hacemos PostID un puntero para que no rompa registros viejos
-	Post      Post      `json:"post" gorm:"foreignKey:PostID"`
+	ID       uint `gorm:"primaryKey" json:"id"`
+	UserID   uint `json:"user_id"`
+	Reporter User `json:"reporter" gorm:"foreignKey:UserID"`
+
+	PostID *uint `json:"post_id"`
+	Post   Post  `json:"post" gorm:"foreignKey:PostID"`
+
+	CommentID *uint   `json:"comment_id"` // ✅ NUEVO: Soporte para comentarios
+	Comment   Comment `json:"comment" gorm:"foreignKey:CommentID"`
+
 	Reason    string    `json:"reason"`
 	Status    string    `json:"status" gorm:"default:'pending'"` // "pending", "resolved", "dismissed"
 	CreatedAt time.Time `json:"created_at"`

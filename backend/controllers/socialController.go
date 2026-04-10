@@ -153,7 +153,6 @@ func DeletePost(c *fiber.Ctx) error {
 		return c.Status(403).JSON(fiber.Map{"error": "No autorizado"})
 	}
 
-	// Limpieza en cascada estricta
 	database.DB.Where("post_id = ?", post.ID).Delete(&models.Report{})
 	database.DB.Where("post_id = ?", post.ID).Delete(&models.Notification{})
 	database.DB.Where("post_id = ?", post.ID).Delete(&models.PostLike{})
@@ -220,7 +219,6 @@ func GetUserPosts(c *fiber.Ctx) error {
 	return c.JSON(posts)
 }
 
-// ✅ FIX: Estructura corregida para alinear con el nuevo modelo de la BD
 func ReportPost(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
 	postId := c.Params("id")
@@ -234,8 +232,8 @@ func ReportPost(c *fiber.Ctx) error {
 	fmt.Sscanf(postId, "%d", &pId)
 
 	report := models.Report{
-		UserID:    userId, // El que reporta
-		PostID:    &pId,   // El Post reportado
+		UserID:    userId,
+		PostID:    &pId,
 		Reason:    data["reason"],
 		Status:    "pending",
 		CreatedAt: time.Now(),
@@ -243,6 +241,31 @@ func ReportPost(c *fiber.Ctx) error {
 
 	database.DB.Create(&report)
 	return c.JSON(fiber.Map{"message": "Reporte enviado. Un administrador lo revisará pronto."})
+}
+
+// ✅ NUEVO: Función para que los usuarios puedan denunciar comentarios
+func ReportComment(c *fiber.Ctx) error {
+	userId := uint(c.Locals("userId").(float64))
+	commentId := c.Params("id")
+
+	var data map[string]string
+	if err := c.BodyParser(&data); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	var cId uint
+	fmt.Sscanf(commentId, "%d", &cId)
+
+	report := models.Report{
+		UserID:    userId,
+		CommentID: &cId,
+		Reason:    data["reason"],
+		Status:    "pending",
+		CreatedAt: time.Now(),
+	}
+
+	database.DB.Create(&report)
+	return c.JSON(fiber.Map{"message": "Comentario reportado. El equipo de moderación lo revisará."})
 }
 
 // ==========================================
@@ -331,6 +354,7 @@ func DeleteComment(c *fiber.Ctx) error {
 		return c.Status(403).JSON(fiber.Map{"error": "No autorizado"})
 	}
 
+	database.DB.Where("comment_id = ?", comment.ID).Delete(&models.Report{}) // ✅ Limpiamos denuncias si el autor lo borra
 	database.DB.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE parent_id = ?)", comment.ID)
 	database.DB.Where("parent_id = ?", comment.ID).Delete(&models.Comment{})
 	database.DB.Where("comment_id = ?", comment.ID).Delete(&models.CommentLike{})

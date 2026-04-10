@@ -7,11 +7,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// Obtiene los reportes que los usuarios han hecho a los posts
 func GetPostReportsAdmin(c *fiber.Ctx) error {
 	var reports []models.Report
 
-	// Traer todos los reportes de Posts que sigan pendientes
 	if err := database.DB.Preload("Reporter").Preload("Post").Preload("Post.User").
 		Where("status = ? AND post_id IS NOT NULL", "pending").
 		Order("created_at desc").Find(&reports).Error; err != nil {
@@ -21,12 +19,24 @@ func GetPostReportsAdmin(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"reports": reports})
 }
 
-// Resuelve la denuncia (Ignorar o Eliminar Publicación)
+// ✅ NUEVA FUNCIÓN: Obtiene las denuncias hechas a los comentarios
+func GetCommentReportsAdmin(c *fiber.Ctx) error {
+	var reports []models.Report
+
+	if err := database.DB.Preload("Reporter").Preload("Comment").Preload("Comment.User").
+		Where("status = ? AND comment_id IS NOT NULL", "pending").
+		Order("created_at desc").Find(&reports).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error cargando reportes de comentarios"})
+	}
+
+	return c.JSON(fiber.Map{"reports": reports})
+}
+
 func ResolveReportAdmin(c *fiber.Ctx) error {
 	reportID := c.Params("id")
 
 	var payload struct {
-		Action string `json:"action"` // Puede ser "dismiss" (Falsa Alarma) o "delete" (Proceder a purgar)
+		Action string `json:"action"`
 	}
 
 	if err := c.BodyParser(&payload); err != nil {
@@ -39,25 +49,30 @@ func ResolveReportAdmin(c *fiber.Ctx) error {
 	}
 
 	if payload.Action == "delete" {
-		// El Admin dictó sentencia. Vamos a destruir el Post en cascada.
 		if report.PostID != nil {
 			postID := *report.PostID
 
-			// 1. Limpiamos dependencias
 			database.DB.Where("post_id = ?", postID).Delete(&models.Notification{})
 			database.DB.Where("post_id = ?", postID).Delete(&models.PostLike{})
 			database.DB.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE post_id = ?)", postID)
 			database.DB.Where("post_id = ? AND parent_id IS NOT NULL", postID).Delete(&models.Comment{})
 			database.DB.Where("post_id = ?", postID).Delete(&models.Comment{})
 
-			// 2. Cerramos TODAS las denuncias pendientes asociadas a este mismo post para que no queden flotando
 			database.DB.Model(&models.Report{}).Where("post_id = ?", postID).Update("status", "resolved")
-
-			// 3. Borramos el Post Original
 			database.DB.Delete(&models.Post{}, postID)
+
+		} else if report.CommentID != nil { // ✅ NUEVO: Borrado en cascada para Comentarios Infractores
+			commentID := *report.CommentID
+
+			database.DB.Where("comment_id = ?", commentID).Delete(&models.Report{})
+			database.DB.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE parent_id = ?)", commentID)
+			database.DB.Where("parent_id = ?", commentID).Delete(&models.Comment{})
+			database.DB.Where("comment_id = ?", commentID).Delete(&models.CommentLike{})
+
+			database.DB.Model(&models.Report{}).Where("comment_id = ?", commentID).Update("status", "resolved")
+			database.DB.Delete(&models.Comment{}, commentID)
 		}
 	} else if payload.Action == "dismiss" {
-		// Fue una falsa alarma, se marca como ignorado
 		report.Status = "dismissed"
 		database.DB.Save(&report)
 	}
