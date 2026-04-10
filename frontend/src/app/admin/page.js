@@ -2,12 +2,13 @@
 import { useEffect, useState } from "react";
 import { api } from "@/utils/api";
 import { Users, Crown, Heart, CreditCard, Activity } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -16,7 +17,7 @@ export default function AdminDashboard() {
         setStats(statsData);
 
         const logsData = await api.get("/admin/logs");
-        setLogs(logsData.slice(0, 6)); // Tomar solo los últimos 6 eventos
+        setLogs(logsData.slice(0, 6)); 
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -40,6 +41,9 @@ export default function AdminDashboard() {
     { title: "Pagos Pendientes", value: stats?.total_payments || 0, icon: CreditCard, color: "bg-green-500/10 text-green-400 border-green-500/20" },
     { title: "Matches Activos", value: stats?.total_matches || 0, icon: Heart, color: "bg-pink-500/10 text-pink-400 border-pink-500/20" },
   ];
+
+  // Calcular el máximo para la gráfica nativa
+  const maxUsers = stats?.user_growth ? Math.max(...stats.user_growth.map(d => d.users), 10) : 10;
 
   return (
     <div className="space-y-8">
@@ -65,34 +69,33 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* Gráfica Principal */}
-        <div className="lg:col-span-2 bg-gray-900 rounded-3xl border border-gray-800 p-6 sm:p-8 shadow-2xl">
-           <h2 className="text-lg font-black text-white mb-6 flex items-center gap-2">
-             <Activity className="text-purple-500" size={20} /> Crecimiento de la Comunidad (Últimos 7 Días)
+        {/* Gráfica NATIVA Tailwind (Libre de errores) */}
+        <div className="lg:col-span-2 bg-gray-900 rounded-3xl border border-gray-800 p-6 sm:p-8 shadow-2xl flex flex-col">
+           <h2 className="text-lg font-black text-white mb-2 flex items-center gap-2">
+             <Activity className="text-purple-500" size={20} /> Crecimiento de la Comunidad
            </h2>
-           <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats?.user_growth || []} margin={{ top: 5, right: 20, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                  <XAxis dataKey="name" stroke="#6b7280" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600 }} dy={10} />
-                  <YAxis stroke="#6b7280" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600 }} allowDecimals={false} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid #1f2937', borderRadius: '12px', color: '#fff', fontWeight: 'bold' }} 
-                    itemStyle={{ color: '#a855f7' }}
-                    cursor={{ stroke: '#374151', strokeWidth: 1, strokeDasharray: '4 4' }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="users" 
-                    name="Nuevos Registros" 
-                    stroke="#a855f7" 
-                    strokeWidth={4} 
-                    dot={{ r: 4, fill: '#0a0a0a', stroke: '#a855f7', strokeWidth: 2 }} 
-                    activeDot={{ r: 6, fill: '#a855f7', stroke: '#fff', strokeWidth: 2 }} 
-                    animationDuration={1500}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+           <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-6">Últimos 7 días</p>
+           
+           <div className="flex-1 flex items-end gap-2 md:gap-4 mt-auto pt-10">
+              {stats?.user_growth?.map((d, idx) => {
+                 const heightPercent = Math.max((d.users / maxUsers) * 100, 5);
+                 return (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-3 group">
+                        <div className="relative w-full flex justify-center h-48 items-end">
+                            {/* Tooltip Hover */}
+                            <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-lg border border-gray-700 whitespace-nowrap z-10 pointer-events-none">
+                                {d.users} Registros
+                            </div>
+                            {/* Barra */}
+                            <div 
+                                className="w-full md:w-3/4 bg-gradient-to-t from-purple-900 to-purple-500 rounded-t-md transition-all duration-1000 ease-out group-hover:brightness-125" 
+                                style={{ height: `${heightPercent}%` }}
+                            ></div>
+                        </div>
+                        <span className="text-[10px] md:text-xs text-gray-500 font-bold uppercase tracking-wider">{d.name}</span>
+                    </div>
+                 );
+              })}
            </div>
         </div>
 

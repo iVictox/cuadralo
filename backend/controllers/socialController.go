@@ -10,6 +10,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// ==========================================
+// 🚀 FEED Y POSTS
+// ==========================================
+
 func GetSocialFeed(c *fiber.Ctx) error {
 	myId := uint(c.Locals("userId").(float64))
 	tab := c.Query("tab", "for_you")
@@ -149,21 +153,14 @@ func DeletePost(c *fiber.Ctx) error {
 		return c.Status(403).JSON(fiber.Map{"error": "No autorizado"})
 	}
 
-	// 1. Limpiar Reportes y Notificaciones asociados al post
-	database.DB.Where("target_type = 'post' AND target_id = ?", post.ID).Delete(&models.Report{})
+	// Limpieza en cascada estricta
+	database.DB.Where("post_id = ?", post.ID).Delete(&models.Report{})
 	database.DB.Where("post_id = ?", post.ID).Delete(&models.Notification{})
-
-	// 2. Limpiar Likes del Post
 	database.DB.Where("post_id = ?", post.ID).Delete(&models.PostLike{})
-
-	// 3. Limpiar los Likes de los comentarios de este post
 	database.DB.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE post_id = ?)", post.ID)
-
-	// 4. Limpiar los Comentarios
 	database.DB.Where("post_id = ? AND parent_id IS NOT NULL", post.ID).Delete(&models.Comment{})
 	database.DB.Where("post_id = ?", post.ID).Delete(&models.Comment{})
 
-	// 5. Eliminar el Post.
 	if err := database.DB.Delete(&post).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error interno: No se pudo eliminar la publicación."})
 	}
@@ -223,42 +220,29 @@ func GetUserPosts(c *fiber.Ctx) error {
 	return c.JSON(posts)
 }
 
-// ✅ NUEVO: Sistema Universal de Reportes para Usuarios
-func SubmitReport(c *fiber.Ctx) error {
+// ✅ FIX: Estructura corregida para alinear con el nuevo modelo de la BD
+func ReportPost(c *fiber.Ctx) error {
 	userId := uint(c.Locals("userId").(float64))
+	postId := c.Params("id")
 
-	var payload struct {
-		TargetType string `json:"target_type"`
-		TargetID   uint   `json:"target_id"`
-		Reason     string `json:"reason"`
-	}
-
-	if err := c.BodyParser(&payload); err != nil {
+	var data map[string]string
+	if err := c.BodyParser(&data); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
 	}
 
-	// Evitar spam de reportes (No dejar que un usuario reporte lo mismo dos veces si está pendiente)
-	var count int64
-	database.DB.Model(&models.Report{}).Where("reporter_id = ? AND target_type = ? AND target_id = ? AND status = 'pending'", userId, payload.TargetType, payload.TargetID).Count(&count)
-
-	if count > 0 {
-		return c.Status(400).JSON(fiber.Map{"error": "Ya enviaste un reporte para este contenido. Está en revisión."})
-	}
+	var pId uint
+	fmt.Sscanf(postId, "%d", &pId)
 
 	report := models.Report{
-		ReporterID: userId,
-		TargetType: payload.TargetType,
-		TargetID:   payload.TargetID,
-		Reason:     payload.Reason,
-		Status:     "pending",
-		CreatedAt:  time.Now(),
+		UserID:    userId, // El que reporta
+		PostID:    &pId,   // El Post reportado
+		Reason:    data["reason"],
+		Status:    "pending",
+		CreatedAt: time.Now(),
 	}
 
-	if err := database.DB.Create(&report).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Error al registrar el reporte en el sistema."})
-	}
-
-	return c.JSON(fiber.Map{"message": "Reporte enviado al equipo de moderación exitosamente."})
+	database.DB.Create(&report)
+	return c.JSON(fiber.Map{"message": "Reporte enviado. Un administrador lo revisará pronto."})
 }
 
 // ==========================================
@@ -350,7 +334,6 @@ func DeleteComment(c *fiber.Ctx) error {
 	database.DB.Exec("DELETE FROM comment_likes WHERE comment_id IN (SELECT id FROM comments WHERE parent_id = ?)", comment.ID)
 	database.DB.Where("parent_id = ?", comment.ID).Delete(&models.Comment{})
 	database.DB.Where("comment_id = ?", comment.ID).Delete(&models.CommentLike{})
-	database.DB.Where("target_type = 'comment' AND target_id = ?", comment.ID).Delete(&models.Report{})
 
 	if err := database.DB.Delete(&comment).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Error interno al eliminar comentario"})

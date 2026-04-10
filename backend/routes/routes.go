@@ -33,7 +33,10 @@ func Setup(app *fiber.App) {
 	api.Get("/social/feed", controllers.GetSocialFeed)
 	api.Post("/social/posts", controllers.CreatePost)
 	api.Delete("/social/posts/:id", controllers.DeletePost)
-	api.Post("/reports", controllers.SubmitReport)
+
+	// ✅ FIX: Aquí estaba el error. Ahora usa la función correcta: ReportPost
+	api.Post("/social/posts/:id/report", controllers.ReportPost)
+
 	api.Post("/social/posts/:id/like", controllers.TogglePostLike)
 	api.Get("/social/posts/:id", controllers.GetSinglePost)
 	api.Get("/users/:id/posts", controllers.GetUserPosts)
@@ -91,11 +94,10 @@ func Setup(app *fiber.App) {
 
 	admin.Get("/stats", controllers.GetDashboardStats)
 
-	// Gestión de Usuarios
+	// Usuarios
 	admin.Get("/users/suspended", controllers.GetSuspendedUsersAdmin)
 	admin.Get("/users/deleted", controllers.GetDeletedUsersAdmin)
 	admin.Get("/users", controllers.GetAllUsersAdmin)
-
 	admin.Put("/users/:id/suspend", controllers.SuspendUser)
 	admin.Put("/users/:id/restore", controllers.RestoreDeletedUser)
 
@@ -107,9 +109,9 @@ func Setup(app *fiber.App) {
 	admin.Put("/users/:id/vip/extend", controllers.ExtendVIP)
 	admin.Put("/users/:id/vip/grant", controllers.GrantVIPManual)
 
-	// ✅ MODERACIÓN (Nuevas Rutas)
+	// Moderación
 	admin.Get("/moderation/conversations", controllers.GetAllConversationsAdmin)
-	admin.Get("/moderation/conversations/history", controllers.GetFullConversationAdmin) // ✅ NUEVO: Historial de chat
+	admin.Get("/moderation/conversations/history", controllers.GetFullConversationAdmin)
 	admin.Delete("/moderation/conversations", controllers.DeleteConversationAdmin)
 
 	admin.Get("/moderation/messages", controllers.GetAllMessagesAdmin)
@@ -126,21 +128,23 @@ func Setup(app *fiber.App) {
 
 	admin.Get("/moderation/media", controllers.GetAllMediaAdmin)
 	admin.Delete("/moderation/media", controllers.DeleteMediaAdmin)
+
 	admin.Get("/moderation/flagged", controllers.GetFlaggedContentAdmin)
+
+	// Reportes
+	admin.Get("/reports/posts", controllers.GetPostReportsAdmin)
+	admin.Put("/reports/:id/resolve", controllers.ResolveReportAdmin)
 
 	admin.Get("/logs", controllers.GetAdminLogs)
 	admin.Get("/settings", controllers.GetSystemSettings)
-
-	admin.Get("/reports", controllers.GetAdminReports)
-	admin.Put("/reports/:id/resolve", controllers.ResolveAdminReport)
 
 	// ==========================================
 	// 🔴 PANEL DE ALTO RIESGO (Solo SuperAdmin)
 	// ==========================================
 	superAdmin := api.Group("/admin", middleware.IsSuperAdmin)
 
-	superAdmin.Delete("/users/:id/force", controllers.ForceDeleteUser) // ✅ Purga Definitiva
-	superAdmin.Delete("/users/:id", controllers.DeleteUserAdmin)       // Soft Delete (Papelera)
+	superAdmin.Delete("/users/:id/force", controllers.ForceDeleteUser)
+	superAdmin.Delete("/users/:id", controllers.DeleteUserAdmin)
 
 	superAdmin.Put("/settings", controllers.UpdateSystemSettings)
 	superAdmin.Get("/requests", controllers.GetAdminRequests)
