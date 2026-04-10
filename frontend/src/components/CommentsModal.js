@@ -1,18 +1,17 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Heart, Trash2, Reply, CornerDownRight, MoreVertical, Flag } from "lucide-react";
+import { X, Send, Heart, Trash2, Reply, CornerDownRight, MoreVertical, Flag, MessageSquare } from "lucide-react"; // ✅ FIX: Importamos MessageSquare correctamente
 import { api } from "@/utils/api";
-import ReportModal from "./ReportModal"; // ✅ IMPORTANTE
+import ReportModal from "./ReportModal";
 
 export default function CommentsModal({ postId, onClose }) {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
-  const [replyingTo, setReportingTo] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null); // ✅ FIX: Corregido el nombre a setReplyingTo
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   
-  // ✅ Estado para el Modal de Reportes
   const [reportingComment, setReportingComment] = useState(null);
 
   useEffect(() => {
@@ -44,7 +43,7 @@ export default function CommentsModal({ postId, onClose }) {
       
       await api.post(`/social/posts/${postId}/comments`, payload);
       setNewComment("");
-      setReportingTo(null);
+      setReplyingTo(null); // ✅ FIX
       fetchComments();
     } catch (error) {
       console.error("Error posting comment:", error);
@@ -79,7 +78,6 @@ export default function CommentsModal({ postId, onClose }) {
     }
   };
 
-  // Organizar comentarios (Raíz y Respuestas)
   const rootComments = comments.filter(c => !c.parent_id);
   const replies = comments.filter(c => c.parent_id);
 
@@ -111,7 +109,7 @@ export default function CommentsModal({ postId, onClose }) {
           </button>
           {!isReply && (
             <button 
-              onClick={() => setReportingTo(c)}
+              onClick={() => setReplyingTo(c)} // ✅ FIX
               className="text-[10px] font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
             >
               Responder
@@ -125,7 +123,6 @@ export default function CommentsModal({ postId, onClose }) {
                 Eliminar
              </button>
           ) : (
-             // ✅ BOTÓN DE REPORTE PARA COMENTARIOS AJENOS
              <button 
                 onClick={() => setReportingComment(c)} 
                 className="text-[10px] text-orange-400 hover:text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
@@ -166,7 +163,7 @@ export default function CommentsModal({ postId, onClose }) {
               </div>
             ) : rootComments.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 text-gray-400 dark:text-gray-600">
-                <MessageVertical size={40} className="mb-2 opacity-50" />
+                <MessageSquare size={40} className="mb-2 opacity-50" /> {/* ✅ FIX: Ícono Válido */}
                 <p className="font-medium text-sm">Sé el primero en comentar</p>
               </div>
             ) : (
@@ -174,7 +171,6 @@ export default function CommentsModal({ postId, onClose }) {
                 {rootComments.map(c => (
                   <div key={c.id}>
                     <CommentItem c={c} />
-                    {/* Renderizar respuestas asociadas */}
                     {replies.filter(r => r.parent_id === c.id).map(reply => (
                       <CommentItem key={reply.id} c={reply} isReply={true} />
                     ))}
@@ -192,7 +188,7 @@ export default function CommentsModal({ postId, onClose }) {
                   <Reply size={14} className="text-cuadralo-pink shrink-0" />
                   <span className="truncate">Respondiendo a <span className="font-bold text-gray-900 dark:text-white">@{replyingTo.user?.username}</span>: "{replyingTo.content}"</span>
                 </div>
-                <button onClick={() => setReportingTo(null)} className="text-gray-400 hover:text-gray-900 dark:hover:text-white shrink-0 ml-2">
+                <button onClick={() => setReplyingTo(null)} className="text-gray-400 hover:text-gray-900 dark:hover:text-white shrink-0 ml-2">
                   <X size={14} />
                 </button>
               </div>
@@ -226,7 +222,6 @@ export default function CommentsModal({ postId, onClose }) {
         </motion.div>
       </div>
 
-      {/* ✅ INYECCIÓN DEL MODAL UNIVERSAL DE REPORTES */}
       <AnimatePresence>
           {reportingComment && (
               <ReportModal 
