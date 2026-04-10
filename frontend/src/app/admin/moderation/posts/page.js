@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/utils/api";
-import { Search, Trash2, FileText, Image as ImageIcon } from "lucide-react";
+import { Search, Trash2, FileText, Image as ImageIcon, ExternalLink } from "lucide-react";
 import { useDebounce } from 'use-debounce';
+import Link from "next/link";
 
 export default function AdminPosts() {
   const [posts, setPosts] = useState([]);
@@ -52,12 +53,29 @@ export default function AdminPosts() {
           <div key={post.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-lg flex flex-col">
             <div className="flex justify-between items-start mb-3">
                <div className="font-bold text-white text-sm">@{post.user?.username}</div>
-               <button onClick={() => handleDelete(post.id)} className="text-red-400 hover:bg-red-500/20 p-1.5 rounded-lg transition-colors"><Trash2 size={16}/></button>
+               
+               {/* BOTONES DE ACCIÓN: VER ENLACE Y ELIMINAR */}
+               <div className="flex items-center gap-2">
+                   <Link 
+                       href={`/post/${post.id}`} 
+                       target="_blank" 
+                       className="text-blue-400 hover:bg-blue-500/20 p-1.5 rounded-lg transition-colors" 
+                       title="Ver publicación en la app"
+                   >
+                       <ExternalLink size={16}/>
+                   </Link>
+                   <button 
+                       onClick={() => handleDelete(post.id)} 
+                       className="text-red-400 hover:bg-red-500/20 p-1.5 rounded-lg transition-colors"
+                       title="Purgar publicación"
+                   >
+                       <Trash2 size={16}/>
+                   </button>
+               </div>
             </div>
             
             <p className="text-gray-300 text-sm mb-4 flex-1">{post.caption || post.content}</p>
             
-            {/* ✅ FIX: Lectura correcta del ImageURL único de tu base de datos */}
             {post.image_url && (
                 <div className="h-40 w-full bg-gray-800 rounded-xl mb-4 overflow-hidden border border-gray-700 relative">
                     <img src={post.image_url} alt="Post" className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity" />

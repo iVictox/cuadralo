@@ -21,6 +21,7 @@ type Post struct {
 type Comment struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	PostID    uint      `json:"post_id"`
+	Post      Post      `json:"post" gorm:"foreignKey:PostID"` // ✅ FIX: Relación indispensable
 	UserID    uint      `json:"user_id"`
 	User      User      `json:"user"`
 	Content   string    `json:"content"`
@@ -44,7 +45,6 @@ type CommentLike struct {
 	CommentID uint `gorm:"primaryKey" json:"comment_id"`
 }
 
-// ✅ MODIFICADO: Agregamos ViewsCount
 type Story struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `json:"user_id"`
@@ -54,14 +54,13 @@ type Story struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	Seen       bool  `gorm:"-" json:"seen"`
-	ViewsCount int64 `gorm:"-" json:"views_count"` // <--- NUEVO
+	ViewsCount int64 `gorm:"-" json:"views_count"`
 }
 
-// ✅ MODIFICADO: Agregamos relación User
 type StoryView struct {
 	StoryID   uint      `gorm:"primaryKey" json:"story_id"`
 	UserID    uint      `gorm:"primaryKey" json:"user_id"`
-	User      User      `json:"user" gorm:"foreignKey:UserID"` // <--- NUEVO
+	User      User      `json:"user" gorm:"foreignKey:UserID"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
