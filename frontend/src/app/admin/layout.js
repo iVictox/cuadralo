@@ -133,9 +133,9 @@ export default function AdminLayout({ children }) {
   const initialCategory = useMemo(() => {
     if (pathname === "/admin") return "DASHBOARD";
     
-    // Construir la URL virtual para comparar
+    // Construir la URL virtual para comparar (para que el menú de reportes funcione con tabs)
     const currentTab = searchParams.get("tab");
-    const virtualPath = currentTab ? `${pathname}?tab=${currentTab}` : pathname;
+    const virtualPath = currentTab && pathname === "/admin/reports" ? `${pathname}?tab=${currentTab}` : pathname;
 
     const foundCategory = menuCategories.find(cat => 
       cat.items.some(item => 
@@ -257,9 +257,9 @@ export default function AdminLayout({ children }) {
                   <ul className="pl-9 pr-2 py-1 space-y-1 border-l border-gray-800/60 ml-5">
                     {category.items.map((item) => {
                       
-                      // Comparación exacta incluyendo parámetros
+                      // Comparación exacta incluyendo parámetros (Tabs de Reportes)
                       const currentTab = searchParams.get("tab");
-                      const virtualPath = currentTab ? `${pathname}?tab=${currentTab}` : pathname;
+                      const virtualPath = currentTab && pathname === "/admin/reports" ? `${pathname}?tab=${currentTab}` : pathname;
                       const isItemActive = virtualPath === item.path;
                       
                       return (
