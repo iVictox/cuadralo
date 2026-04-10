@@ -1,28 +1,35 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Heart, Trash2, Reply, CornerDownRight, MoreVertical, Flag, MessageSquare } from "lucide-react"; // ✅ FIX: Importamos MessageSquare correctamente
+import { X, Send, Heart, Trash2, Reply, Flag, MoreHorizontal } from "lucide-react";
 import { api } from "@/utils/api";
 import ReportModal from "./ReportModal";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 
-export default function CommentsModal({ postId, onClose }) {
+// ✅ FIX CRÍTICO: Recibimos 'post' como objeto, no 'postId'
+export default function CommentsModal({ post, onClose, liked, likesCount, onLikeToggle }) {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
-  const [replyingTo, setReplyingTo] = useState(null); // ✅ FIX: Corregido el nombre a setReplyingTo
+  const [replyingTo, setReplyingTo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   
   const [reportingComment, setReportingComment] = useState(null);
+  const commentsEndRef = useRef(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) setCurrentUser(JSON.parse(userStr));
-    fetchComments();
-  }, [postId]);
+    
+    if (post?.id) {
+        fetchComments();
+    }
+  }, [post]);
 
   const fetchComments = async () => {
     try {
-      const data = await api.get(`/social/posts/${postId}/comments`);
+      const data = await api.get(`/social/posts/${post.id}/comments`);
       setComments(data || []);
     } catch (error) {
       console.error("Error fetching comments:", error);
@@ -41,17 +48,23 @@ export default function CommentsModal({ postId, onClose }) {
         payload.parent_id = replyingTo.id;
       }
       
-      await api.post(`/social/posts/${postId}/comments`, payload);
+      await api.post(`/social/posts/${post.id}/comments`, payload);
       setNewComment("");
-      setReplyingTo(null); // ✅ FIX
+      setReplyingTo(null);
       fetchComments();
+      
+      // Auto-scroll al fondo después de comentar
+      setTimeout(() => {
+        commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
     } catch (error) {
       console.error("Error posting comment:", error);
+      alert("No se pudo publicar el comentario.");
     }
   };
 
   const handleDelete = async (commentId) => {
-    if (!confirm("¿Eliminar este comentario?")) return;
+    if (!confirm("¿Seguro que deseas eliminar este comentario?")) return;
     try {
       await api.delete(`/social/comments/${commentId}`);
       fetchComments();
@@ -81,9 +94,10 @@ export default function CommentsModal({ postId, onClose }) {
   const rootComments = comments.filter(c => !c.parent_id);
   const replies = comments.filter(c => c.parent_id);
 
+  // Sub-componente visual para cada comentario
   const CommentItem = ({ c, isReply = false }) => (
-    <div className={`flex gap-3 group ${isReply ? 'ml-8 mt-2' : 'mt-4'}`}>
-      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden shrink-0">
+    <div className={`flex gap-3 group ${isReply ? 'ml-10 mt-3' : 'mt-5'}`}>
+      <div className="w-8 h-8 rounded-full bg-gray-800 overflow-hidden shrink-0 border border-gray-700">
         {c.user?.photo ? (
           <img src={c.user.photo} alt={c.user.name} className="w-full h-full object-cover" />
         ) : (
@@ -93,43 +107,39 @@ export default function CommentsModal({ postId, onClose }) {
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="bg-gray-100 dark:bg-[#1a1a1a] rounded-2xl rounded-tl-none px-4 py-2 inline-block max-w-full">
-          <span className="font-bold text-sm text-gray-900 dark:text-white mr-2">@{c.user?.username}</span>
-          <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words inline">{c.content}</p>
-        </div>
-        <div className="flex items-center gap-4 mt-1 ml-2">
+        <p className="text-sm text-gray-200 leading-snug">
+          <span className="font-bold text-white mr-2 hover:underline cursor-pointer">@{c.user?.username}</span>
+          {c.content}
+        </p>
+        
+        <div className="flex items-center gap-4 mt-1.5">
           <span className="text-[10px] text-gray-500 font-medium">
-            {new Date(c.created_at).toLocaleDateString()}
+            {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: es })}
           </span>
           <button 
             onClick={() => handleLike(c.id)}
-            className={`text-[10px] font-bold flex items-center gap-1 transition-colors ${c.is_liked ? 'text-cuadralo-pink' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+            className={`text-[10px] font-bold transition-colors ${c.is_liked ? 'text-cuadralo-pink' : 'text-gray-400 hover:text-gray-200'}`}
           >
-            {c.likes_count > 0 && c.likes_count} Me gusta
+            {c.likes_count > 0 ? `${c.likes_count} Me gusta` : 'Me gusta'}
           </button>
           {!isReply && (
-            <button 
-              onClick={() => setReplyingTo(c)} // ✅ FIX
-              className="text-[10px] font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-            >
+            <button onClick={() => setReplyingTo(c)} className="text-[10px] font-bold text-gray-400 hover:text-gray-200 transition-colors">
               Responder
             </button>
           )}
-          {currentUser?.id === c.user_id ? (
-             <button 
-                onClick={() => handleDelete(c.id)}
-                className="text-[10px] text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-             >
-                Eliminar
-             </button>
-          ) : (
-             <button 
-                onClick={() => setReportingComment(c)} 
-                className="text-[10px] text-orange-400 hover:text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
-             >
-                <Flag size={10} /> Reportar
-             </button>
-          )}
+
+          {/* Menú de Moderación del Comentario (Eliminar / Reportar) */}
+          <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-3">
+             {currentUser?.id === c.user_id ? (
+                 <button onClick={() => handleDelete(c.id)} className="text-[10px] text-red-500 hover:text-red-400 font-bold">
+                    Eliminar
+                 </button>
+             ) : (
+                 <button onClick={() => setReportingComment(c)} className="text-[10px] text-yellow-500 hover:text-yellow-400 flex items-center gap-1 font-bold">
+                    <Flag size={10} /> Reportar
+                 </button>
+             )}
+          </div>
         </div>
       </div>
     </div>
@@ -137,91 +147,135 @@ export default function CommentsModal({ postId, onClose }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm sm:backdrop-blur-md transition-all duration-300">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-2 md:p-6 backdrop-blur-sm">
+        {/* Botón de cerrar exterior en móviles */}
+        <button onClick={onClose} className="md:hidden absolute top-4 right-4 text-white z-[60] bg-black/50 p-2 rounded-full">
+            <X size={24} />
+        </button>
+
         <motion.div
-          initial={{ opacity: 0, y: "100%" }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: "100%" }}
-          transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="w-full max-w-lg bg-white dark:bg-[#0a0a0a] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col h-[85vh] sm:h-[80vh] overflow-hidden border border-gray-200 dark:border-gray-800"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="w-full max-w-5xl h-[90vh] md:h-[85vh] flex flex-col md:flex-row bg-[#0a0a0a] rounded-2xl md:rounded-[2rem] overflow-hidden shadow-2xl border border-gray-800"
         >
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-10">
-            <h3 className="font-black text-lg text-gray-900 dark:text-white flex items-center gap-2">
-              Comentarios <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs px-2 py-0.5 rounded-full">{comments.length}</span>
-            </h3>
-            <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-600 dark:text-gray-400 transition-colors">
-              <X size={20} />
-            </button>
+          {/* PANEL IZQUIERDO: LA FOTO */}
+          <div className="hidden md:flex md:w-[55%] bg-black relative items-center justify-center border-r border-gray-800">
+             {post?.image_url && (
+                 <>
+                    {/* Fondo borroso para rellenar espacios */}
+                    <div className="absolute inset-0 bg-cover bg-center opacity-30 blur-2xl" style={{ backgroundImage: `url(${post.image_url})` }}></div>
+                    <img src={post.image_url} alt="Post" className="max-w-full max-h-full object-contain relative z-10" />
+                 </>
+             )}
           </div>
 
-          {/* Lista de Comentarios */}
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-gray-50 dark:bg-[#0a0a0a]">
-            {loading ? (
-              <div className="flex justify-center items-center h-40">
-                <div className="w-8 h-8 border-4 border-cuadralo-pink border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : rootComments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-40 text-gray-400 dark:text-gray-600">
-                <MessageSquare size={40} className="mb-2 opacity-50" /> {/* ✅ FIX: Ícono Válido */}
-                <p className="font-medium text-sm">Sé el primero en comentar</p>
-              </div>
-            ) : (
-              <div className="pb-4">
-                {rootComments.map(c => (
-                  <div key={c.id}>
-                    <CommentItem c={c} />
-                    {replies.filter(r => r.parent_id === c.id).map(reply => (
-                      <CommentItem key={reply.id} c={reply} isReply={true} />
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Formulario de Comentario */}
-          <div className="p-3 bg-white dark:bg-[#0a0a0a] border-t border-gray-200 dark:border-gray-800">
-            {replyingTo && (
-              <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-900 px-4 py-2 rounded-xl mb-3 border border-gray-200 dark:border-gray-800">
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 truncate">
-                  <Reply size={14} className="text-cuadralo-pink shrink-0" />
-                  <span className="truncate">Respondiendo a <span className="font-bold text-gray-900 dark:text-white">@{replyingTo.user?.username}</span>: "{replyingTo.content}"</span>
-                </div>
-                <button onClick={() => setReplyingTo(null)} className="text-gray-400 hover:text-gray-900 dark:hover:text-white shrink-0 ml-2">
-                  <X size={14} />
-                </button>
-              </div>
-            )}
+          {/* PANEL DERECHO: COMENTARIOS */}
+          <div className="flex flex-col w-full md:w-[45%] h-full bg-[#0a0a0a]">
             
-            <form onSubmit={handleSubmit} className="flex items-end gap-2 relative">
-              <div className="flex-1 bg-gray-100 dark:bg-[#1a1a1a] rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden relative focus-within:ring-2 focus-within:ring-cuadralo-pink/20 focus-within:border-cuadralo-pink transition-all">
-                <textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder={replyingTo ? "Escribe tu respuesta..." : "Añade un comentario..."}
-                  className="w-full bg-transparent text-gray-900 dark:text-white text-sm px-4 py-3 focus:outline-none resize-none max-h-32 min-h-[44px] custom-scrollbar block"
-                  rows={1}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSubmit(e);
-                    }
-                  }}
-                />
-              </div>
-              <button 
-                type="submit" 
-                disabled={!newComment.trim()}
-                className="p-3 rounded-full bg-cuadralo-pink text-white disabled:opacity-50 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 hover:scale-105 active:scale-95 transition-all shrink-0 shadow-sm"
-              >
-                <Send size={18} className={newComment.trim() ? "translate-x-0.5 -translate-y-0.5" : ""} />
-              </button>
-            </form>
+            {/* Cabecera */}
+            <div className="px-5 py-4 border-b border-gray-800 flex justify-between items-center bg-[#0a0a0a] shrink-0">
+               <div className="flex items-center gap-3">
+                   <img src={post?.user?.photo || "https://via.placeholder.com/150"} className="w-8 h-8 rounded-full object-cover border border-gray-700" />
+                   <span className="font-bold text-white text-sm">@{post?.user?.username}</span>
+               </div>
+               <button onClick={onClose} className="hidden md:flex text-gray-400 hover:text-white transition-colors">
+                  <X size={20} />
+               </button>
+            </div>
+
+            {/* Zona de Comentarios (Scroll) */}
+            <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+                {/* Descripción original del post */}
+                {post?.caption && (
+                    <div className="flex gap-3 mb-6 pb-6 border-b border-gray-800/50">
+                        <img src={post?.user?.photo || "https://via.placeholder.com/150"} className="w-8 h-8 rounded-full object-cover shrink-0 border border-gray-700" />
+                        <div>
+                            <p className="text-sm text-gray-200">
+                                <span className="font-bold text-white mr-2">@{post?.user?.username}</span>
+                                {post.caption}
+                            </p>
+                            <span className="text-[10px] text-gray-500 mt-1 block">
+                                {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: es })}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {loading ? (
+                    <div className="flex justify-center items-center py-10">
+                        <div className="w-6 h-6 border-2 border-cuadralo-pink border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                ) : rootComments.length === 0 ? (
+                    <div className="text-center py-10 text-gray-500">
+                        <p className="text-sm font-medium">Aún no hay comentarios.</p>
+                        <p className="text-xs mt-1">Inicia la conversación.</p>
+                    </div>
+                ) : (
+                    <div className="pb-4">
+                        {rootComments.map(c => (
+                        <div key={c.id}>
+                            <CommentItem c={c} />
+                            {replies.filter(r => r.parent_id === c.id).map(reply => (
+                                <CommentItem key={reply.id} c={reply} isReply={true} />
+                            ))}
+                        </div>
+                        ))}
+                        <div ref={commentsEndRef} />
+                    </div>
+                )}
+            </div>
+
+            {/* Acciones de Post y Formulario de Comentario */}
+            <div className="bg-[#0a0a0a] border-t border-gray-800 shrink-0">
+                {/* Interacciones del Post principal */}
+                <div className="px-5 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <button onClick={onLikeToggle} className="focus:outline-none">
+                            <Heart size={24} className={`transition-colors duration-300 ${liked ? "fill-cuadralo-pink text-cuadralo-pink" : "text-gray-300 hover:text-white"}`} strokeWidth={liked ? 0 : 2} />
+                        </button>
+                    </div>
+                    <span className="text-xs font-bold text-white">{likesCount} Me gusta</span>
+                </div>
+
+                {/* Formulario */}
+                <div className="px-5 pb-5">
+                    {replyingTo && (
+                        <div className="flex justify-between items-center bg-gray-900 px-4 py-2 rounded-t-xl border-x border-t border-gray-800">
+                            <div className="flex items-center gap-2 text-xs text-gray-400 truncate">
+                            <Reply size={14} className="text-cuadralo-pink shrink-0" />
+                            <span className="truncate">Respondiendo a <span className="font-bold text-white">@{replyingTo.user?.username}</span></span>
+                            </div>
+                            <button onClick={() => setReplyingTo(null)} className="text-gray-500 hover:text-white">
+                            <X size={14} />
+                            </button>
+                        </div>
+                    )}
+                    
+                    <form onSubmit={handleSubmit} className="flex items-center gap-3 relative">
+                        <input
+                            type="text"
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            placeholder="Añade un comentario..."
+                            className={`w-full bg-transparent text-white text-sm px-4 py-3 focus:outline-none border border-gray-800 focus:border-gray-600 transition-colors ${replyingTo ? 'rounded-b-xl border-t-0' : 'rounded-full'}`}
+                        />
+                        <button 
+                            type="submit" 
+                            disabled={!newComment.trim()}
+                            className="font-bold text-sm text-cuadralo-pink hover:text-pink-400 disabled:opacity-50 disabled:text-gray-600 transition-colors"
+                        >
+                            Publicar
+                        </button>
+                    </form>
+                </div>
+            </div>
+
           </div>
         </motion.div>
       </div>
 
+      {/* ✅ MODAL DE REPORTE INDEPENDIENTE */}
       <AnimatePresence>
           {reportingComment && (
               <ReportModal 
