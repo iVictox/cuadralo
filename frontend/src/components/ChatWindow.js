@@ -11,6 +11,7 @@ import {
 import { useSocket } from "@/context/SocketContext";
 import { api } from "@/utils/api";
 import ReportModal from "./ReportModal"; // ✅ IMPORTANTE
+import SquareLoader from "./SquareLoader";
 
 // Componente para el mensaje individual
 const MessageItem = ({ msg, isMe, onDelete, onToggleSave, onReport }) => {
@@ -385,7 +386,7 @@ export default function ChatWindow({ user, onClose }) {
           <div className="space-y-1">
             {loading ? (
               <div className="flex justify-center items-center py-10">
-                <div className="w-8 h-8 border-4 border-cuadralo-pink border-t-transparent rounded-full animate-spin"></div>
+                <SquareLoader size="small" />
               </div>
             ) : messages.length === 0 ? (
               <p className="text-center text-gray-400 text-sm italic">Envía un mensaje para romper el hielo.</p>

@@ -18,6 +18,7 @@ import SocialFeed from "@/components/SocialFeed";
 // Modales
 import FilterModal from "@/components/FilterModal";
 import UploadModal from "@/components/UploadModal";
+import SquareLoader from "@/components/SquareLoader";
 
 // 1. Componente interno que usa useSearchParams
 function MainAppContent() {
@@ -78,13 +79,7 @@ function MainAppContent() {
   };
 
   const UniversalLoader = () => (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-cuadralo-bgLight dark:bg-cuadralo-bgDark">
-      <motion.div
-        animate={{ rotate: 360, scale: [1, 1.2, 1] }}
-        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-        className="w-12 h-12 bg-cuadralo-pink rounded-xl shadow-[0_0_15px_#f2138e]"
-      />
-    </div>
+    <SquareLoader fullScreen />
   );
 
   const renderView = () => {
@@ -146,11 +141,7 @@ function MainAppContent() {
 // 2. Exportación principal que envuelve TODO con Suspense
 export default function Home() {
   return (
-    <Suspense fallback={
-        <div className="min-h-screen w-full flex items-center justify-center bg-cuadralo-bgLight dark:bg-cuadralo-bgDark">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cuadralo-pink"></div>
-        </div>
-    }>
+    <Suspense fallback={<SquareLoader fullScreen />}>
       <MainAppContent />
     </Suspense>
   );

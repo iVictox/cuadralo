@@ -10,6 +10,7 @@ import ChatWindow from "./ChatWindow";
 import ReportModal from "./ReportModal";
 import { getInterestInfo } from "@/utils/interests";
 import { useRouter } from "next/navigation";
+import SquareLoader from "./SquareLoader";
 
 export default function UserProfile({ username }) {
   const router = useRouter();
@@ -97,11 +98,7 @@ export default function UserProfile({ username }) {
     if (activePhoto > 0) setActivePhoto(activePhoto - 1);
   };
 
-  if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-cuadralo-bgLight dark:bg-[#0f0518]">
-      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="h-12 w-12 border-4 border-cuadralo-pink border-t-transparent rounded-2xl" />
-    </div>
-  );
+  if (loading) return <SquareLoader fullScreen />;
 
   if (!user) return (
     <div className="flex flex-col h-screen items-center justify-center bg-cuadralo-bgLight dark:bg-[#0f0518] text-cuadralo-textLight dark:text-white">

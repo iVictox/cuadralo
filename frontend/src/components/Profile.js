@@ -8,6 +8,7 @@ import EditProfileModal from "./EditProfileModal";
 import SettingsModal from "./SettingsModal";
 import { useRouter } from "next/navigation";
 import { getInterestInfo } from "@/utils/interests";
+import SquareLoader from "./SquareLoader";
 
 export default function Profile({ onLoaded }) {
   const [user, setUser] = useState(null);
@@ -78,11 +79,7 @@ export default function Profile({ onLoaded }) {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-cuadralo-bgLight dark:bg-[#0f0518]">
-        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="h-12 w-12 border-4 border-cuadralo-pink border-t-transparent rounded-2xl" />
-      </div>
-    );
+    return <SquareLoader fullScreen />;
   }
 
   const isPrime = user?.is_prime;

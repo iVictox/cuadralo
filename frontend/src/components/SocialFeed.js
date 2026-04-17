@@ -11,6 +11,7 @@ import NotificationModal from "./NotificationModal";
 import { api } from "@/utils/api";
 import { AnimatePresence, motion } from "framer-motion";
 import PrimeModal from "@/components/PrimeModal";
+import SquareLoader from "./SquareLoader";
 
 export default function SocialFeed({ onUploadClick, isActive = true, onLoaded }) {
   const [posts, setPosts] = useState([]);
@@ -232,7 +233,7 @@ export default function SocialFeed({ onUploadClick, isActive = true, onLoaded })
       )}
 
       {loading ? (
-         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cuadralo-pink" size={40} /></div>
+         <div className="flex justify-center py-10"><SquareLoader size="medium" /></div>
       ) : (
          <div className="w-full max-w-[600px] mx-auto px-4 flex flex-col gap-8 pb-20">
             <AnimatePresence mode="popLayout">

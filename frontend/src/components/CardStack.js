@@ -10,6 +10,7 @@ import ProfileDetailsModal from "@/components/ProfileDetailsModal";
 import PrimeModal from "@/components/PrimeModal";
 import BoostModal from "@/components/BoostModal";
 import { getInterestInfo } from "@/utils/interests";
+import SquareLoader from "./SquareLoader";
 
 export default function CardStack({ onOpenFilters, onLoaded }) {
     const [cards, setCards] = useState([]);
@@ -176,8 +177,8 @@ export default function CardStack({ onOpenFilters, onLoaded }) {
 
     if (loading) return (
         <div className="flex h-[75vh] w-full items-center justify-center flex-col gap-4">
-            <div className="animate-spin h-10 w-10 border-4 border-cuadralo-pink border-t-transparent rounded-full" />
-            <p className="text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark text-sm font-medium animate-pulse">Buscando perfiles cerca de ti...</p>
+            <SquareLoader size="medium" />
+            <p className="mt-4 text-cuadralo-textMutedLight dark:text-cuadralo-textMutedDark text-sm font-medium animate-pulse">Buscando perfiles cerca de ti...</p>
         </div>
     );
 

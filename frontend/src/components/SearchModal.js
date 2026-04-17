@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Search, X, Loader2, User as UserIcon } from "lucide-react";
 import { api } from "@/utils/api";
 import { useRouter } from "next/navigation";
+import SquareLoader from "./SquareLoader";
 
 export default function SearchModal({ onClose }) {
   const [query, setQuery] = useState("");
@@ -97,9 +98,9 @@ export default function SearchModal({ onClose }) {
             {/* Results Area */}
             <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar bg-cuadralo-bgLight dark:bg-cuadralo-bgDark">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-32 text-cuadralo-pink">
-                        <Loader2 className="animate-spin mb-4" size={48} strokeWidth={2.5} />
-                        <span className="text-sm font-black uppercase tracking-widest text-cuadralo-textMutedLight dark:text-gray-400">Rastreando Usuarios</span>
+                    <div className="flex flex-col items-center justify-center py-32">
+                        <SquareLoader size="large" />
+                        <span className="mt-6 text-sm font-black uppercase tracking-widest text-cuadralo-pink opacity-80">Rastreando Usuarios</span>
                     </div>
                 ) : results.length > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 pb-20">
