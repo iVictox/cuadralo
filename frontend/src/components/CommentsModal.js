@@ -57,15 +57,13 @@ const CommentItem = ({ c, isReply = false, currentUser, onLike, onReply, onDelet
             {c.likes_count > 0 ? c.likes_count : "Me gusta"}
           </button>
           
-          {!isReply && (
-            <button 
-              onClick={() => onReply(c)} 
-              className="flex items-center gap-1.5 text-xs md:text-sm font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-all hover:scale-105 active:scale-95"
-            >
-              <Reply size={16} />
-              Responder
-            </button>
-          )}
+          <button 
+            onClick={() => onReply(c)} 
+            className="flex items-center gap-1.5 text-xs md:text-sm font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-all hover:scale-105 active:scale-95"
+          >
+            <Reply size={16} />
+            Responder
+          </button>
 
           <div className="relative">
             <button 
@@ -145,7 +143,7 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
     try {
       const payload = { content: newComment };
       if (replyingTo) {
-        payload.parent_id = replyingTo.id;
+        payload.parent_id = replyingTo.parent_id || replyingTo.id;
       }
       
       await api.post(`/social/posts/${post.id}/comments`, payload);
@@ -170,6 +168,11 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
     } catch (error) {
       console.error("Error deleting comment:", error);
     }
+  };
+
+  const handleReplyClick = (comment) => {
+    setReplyingTo(comment);
+    setNewComment(`@${comment.user?.username} `);
   };
 
   const handleLike = async (commentId) => {
@@ -309,7 +312,7 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
                               c={c} 
                               currentUser={currentUser}
                               onLike={handleLike}
-                              onReply={setReplyingTo}
+                              onReply={handleReplyClick}
                               onDelete={handleDelete}
                               onReport={setReportingComment}
                             />
@@ -320,7 +323,7 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
                                   isReply={true} 
                                   currentUser={currentUser}
                                   onLike={handleLike}
-                                  onReply={setReplyingTo}
+                                  onReply={handleReplyClick}
                                   onDelete={handleDelete}
                                   onReport={setReportingComment}
                                 />
