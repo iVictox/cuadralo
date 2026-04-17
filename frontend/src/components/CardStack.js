@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import { X, Heart, MapPin, Info, RotateCcw, Zap, Crown, User, ChevronLeft, ChevronRight, MessageCircle, Sliders } from "lucide-react"; 
 import Image from "next/image"; 
 import { api } from "@/utils/api"; 
@@ -343,6 +343,8 @@ function Card({ data, isFront, onSwipe, onInfo, swipeDir }) {
 
   const [activePhoto, setActivePhoto] = useState(0);
 
+  const SWIPE_THRESHOLD = 120;
+
   const nextPhoto = (e) => {
     e.stopPropagation(); 
     if (activePhoto < data.photos.length - 1) setActivePhoto(activePhoto + 1);
@@ -360,8 +362,13 @@ function Card({ data, isFront, onSwipe, onInfo, swipeDir }) {
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.7} 
       onDragEnd={(e, i) => { 
-          if (i.offset.x > 100) onSwipe(data.id, "right"); 
-          else if (i.offset.x < -100) onSwipe(data.id, "left"); 
+          if (i.offset.x > SWIPE_THRESHOLD) {
+              onSwipe(data.id, "right"); 
+          } else if (i.offset.x < -SWIPE_THRESHOLD) {
+              onSwipe(data.id, "left"); 
+          } else {
+              animate(x, 0, { type: "spring", stiffness: 300, damping: 20 });
+          }
       }}
       initial={{ scale: 0.95, y: 15 }}
       animate={{ scale: isFront ? 1 : 0.95, y: isFront ? 0 : 15 }}
