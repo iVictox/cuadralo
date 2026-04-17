@@ -217,10 +217,10 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 md:p-6 backdrop-blur-md">
-        
-        {/* Botón de cerrar exterior en móviles */}
-        <button onClick={onClose} className="md:hidden absolute top-4 right-4 text-white z-[60] bg-black/50 hover:bg-black/80 transition-colors p-3 rounded-full shadow-lg">
+      <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/60 md:p-6 backdrop-blur-md">
+
+        {/* Close button (Mobile only) */}
+        <button onClick={onClose} className="md:hidden absolute top-4 right-4 text-white z-[110] bg-black/50 hover:bg-black/80 transition-colors p-3 rounded-full shadow-lg">
             <X size={24} />
         </button>
 
