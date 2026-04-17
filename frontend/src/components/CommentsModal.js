@@ -118,6 +118,14 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
   const [reportingComment, setReportingComment] = useState(null);
   const commentsEndRef = useRef(null);
 
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) setCurrentUser(JSON.parse(userStr));
