@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MapPin, Crown, FileText, UserCircle, UserPlus, UserCheck, MessageCircle, ArrowLeft, Grid, Edit3, Settings } from "lucide-react";
+import { MapPin, Crown, FileText, UserCircle, UserPlus, UserCheck, MessageCircle, ArrowLeft, Grid, Edit3, Settings, Flag } from "lucide-react";
 import { api } from "@/utils/api";
 import { motion, AnimatePresence } from "framer-motion";
 import EditProfileModal from "./EditProfileModal"; 
 import SettingsModal from "./SettingsModal";       
 import ChatWindow from "./ChatWindow"; 
+import ReportModal from "./ReportModal";
 import { getInterestInfo } from "@/utils/interests";
 import { useRouter } from "next/navigation";
 
@@ -22,6 +23,7 @@ export default function UserProfile({ username }) {
   const [showEdit, setShowEdit] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showDirectChat, setShowDirectChat] = useState(false);
+  const [reportingUser, setReportingUser] = useState(false);
 
   const fetchProfileAndPosts = async () => {
     try {
@@ -237,6 +239,14 @@ export default function UserProfile({ username }) {
                     >
                         <MessageCircle size={24} fill="currentColor" className="dark:text-white text-purple-700" />
                     </button>
+                    
+                    <button 
+                      onClick={() => setReportingUser(true)}
+                      className="p-4 md:p-5 bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded-2xl transition-all active:scale-95 shadow-sm"
+                      title="Reportar Usuario"
+                    >
+                      <Flag size={24} />
+                    </button>
                   </>
               )}
             </div>
@@ -332,7 +342,9 @@ export default function UserProfile({ username }) {
             </div>
         )}
       </AnimatePresence>
-
+      <AnimatePresence>
+        {reportingUser && <ReportModal targetType="user" targetId={user.id} onClose={() => setReportingUser(false)} />}
+      </AnimatePresence>
     </div>
   );
 }
