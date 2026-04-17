@@ -8,6 +8,106 @@ import SquareLoader from "./SquareLoader";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
+const CommentItem = ({ c, isReply = false, currentUser, onLike, onReply, onDelete, onReport }) => {
+  const [showOptions, setShowOptions] = useState(false);
+  const isOwner = currentUser?.id === c.user_id;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`flex gap-4 group ${isReply ? 'ml-14 mt-4 relative before:absolute before:-left-6 before:top-0 before:w-6 before:h-6 before:border-l-2 before:border-b-2 before:border-gray-200 dark:before:border-gray-800 before:rounded-bl-xl' : 'mt-8'}`}
+    >
+      {/* Avatar */}
+      <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden shrink-0 shadow-sm border border-gray-100 dark:border-gray-800">
+        {c.user?.photo ? (
+          <img src={c.user.photo} alt={c.user.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-500 font-black text-sm uppercase">
+            {c.user?.username?.charAt(0)}
+          </div>
+        )}
+      </div>
+
+      {/* Contenido */}
+      <div className="flex-1 min-w-0 flex flex-col items-start">
+        
+        <div className="bg-white dark:bg-[#150a21] rounded-2xl rounded-tl-sm px-5 py-3 md:py-4 inline-block max-w-full shadow-sm border border-gray-100 dark:border-white/5 relative">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-black text-[15px] md:text-base text-gray-900 dark:text-white cursor-pointer hover:text-cuadralo-pink transition-colors">
+              @{c.user?.username}
+            </span>
+            <span className="text-xs text-gray-400 font-medium ml-2">
+              {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: es })}
+            </span>
+          </div>
+          
+          <p className="text-[15px] md:text-base text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words leading-relaxed">
+            {c.content}
+          </p>
+        </div>
+        
+        {/* Acciones */}
+        <div className="flex items-center gap-6 mt-3 ml-2 relative">
+          <button 
+            onClick={() => onLike(c.id)}
+            className={`flex items-center gap-1.5 text-xs md:text-sm font-bold transition-all hover:scale-105 active:scale-95 ${c.is_liked ? 'text-cuadralo-pink' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'}`}
+          >
+            <Heart size={16} className={c.is_liked ? "fill-cuadralo-pink" : ""} strokeWidth={c.is_liked ? 0 : 2} />
+            {c.likes_count > 0 ? c.likes_count : "Me gusta"}
+          </button>
+          
+          {!isReply && (
+            <button 
+              onClick={() => onReply(c)} 
+              className="flex items-center gap-1.5 text-xs md:text-sm font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-all hover:scale-105 active:scale-95"
+            >
+              <Reply size={16} />
+              Responder
+            </button>
+          )}
+
+          <div className="relative">
+            <button 
+              onClick={() => setShowOptions(!showOptions)}
+              className="p-1 text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-white transition-colors"
+            >
+              <MoreHorizontal size={16} />
+            </button>
+            
+            <AnimatePresence>
+              {showOptions && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 5 }}
+                  className="absolute top-full left-0 mt-1 w-32 bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 z-10 overflow-hidden"
+                >
+                  {isOwner ? (
+                    <button 
+                      onClick={() => { onDelete(c.id); setShowOptions(false); }} 
+                      className="w-full flex items-center gap-2 px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors uppercase tracking-widest"
+                    >
+                      <Trash2 size={14} /> Eliminar
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => { onReport(c); setShowOptions(false); }} 
+                      className="w-full flex items-center gap-2 px-4 py-3 text-left text-xs font-bold text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors uppercase tracking-widest"
+                    >
+                      <Flag size={14} /> Reportar
+                    </button>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 export default function CommentsModal({ post, onClose, liked, likesCount, onLikeToggle }) {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
@@ -93,105 +193,7 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
   const rootComments = comments.filter(c => !c.parent_id);
   const replies = comments.filter(c => c.parent_id);
 
-  const CommentItem = ({ c, isReply = false }) => {
-    const [showOptions, setShowOptions] = useState(false);
-    const isOwner = currentUser?.id === c.user_id;
 
-    return (
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`flex gap-4 group ${isReply ? 'ml-14 mt-4 relative before:absolute before:-left-6 before:top-0 before:w-6 before:h-6 before:border-l-2 before:border-b-2 before:border-gray-200 dark:before:border-gray-800 before:rounded-bl-xl' : 'mt-8'}`}
-      >
-        {/* Avatar */}
-        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden shrink-0 shadow-sm border border-gray-100 dark:border-gray-800">
-          {c.user?.photo ? (
-            <img src={c.user.photo} alt={c.user.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-500 font-black text-sm uppercase">
-              {c.user?.username?.charAt(0)}
-            </div>
-          )}
-        </div>
-
-        {/* Contenido */}
-        <div className="flex-1 min-w-0 flex flex-col items-start">
-          
-          <div className="bg-white dark:bg-[#150a21] rounded-2xl rounded-tl-sm px-5 py-3 md:py-4 inline-block max-w-full shadow-sm border border-gray-100 dark:border-white/5 relative">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-black text-[15px] md:text-base text-gray-900 dark:text-white cursor-pointer hover:text-cuadralo-pink transition-colors">
-                @{c.user?.username}
-              </span>
-              <span className="text-xs text-gray-400 font-medium ml-2">
-                {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: es })}
-              </span>
-            </div>
-            
-            <p className="text-[15px] md:text-base text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words leading-relaxed">
-              {c.content}
-            </p>
-          </div>
-          
-          {/* Acciones */}
-          <div className="flex items-center gap-6 mt-3 ml-2 relative">
-            <button 
-              onClick={() => handleLike(c.id)}
-              className={`flex items-center gap-1.5 text-xs md:text-sm font-bold transition-all hover:scale-105 active:scale-95 ${c.is_liked ? 'text-cuadralo-pink' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'}`}
-            >
-              <Heart size={16} className={c.is_liked ? "fill-cuadralo-pink" : ""} strokeWidth={c.is_liked ? 0 : 2} />
-              {c.likes_count > 0 ? c.likes_count : "Me gusta"}
-            </button>
-            
-            {!isReply && (
-              <button 
-                onClick={() => setReplyingTo(c)} 
-                className="flex items-center gap-1.5 text-xs md:text-sm font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-all hover:scale-105 active:scale-95"
-              >
-                <Reply size={16} />
-                Responder
-              </button>
-            )}
-
-            <div className="relative">
-              <button 
-                onClick={() => setShowOptions(!showOptions)}
-                className="p-1 text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-white transition-colors"
-              >
-                <MoreHorizontal size={16} />
-              </button>
-              
-              <AnimatePresence>
-                {showOptions && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.9, y: 5 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 5 }}
-                    className="absolute top-full left-0 mt-1 w-32 bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 z-10 overflow-hidden"
-                  >
-                    {isOwner ? (
-                      <button 
-                        onClick={() => { handleDelete(c.id); setShowOptions(false); }} 
-                        className="w-full flex items-center gap-2 px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors uppercase tracking-widest"
-                      >
-                        <Trash2 size={14} /> Eliminar
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={() => { setReportingComment(c); setShowOptions(false); }} 
-                        className="w-full flex items-center gap-2 px-4 py-3 text-left text-xs font-bold text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors uppercase tracking-widest"
-                      >
-                        <Flag size={14} /> Reportar
-                      </button>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    );
-  };
 
   return (
     <>
@@ -303,9 +305,25 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
                     <div className="pb-8 space-y-6">
                         {rootComments.map(c => (
                         <div key={c.id}>
-                            <CommentItem c={c} />
+                            <CommentItem 
+                              c={c} 
+                              currentUser={currentUser}
+                              onLike={handleLike}
+                              onReply={setReplyingTo}
+                              onDelete={handleDelete}
+                              onReport={setReportingComment}
+                            />
                             {replies.filter(r => r.parent_id === c.id).map(reply => (
-                                <CommentItem key={reply.id} c={reply} isReply={true} />
+                                <CommentItem 
+                                  key={reply.id} 
+                                  c={reply} 
+                                  isReply={true} 
+                                  currentUser={currentUser}
+                                  onLike={handleLike}
+                                  onReply={setReplyingTo}
+                                  onDelete={handleDelete}
+                                  onReport={setReportingComment}
+                                />
                             ))}
                         </div>
                         ))}
