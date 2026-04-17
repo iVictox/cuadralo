@@ -3,8 +3,10 @@ import { useEffect, useState, useCallback } from "react";
 import { api } from "@/utils/api";
 import { Search, Trash2, User, RefreshCw, AlertOctagon } from "lucide-react";
 import { useDebounce } from 'use-debounce';
+import { useConfirm } from "@/context/ConfirmContext";
 
 export default function AdminDeletedUsers() {
+  const { confirm } = useConfirm();
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 500);
@@ -35,7 +37,14 @@ export default function AdminDeletedUsers() {
   };
 
   const handleRestore = async (id) => {
-    if (!confirm(`¿Seguro que deseas sacar a este usuario de la papelera? Su cuenta volverá a la normalidad.`)) return;
+    const isConfirmed = await confirm({
+      title: "Restaurar usuario",
+      message: "¿Seguro que deseas sacar a este usuario de la papelera? Su cuenta volverá a la normalidad.",
+      confirmText: "Sí, restaurar",
+      cancelText: "Cancelar",
+      variant: "info"
+    });
+    if (!isConfirmed) return;
     try {
       await api.put(`/admin/users/${id}/restore`);
       fetchDeleted(); 

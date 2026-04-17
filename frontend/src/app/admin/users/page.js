@@ -4,8 +4,10 @@ import { api } from "@/utils/api";
 import { Search, Trash2, Ban, Eye, CheckCircle2, AlertOctagon } from "lucide-react";
 import { useDebounce } from 'use-debounce';
 import UserDetailModal from "./UserDetailModal";
+import { useConfirm } from "@/context/ConfirmContext";
 
 export default function AdminUsers() {
+  const { confirm } = useConfirm();
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 500);
@@ -52,7 +54,14 @@ export default function AdminUsers() {
   };
 
   const liftSuspension = async (id) => {
-    if (!confirm(`¿Estás seguro de levantar la suspensión de este usuario?`)) return;
+    const isConfirmed = await confirm({
+      title: "Levantar suspensión",
+      message: "¿Estás seguro de levantar la suspensión de este usuario?",
+      confirmText: "Sí, levantar",
+      cancelText: "Cancelar",
+      variant: "success"
+    });
+    if (!isConfirmed) return;
     try {
       await api.put(`/admin/users/${id}/suspend`, { is_suspended: false, days: 0, reason: "" });
       fetchUsers();
@@ -62,7 +71,14 @@ export default function AdminUsers() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("⚠️ ACCIÓN DESTRUCTIVA: Borrará al usuario y sus datos. ¿Continuar?")) return;
+    const isConfirmed = await confirm({
+      title: "⚠️ ACCIÓN DESTRUCTIVA",
+      message: "Borrará al usuario y todos sus datos de forma permanente. ¿Continuar?",
+      confirmText: "Purgar",
+      cancelText: "Cancelar",
+      variant: "danger"
+    });
+    if (!isConfirmed) return;
     try {
       await api.delete(`/admin/users/${id}`);
       fetchUsers();

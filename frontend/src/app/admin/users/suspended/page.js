@@ -4,8 +4,10 @@ import { api } from "@/utils/api";
 import { Search, Ban, User, CheckCircle2, ShieldAlert } from "lucide-react";
 import { useDebounce } from 'use-debounce';
 import UserDetailModal from "../UserDetailModal";
+import { useConfirm } from "@/context/ConfirmContext";
 
 export default function AdminSuspendedUsers() {
+  const { confirm } = useConfirm();
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounce(search, 500);
@@ -37,7 +39,14 @@ export default function AdminSuspendedUsers() {
   };
 
   const liftSuspension = async (id) => {
-    if (!confirm(`¿Estás seguro de levantar la suspensión de este usuario inmediatamente?`)) return;
+    const isConfirmed = await confirm({
+      title: "Restaurar cuenta",
+      message: "¿Estás seguro de levantar la suspensión de este usuario inmediatamente?",
+      confirmText: "Sí, restaurar",
+      cancelText: "Cancelar",
+      variant: "success"
+    });
+    if (!isConfirmed) return;
     try {
       await api.put(`/admin/users/${id}/suspend`, { is_suspended: false, days: 0, reason: "" });
       fetchSuspended(); // Recargar lista

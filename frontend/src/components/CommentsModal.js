@@ -7,6 +7,7 @@ import ReportModal from "./ReportModal";
 import SquareLoader from "./SquareLoader";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import { useConfirm } from "@/context/ConfirmContext";
 
 const CommentItem = ({ c, isReply = false, currentUser, onLike, onReply, onDelete, onReport }) => {
   const [showOptions, setShowOptions] = useState(false);
@@ -112,6 +113,7 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
   const [replyingTo, setReplyingTo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const { confirm } = useConfirm();
   
   const [reportingComment, setReportingComment] = useState(null);
   const commentsEndRef = useRef(null);
@@ -161,7 +163,14 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
   };
 
   const handleDelete = async (commentId) => {
-    if (!confirm("¿Seguro que deseas eliminar este comentario?")) return;
+    const isConfirmed = await confirm({
+      title: "Eliminar comentario",
+      message: "¿Seguro que deseas eliminar este comentario? Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
+      cancelText: "Cancelar",
+      variant: "danger"
+    });
+    if (!isConfirmed) return;
     try {
       await api.delete(`/social/comments/${commentId}`);
       fetchComments();

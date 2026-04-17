@@ -2,8 +2,10 @@ import { useState } from "react";
 import { X, Crown, User, CalendarPlus, Clock, AlertTriangle, ShieldAlert } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/utils/api";
+import { useConfirm } from "@/context/ConfirmContext";
 
 export default function VipManageModal({ user, onClose, onSuccess }) {
+  const { confirm } = useConfirm();
   const [loading, setLoading] = useState(false);
   const [customDays, setCustomDays] = useState(30);
 
@@ -17,7 +19,16 @@ export default function VipManageModal({ user, onClose, onSuccess }) {
   };
 
   const handleAction = async (endpoint, payload, confirmMsg) => {
-      if (confirmMsg && !confirm(confirmMsg)) return;
+      if (confirmMsg) {
+          const isConfirmed = await confirm({
+              title: "Confirmar acción VIP",
+              message: confirmMsg,
+              confirmText: "Sí, aplicar",
+              cancelText: "Cancelar",
+              variant: "danger"
+          });
+          if (!isConfirmed) return;
+      }
       
       setLoading(true);
       try {
