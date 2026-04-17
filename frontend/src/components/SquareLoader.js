@@ -46,7 +46,7 @@ export default function SquareLoader({ fullScreen = false, size = "large" }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-cuadralo-bgLight/80 dark:bg-[#0f0518]/80 backdrop-blur-md"
+        className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-cuadralo-bgLight/80 dark:bg-[#0f0518]/80 backdrop-blur-md"
       >
         {loaderContent}
         <motion.p 
