@@ -210,10 +210,14 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
     }
   };
 
-  const rootComments = comments.filter(c => !c.parent_id);
-  const replies = comments.filter(c => c.parent_id);
+  const rootComments = comments.filter(c => !c.parent_id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const replies = comments.filter(c => c.parent_id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
+  const [expandedReplies, setExpandedReplies] = useState({});
 
+  const toggleReplies = (commentId) => {
+    setExpandedReplies(prev => ({ ...prev, [commentId]: !prev[commentId] }));
+  };
 
   return (
     <>
@@ -234,7 +238,10 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
           <div className="hidden md:flex flex-col md:w-1/2 border-r border-gray-200 dark:border-white/10 bg-black relative">
              
              {/* Zona de la Imagen */}
-             <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+             <div 
+                className="flex-1 relative flex items-center justify-center overflow-hidden cursor-pointer"
+                onDoubleClick={onLikeToggle}
+             >
                  {post?.image_url && (
                      <>
                         <div className="absolute inset-0 bg-cover bg-center opacity-30 blur-3xl scale-110" style={{ backgroundImage: `url(${post.image_url})` }}></div>
@@ -323,30 +330,56 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
                     </div>
                 ) : (
                     <div className="pb-8 space-y-6">
-                        {rootComments.map(c => (
-                        <div key={c.id}>
-                            <CommentItem 
-                              c={c} 
-                              currentUser={currentUser}
-                              onLike={handleLike}
-                              onReply={handleReplyClick}
-                              onDelete={handleDelete}
-                              onReport={setReportingComment}
-                            />
-                            {replies.filter(r => r.parent_id === c.id).map(reply => (
-                                <CommentItem 
-                                  key={reply.id} 
-                                  c={reply} 
-                                  isReply={true} 
-                                  currentUser={currentUser}
-                                  onLike={handleLike}
-                                  onReply={handleReplyClick}
-                                  onDelete={handleDelete}
-                                  onReport={setReportingComment}
-                                />
-                            ))}
-                        </div>
-                        ))}
+                        {rootComments.map(c => {
+                            const threadReplies = replies.filter(r => r.parent_id === c.id);
+                            const isExpanded = expandedReplies[c.id];
+                            const visibleReplies = isExpanded ? threadReplies : threadReplies.slice(0, 3);
+                            const hiddenCount = threadReplies.length - 3;
+                            
+                            return (
+                                <div key={c.id}>
+                                    <CommentItem 
+                                      c={c} 
+                                      currentUser={currentUser}
+                                      onLike={handleLike}
+                                      onReply={handleReplyClick}
+                                      onDelete={handleDelete}
+                                      onReport={setReportingComment}
+                                    />
+                                    {visibleReplies.map(reply => (
+                                        <CommentItem 
+                                          key={reply.id} 
+                                          c={reply} 
+                                          isReply={true} 
+                                          currentUser={currentUser}
+                                          onLike={handleLike}
+                                          onReply={handleReplyClick}
+                                          onDelete={handleDelete}
+                                          onReport={setReportingComment}
+                                        />
+                                    ))}
+                                    {!isExpanded && hiddenCount > 0 ? (
+                                        <button 
+                                            onClick={() => toggleReplies(c.id)}
+                                            className="ml-14 mt-2 text-sm font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors flex items-center gap-2"
+                                        >
+                                            <div className="w-8 border-b border-gray-300 dark:border-gray-600"></div>
+                                            Mostrar respuestas ({hiddenCount})
+                                        </button>
+                                    ) : (
+                                        isExpanded && hiddenCount > 0 && (
+                                            <button 
+                                                onClick={() => toggleReplies(c.id)}
+                                                className="ml-14 mt-2 text-sm font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors flex items-center gap-2"
+                                            >
+                                                <div className="w-8 border-b border-gray-300 dark:border-gray-600"></div>
+                                                Ocultar respuestas
+                                            </button>
+                                        )
+                                    )}
+                                </div>
+                            );
+                        })}
                         <div ref={commentsEndRef} />
                     </div>
                 )}
