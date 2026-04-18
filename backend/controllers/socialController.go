@@ -81,6 +81,10 @@ func GetSocialFeed(c *fiber.Ctx) error {
 		database.DB.Model(&models.PostLike{}).Where("post_id = ?", posts[i].ID).Count(&count)
 		posts[i].LikesCount = count
 
+		var commentCount int64
+		database.DB.Model(&models.Comment{}).Where("post_id = ?", posts[i].ID).Count(&commentCount)
+		posts[i].CommentsCount = commentCount
+
 		var like models.PostLike
 		if database.DB.Where("user_id = ? AND post_id = ?", myId, posts[i].ID).First(&like).RowsAffected > 0 {
 			posts[i].IsLiked = true
@@ -110,6 +114,10 @@ func GetSinglePost(c *fiber.Ctx) error {
 	var count int64
 	database.DB.Model(&models.PostLike{}).Where("post_id = ?", post.ID).Count(&count)
 	post.LikesCount = count
+
+	var commentCount int64
+	database.DB.Model(&models.Comment{}).Where("post_id = ?", post.ID).Count(&commentCount)
+	post.CommentsCount = commentCount
 
 	var like models.PostLike
 	if database.DB.Where("user_id = ? AND post_id = ?", myId, post.ID).First(&like).RowsAffected > 0 {
@@ -209,6 +217,10 @@ func GetUserPosts(c *fiber.Ctx) error {
 		var count int64
 		database.DB.Model(&models.PostLike{}).Where("post_id = ?", posts[i].ID).Count(&count)
 		posts[i].LikesCount = count
+
+		var commentCount int64
+		database.DB.Model(&models.Comment{}).Where("post_id = ?", posts[i].ID).Count(&commentCount)
+		posts[i].CommentsCount = commentCount
 
 		var like models.PostLike
 		if database.DB.Where("user_id = ? AND post_id = ?", myId, posts[i].ID).First(&like).RowsAffected > 0 {

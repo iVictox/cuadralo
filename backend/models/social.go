@@ -14,8 +14,9 @@ type Post struct {
 	Likes    []PostLike `gorm:"foreignKey:PostID" json:"likes"`
 	Comments []Comment  `gorm:"foreignKey:PostID" json:"comments"`
 
-	LikesCount int64 `gorm:"-" json:"likes_count"`
-	IsLiked    bool  `gorm:"-" json:"is_liked"`
+	LikesCount    int64 `gorm:"-" json:"likes_count"`
+	CommentsCount int64 `gorm:"-" json:"comments_count"`
+	IsLiked       bool  `gorm:"-" json:"is_liked"`
 }
 
 type Comment struct {

@@ -141,10 +141,11 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
 
             <div className="p-4">
                 <div className="flex gap-5 mb-3 items-center">
-                    <button onClick={handleLike} className="focus:outline-none">
+                    <button onClick={handleLike} className="flex items-center gap-1.5 focus:outline-none transition-all hover:-translate-y-0.5 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-white group">
                         <motion.div whileTap={{ scale: 0.8 }} animate={liked ? { scale: [1, 1.2, 1] } : { scale: 1 }}>
-                            <Heart size={26} className={`transition-colors duration-300 ${liked ? "fill-cuadralo-pink text-cuadralo-pink" : "text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-white"}`} strokeWidth={liked ? 0 : 2} />
+                            <Heart size={26} className={`transition-colors duration-300 ${liked ? "fill-cuadralo-pink text-cuadralo-pink" : ""}`} strokeWidth={liked ? 0 : 2} />
                         </motion.div>
+                        {likesCount > 0 && <span className={`font-semibold text-sm ${liked ? "text-cuadralo-pink" : ""}`}>{likesCount}</span>}
                     </button>
 
                     <button onClick={() => setShowComments(true)} className="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-white transition-all hover:-translate-y-0.5">
@@ -155,10 +156,6 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                     <button className="text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-white transition-all hover:-translate-y-0.5 ml-auto">
                         <Share2 size={24} strokeWidth={2} />
                     </button>
-                </div>
-
-                <div className="font-semibold text-cuadralo-textLight dark:text-cuadralo-textDark text-sm mb-2">
-                    {likesCount} Me gusta
                 </div>
 
                 {post.caption && (
