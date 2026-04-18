@@ -147,8 +147,9 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                         </motion.div>
                     </button>
 
-                    <button onClick={() => setShowComments(true)} className="text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-white transition-all hover:-translate-y-0.5">
+                    <button onClick={() => setShowComments(true)} className="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-white transition-all hover:-translate-y-0.5">
                         <MessageCircle size={26} strokeWidth={2} />
+                        {commentsCount > 0 && <span className="font-semibold text-sm">{commentsCount}</span>}
                     </button>
                     
                     <button className="text-gray-400 hover:text-gray-600 dark:text-gray-300 dark:hover:text-white transition-all hover:-translate-y-0.5 ml-auto">
@@ -189,6 +190,7 @@ export default function FeedPost({ post, onDelete, onViewStory, isModal = false 
                 liked={liked}
                 likesCount={likesCount}
                 onLikeToggle={handleLike}
+                onCommentsUpdate={(count) => setCommentsCount(count)}
             />
         )}
 

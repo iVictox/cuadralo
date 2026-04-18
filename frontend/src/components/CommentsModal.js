@@ -107,7 +107,7 @@ const CommentItem = ({ c, isReply = false, currentUser, onLike, onReply, onDelet
   );
 };
 
-export default function CommentsModal({ post, onClose, liked, likesCount, onLikeToggle }) {
+export default function CommentsModal({ post, onClose, liked, likesCount, onLikeToggle, onCommentsUpdate }) {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState(null);
@@ -138,7 +138,11 @@ export default function CommentsModal({ post, onClose, liked, likesCount, onLike
   const fetchComments = async () => {
     try {
       const data = await api.get(`/social/posts/${post.id}/comments`);
-      setComments(data || []);
+      const fetchedComments = data || [];
+      setComments(fetchedComments);
+      if (onCommentsUpdate) {
+        onCommentsUpdate(fetchedComments.length);
+      }
     } catch (error) {
       console.error("Error fetching comments:", error);
     } finally {
