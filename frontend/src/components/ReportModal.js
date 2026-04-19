@@ -42,7 +42,9 @@ export default function ReportModal({ targetType, targetId, onClose }) {
       setSuccess(true);
       setTimeout(() => onClose(), 2000);
     } catch (error) {
-      alert(error.response?.data?.error || "Error enviando el reporte.");
+      console.error("Reporte error:", error);
+      const errorMsg = error?.response?.data?.error || error?.message || "Error enviando el reporte.";
+      alert(errorMsg);
       setLoading(false);
     }
   };

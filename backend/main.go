@@ -33,6 +33,7 @@ func main() {
 		&models.PostLike{},
 		&models.CommentLike{},
 		&models.Transaction{}, // ✅ NUEVO: Historial de Pagos
+		&models.Report{}, // ✅ Reportes de usuarios, posts y comentarios
 	)
 
 	// 3. Iniciar Hub de WebSockets (en segundo plano)
