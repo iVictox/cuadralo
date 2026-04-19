@@ -65,10 +65,10 @@ type StoryView struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// ✅ FIX: El modelo de Reporte ahora soporta denuncias tanto a Posts como a Comentarios
+// ✅ FIX: El modelo de Reporte ahora soporta denuncias tanto a Posts como a Comentarios y Usuarios
 type Report struct {
 	ID       uint `gorm:"primaryKey" json:"id"`
-	UserID   uint `json:"user_id"`
+	UserID   uint `json:"user_id"` // Usuario que reporta
 	Reporter User `json:"reporter" gorm:"foreignKey:UserID"`
 
 	PostID *uint `json:"post_id"`
@@ -76,6 +76,9 @@ type Report struct {
 
 	CommentID *uint   `json:"comment_id"` // ✅ NUEVO: Soporte para comentarios
 	Comment   Comment `json:"comment" gorm:"foreignKey:CommentID"`
+
+	ReportedUserID *uint `json:"reported_user_id"` // ✅ NUEVO: Usuario reportado
+	ReportedUser  User  `json:"reported_user" gorm:"foreignKey:ReportedUserID"`
 
 	Reason    string    `json:"reason"`
 	Status    string    `json:"status" gorm:"default:'pending'"` // "pending", "resolved", "dismissed"

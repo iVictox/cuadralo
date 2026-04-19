@@ -37,6 +37,7 @@ func Setup(app *fiber.App) {
 	// ✅ FIX: Aquí estaba el error. Ahora usa la función correcta: ReportPost
 	api.Post("/social/posts/:id/report", controllers.ReportPost)
 	api.Post("/social/comments/:id/report", controllers.ReportComment)
+	api.Post("/social/users/:id/report", controllers.ReportUser)
 
 	api.Post("/social/posts/:id/like", controllers.TogglePostLike)
 	api.Get("/social/posts/:id", controllers.GetSinglePost)
@@ -135,6 +136,10 @@ func Setup(app *fiber.App) {
 	// Reportes
 	admin.Get("/reports/posts", controllers.GetPostReportsAdmin)
 	admin.Get("/reports/comments", controllers.GetCommentReportsAdmin)
+	admin.Get("/reports/users", controllers.GetUserReportsAdmin)
+	admin.Get("/reports/users/resolved", controllers.GetUserReportsResolved)
+	admin.Get("/reports/posts/resolved", controllers.GetPostReportsResolved)
+	admin.Get("/reports/comments/resolved", controllers.GetCommentReportsResolved)
 	admin.Put("/reports/:id/resolve", controllers.ResolveReportAdmin)
 
 	admin.Get("/logs", controllers.GetAdminLogs)

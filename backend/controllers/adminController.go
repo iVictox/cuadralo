@@ -582,6 +582,28 @@ func DeleteUserAdmin(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Usuario enviado a la papelera."})
 }
 
+// ✅ NUEVA FUNCIÓN: Obtener usuarios reportados para el panel de administración
+func GetUserReportsAdmin(c *fiber.Ctx) error {
+	var reports []models.Report
+	if err := database.DB.Preload("Reporter").Preload("ReportedUser").
+		Where("status = ? AND reported_user_id IS NOT NULL", "pending").
+		Order("created_at desc").Find(&reports).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error cargando reportes de usuarios"})
+	}
+	return c.JSON(fiber.Map{"reports": reports})
+}
+
+// ✅ NUEVA FUNCIÓN: Obtener historial de usuarios reportados resueltos
+func GetUserReportsResolved(c *fiber.Ctx) error {
+	var reports []models.Report
+	if err := database.DB.Preload("Reporter").Preload("ReportedUser").
+		Where("status IN ('resolved', 'dismissed') AND reported_user_id IS NOT NULL").
+		Order("created_at desc").Find(&reports).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error cargando historial"})
+	}
+	return c.JSON(fiber.Map{"reports": reports})
+}
+
 func GetSystemSettings(c *fiber.Ctx) error {
 	var settings []models.Setting
 	database.DB.Find(&settings)

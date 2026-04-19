@@ -280,6 +280,35 @@ func ReportComment(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Comentario reportado. El equipo de moderación lo revisará."})
 }
 
+// ✅ NUEVO: Función para que los usuarios puedan denunciar otros usuarios
+func ReportUser(c *fiber.Ctx) error {
+	userId := uint(c.Locals("userId").(float64))
+	reportedUserId := c.Params("id")
+
+	var data map[string]string
+	if err := c.BodyParser(&data); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Datos inválidos"})
+	}
+
+	var rId uint
+	fmt.Sscanf(reportedUserId, "%d", &rId)
+
+	if userId == rId {
+		return c.Status(400).JSON(fiber.Map{"error": "No puedes reportarte a ti mismo"})
+	}
+
+	report := models.Report{
+		UserID:          userId,
+		ReportedUserID: &rId,
+		Reason:         data["reason"],
+		Status:         "pending",
+		CreatedAt:      time.Now(),
+	}
+
+	database.DB.Create(&report)
+	return c.JSON(fiber.Map{"message": "Usuario reportado. El equipo de moderación lo revisará."})
+}
+
 // ==========================================
 // 🚀 COMENTARIOS
 // ==========================================

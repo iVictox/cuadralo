@@ -32,11 +32,32 @@ func GetCommentReportsAdmin(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"reports": reports})
 }
 
+func GetPostReportsResolved(c *fiber.Ctx) error {
+	var reports []models.Report
+	if err := database.DB.Preload("Reporter").Preload("Post").Preload("Post.User").
+		Where("status IN ('resolved', 'dismissed') AND post_id IS NOT NULL").
+		Order("created_at desc").Find(&reports).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error cargando historial"})
+	}
+	return c.JSON(fiber.Map{"reports": reports})
+}
+
+func GetCommentReportsResolved(c *fiber.Ctx) error {
+	var reports []models.Report
+	if err := database.DB.Preload("Reporter").Preload("Comment").Preload("Comment.User").
+		Where("status IN ('resolved', 'dismissed') AND comment_id IS NOT NULL").
+		Order("created_at desc").Find(&reports).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error cargando historial"})
+	}
+	return c.JSON(fiber.Map{"reports": reports})
+}
+
 func ResolveReportAdmin(c *fiber.Ctx) error {
 	reportID := c.Params("id")
 
 	var payload struct {
 		Action string `json:"action"`
+		Reason string `json:"reason"`
 	}
 
 	if err := c.BodyParser(&payload); err != nil {
@@ -61,7 +82,7 @@ func ResolveReportAdmin(c *fiber.Ctx) error {
 			database.DB.Model(&models.Report{}).Where("post_id = ?", postID).Update("status", "resolved")
 			database.DB.Delete(&models.Post{}, postID)
 
-		} else if report.CommentID != nil { // ✅ NUEVO: Borrado en cascada para Comentarios Infractores
+		} else if report.CommentID != nil {
 			commentID := *report.CommentID
 
 			database.DB.Where("comment_id = ?", commentID).Delete(&models.Report{})
@@ -71,6 +92,25 @@ func ResolveReportAdmin(c *fiber.Ctx) error {
 
 			database.DB.Model(&models.Report{}).Where("comment_id = ?", commentID).Update("status", "resolved")
 			database.DB.Delete(&models.Comment{}, commentID)
+		}
+	} else if payload.Action == "ban" {
+		if report.ReportedUserID != nil {
+			userID := *report.ReportedUserID
+
+			var user models.User
+			if err := database.DB.First(&user, userID).Error; err == nil {
+				suspensionReason := "Usuario reportado y baneado por moderator"
+				if payload.Reason != "" {
+					suspensionReason = payload.Reason
+				}
+				database.DB.Model(&user).Updates(map[string]interface{}{
+					"is_suspended":     true,
+					"suspended_until": nil,
+					"suspension_reason": suspensionReason,
+				})
+			}
+
+			database.DB.Model(&models.Report{}).Where("reported_user_id = ?", userID).Update("status", "resolved")
 		}
 	} else if payload.Action == "dismiss" {
 		report.Status = "dismissed"
